@@ -149,8 +149,11 @@ public class PackageInstallerActivity extends Activity {
 
     private AlertDialog mDialog;
 
-    private void startInstallConfirm() {
+    private void startInstallConfirm(PackageInfo oldInfo) {
+        mDialog.requireViewById(R.id.updating_app_view).setVisibility(View.VISIBLE);
         TextView viewToEnable;
+        View oldVersionView;
+        View newVersionView;
 
         if (mAppInfo != null) {
             viewToEnable = mDialog.requireViewById(R.id.install_confirm_question_update);
@@ -166,17 +169,28 @@ public class PackageInstallerActivity extends Activity {
                 Spanned styledUpdateOwnerString =
                         Html.fromHtml(updateOwnerString, Html.FROM_HTML_MODE_LEGACY);
                 viewToEnable.setText(styledUpdateOwnerString);
+                oldVersionView = mDialog.requireViewById(R.id.installed_app_version);
+                ((TextView) oldVersionView).setText(
+                        getString(R.string.old_version_number, oldInfo.versionName));
+                oldVersionView.setVisibility(View.VISIBLE);
                 mOk.setText(R.string.update_anyway);
             } else {
+                oldVersionView = mDialog.requireViewById(R.id.installed_app_version);
+                ((TextView) oldVersionView).setText(
+                        getString(R.string.old_version_number, oldInfo.versionName));
+                oldVersionView.setVisibility(View.VISIBLE);
                 mOk.setText(R.string.update);
             }
         } else {
             // This is a new application with no permissions.
             viewToEnable = mDialog.requireViewById(R.id.install_confirm_question);
         }
-
+        newVersionView = mDialog.requireViewById(R.id.updating_app_version);
+        ((TextView) newVersionView).setText(
+                getString(R.string.new_version_number, mPkgInfo.versionName));
         viewToEnable.setVisibility(View.VISIBLE);
         viewToEnable.setMovementMethod(new ScrollingMovementMethod());
+        newVersionView.setVisibility(View.VISIBLE);
 
         mEnableOk = true;
         mOk.setEnabled(true);
@@ -332,21 +346,24 @@ public class PackageInstallerActivity extends Activity {
             mPkgInfo.applicationInfo.packageName = pkgName;
         }
         // Check if package is already installed. display confirmation dialog if replacing pkg
+        PackageInfo oldPackageInfo = null;
         try {
             // This is a little convoluted because we want to get all uninstalled
             // apps, but this may include apps with just data, and if it is just
             // data we still want to count it as "installed".
-            mAppInfo = mPm.getApplicationInfo(pkgName,
+            oldPackageInfo = mPm.getPackageInfo(pkgName,
                     PackageManager.MATCH_UNINSTALLED_PACKAGES);
+            mAppInfo = oldPackageInfo.applicationInfo;
             // If the package is archived, treat it as update case.
-            if (!mAppInfo.isArchived && (mAppInfo.flags & ApplicationInfo.FLAG_INSTALLED) == 0) {
+            if (mAppInfo != null && !mAppInfo.isArchived
+                    && (mAppInfo.flags & ApplicationInfo.FLAG_INSTALLED) == 0) {
                 mAppInfo = null;
             }
         } catch (NameNotFoundException e) {
             mAppInfo = null;
         }
 
-        startInstallConfirm();
+        startInstallConfirm(oldPackageInfo);
     }
 
     void setPmResult(int pmResult) {

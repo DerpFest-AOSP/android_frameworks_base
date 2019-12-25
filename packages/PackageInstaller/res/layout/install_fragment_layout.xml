@@ -30,6 +30,14 @@
 
         <include layout="@layout/app_snippet_layout" />
 
+        <TextView
+            style="?attr/textAppearanceInstallerCustomMessage"
+            android:id="@+id/install_version_info"
+            android:layout_height="wrap_content"
+            android:layout_width="match_parent"
+            android:layout_marginTop="4dp"
+            android:visibility="gone" />
+
         <ProgressBar
             android:id="@+id/indeterminate_progress_bar"
             android:indeterminate="true"

@@ -768,9 +768,12 @@ class InstallRepository(private val context: Context) : EventResultPersister.Eve
         isAppUpdating = isAppUpdating(newPackageInfo)
         val (existingUpdateOwner, requestedUpdateOwner) =
             getUpdateOwners(newPackageInfo, userActionReason, isAppUpdating)
+        val (installedVersion, incomingVersion) =
+            versionNamesForConfirmation(newPackageInfo, isAppUpdating)
 
         return InstallUserActionRequired(USER_ACTION_REASON_INSTALL_CONFIRMATION, appSnippet,
-            isAppUpdating, existingUpdateOwner, requestedUpdateOwner)
+            isAppUpdating, existingUpdateOwner, requestedUpdateOwner,
+            installedVersionName = installedVersion, incomingVersionName = incomingVersion)
     }
 
     /**
@@ -785,9 +788,34 @@ class InstallRepository(private val context: Context) : EventResultPersister.Eve
         isAppUpdating = isAppUpdating(newPackageInfo)
         val (existingUpdateOwner, requestedUpdateOwner) =
             getUpdateOwners(newPackageInfo, userActionReason, isAppUpdating)
+        val (installedVersion, incomingVersion) =
+            versionNamesForConfirmation(newPackageInfo, isAppUpdating, sessionInfo)
 
         return InstallUserActionRequired(USER_ACTION_REASON_INSTALL_CONFIRMATION, appSnippet,
-            isAppUpdating, existingUpdateOwner, requestedUpdateOwner)
+            isAppUpdating, existingUpdateOwner, requestedUpdateOwner,
+            installedVersionName = installedVersion, incomingVersionName = incomingVersion)
+    }
+
+    private fun versionNamesForConfirmation(
+        pkgInfo: PackageInfo?,
+        updating: Boolean,
+        sessionInfo: SessionInfo? = null
+    ): Pair<String?, String?> {
+        val incoming = pkgInfo?.versionName?.takeIf { it.isNotEmpty() }
+            ?: sessionInfo?.resolvedBaseApkPath?.let { path ->
+                getPackageInfo(context, File(path), 0)?.versionName
+            }
+        if (!updating || pkgInfo == null) {
+            return Pair(null, incoming)
+        }
+        val installed = try {
+            packageManager.getPackageInfo(
+                pkgInfo.packageName, PackageManager.MATCH_UNINSTALLED_PACKAGES
+            ).versionName
+        } catch (e: PackageManager.NameNotFoundException) {
+            null
+        }
+        return Pair(installed, incoming)
     }
 
     private fun getUpdateOwners(

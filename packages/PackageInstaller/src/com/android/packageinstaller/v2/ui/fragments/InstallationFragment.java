@@ -31,6 +31,7 @@ import android.graphics.Typeface;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.Html;
+import android.text.TextUtils;
 import android.text.method.LinkMovementMethod;
 import android.util.Log;
 import android.view.View;
@@ -75,6 +76,7 @@ public class InstallationFragment extends DialogFragment {
     private TextView mAppLabelTextView = null;
     private View mAppSnippet = null;
     private TextView mCustomMessageTextView = null;
+    private TextView mVersionInfoTextView = null;
     private View mCustomViewPanel = null;
     private ProgressBar mProgressBar = null;
     private ProgressBar mIndeterminateProgressBar = null;
@@ -110,6 +112,7 @@ public class InstallationFragment extends DialogFragment {
         mProgressBar = dialogView.requireViewById(R.id.progress_bar);
         mCustomMessageTextView = dialogView.requireViewById(R.id.custom_message);
         mCustomMessageTextView.setTextDirection(View.TEXT_DIRECTION_LOCALE);
+        mVersionInfoTextView = dialogView.requireViewById(R.id.install_version_info);
         mMoreDetailsClickableLayout = dialogView.requireViewById(
                 R.id.more_details_clickable_layout);
         mMoreDetailsExpandedLayout = dialogView.requireViewById(
@@ -201,6 +204,7 @@ public class InstallationFragment extends DialogFragment {
         // hide the more details layout by default
         mMoreDetailsClickableLayout.setVisibility(View.GONE);
         mMoreDetailsExpandedLayout.setVisibility(View.GONE);
+        mVersionInfoTextView.setVisibility(View.GONE);
 
         // Reset the paddings of the custom view panel
         final int paddingHorizontal = mCustomViewPanel.getPaddingStart();
@@ -612,6 +616,27 @@ public class InstallationFragment extends DialogFragment {
         }
     }
 
+    private void updateVersionInfo(InstallUserActionRequired installStage) {
+        String installed = installStage.getInstalledVersionName();
+        String incoming = installStage.getIncomingVersionName();
+        if (TextUtils.isEmpty(installed) && TextUtils.isEmpty(incoming)) {
+            mVersionInfoTextView.setVisibility(View.GONE);
+            return;
+        }
+        StringBuilder message = new StringBuilder();
+        if (!TextUtils.isEmpty(installed)) {
+            message.append(getString(R.string.old_version_number, installed));
+        }
+        if (!TextUtils.isEmpty(incoming)) {
+            if (message.length() > 0) {
+                message.append('\n');
+            }
+            message.append(getString(R.string.new_version_number, incoming));
+        }
+        mVersionInfoTextView.setText(message.toString());
+        mVersionInfoTextView.setVisibility(View.VISIBLE);
+    }
+
     private void updateInstallConfirmationUI(Dialog dialog,
             InstallUserActionRequired installStage) {
         mCustomMessageTextView.setVisibility(View.GONE);
@@ -651,6 +676,7 @@ public class InstallationFragment extends DialogFragment {
             title = getString(R.string.title_install);
             positiveBtnTextRes = R.string.button_install;
         }
+        updateVersionInfo(installStage);
         dialog.setTitle(title);
 
         // Set the button and the listener

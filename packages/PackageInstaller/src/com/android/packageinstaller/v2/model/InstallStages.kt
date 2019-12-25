@@ -53,6 +53,8 @@ data class InstallUserActionRequired(
     val requestedUpdateOwnerPackageName: CharSequence? = null,
     val unknownSourcePackageName: String? = null,
     val verificationInfo: PackageInstaller.DeveloperVerificationUserConfirmationInfo? = null,
+    val installedVersionName: String? = null,
+    val incomingVersionName: String? = null,
 ) : InstallStage(STAGE_USER_ACTION_REQUIRED) {
 
     val appIcon: Drawable?
