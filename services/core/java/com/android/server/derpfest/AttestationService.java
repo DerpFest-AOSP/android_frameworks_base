@@ -10,6 +10,7 @@ package com.android.server.derpfest;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
@@ -32,7 +33,7 @@ public final class AttestationService extends SystemService {
 
     private static final String TAG = AttestationService.class.getSimpleName();
     private static final String API =
-            "https://raw.githubusercontent.com/DerpFest-AOSP/android_vendor_certification/refs/heads/17/gms_certified_props.json";
+            Resources.getSystem().getString(com.android.internal.R.string.config_pifUpdateUrl);
 
     private static final long INITIAL_DELAY = 0;
     private static final long INTERVAL = 5;
