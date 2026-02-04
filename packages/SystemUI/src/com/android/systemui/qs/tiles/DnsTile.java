@@ -18,6 +18,7 @@ package com.android.systemui.qs.tiles;
 
 import static android.net.ConnectivitySettingsManager.PRIVATE_DNS_MODE_OFF;
 import static android.net.ConnectivitySettingsManager.PRIVATE_DNS_MODE_OPPORTUNISTIC;
+import static android.net.ConnectivitySettingsManager.PRIVATE_DNS_MODE_PROVIDER_HOSTNAME;
 
 import android.content.Intent;
 import android.net.ConnectivitySettingsManager;
@@ -26,12 +27,12 @@ import android.os.Looper;
 import android.provider.Settings;
 import android.service.quicksettings.Tile;
 import android.widget.Switch;
+import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 
 import com.android.internal.logging.MetricsLogger;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
-import com.android.systemui.Prefs;
 import com.android.systemui.animation.Expandable;
 import com.android.systemui.res.R;
 import com.android.systemui.dagger.qualifiers.Background;
@@ -53,7 +54,6 @@ import javax.inject.Inject;
 public class DnsTile extends QSTileImpl<BooleanState> {
 
     public static final String TILE_SPEC = "dns";
-    private static final String KEY_PREV_MODE = "dns_tile_prev_mode";
 
     private final SettingObserver mSetting;
     private boolean mListening;
@@ -100,7 +100,7 @@ public class DnsTile extends QSTileImpl<BooleanState> {
 
     @Override
     public Intent getLongClickIntent() {
-        return new Intent(Settings.ACTION_PRIVATE_DNS_SETTING);
+        return new Intent(Settings.ACTION_WIRELESS_SETTINGS);
     }
 
     @Override
@@ -113,7 +113,7 @@ public class DnsTile extends QSTileImpl<BooleanState> {
         // don't toggle if not needed, just refresh state instead
         final int mode = ConnectivitySettingsManager.getPrivateDnsMode(mContext);
         final boolean stateEnabled = mState.value;
-        final boolean isEnabled = mode != PRIVATE_DNS_MODE_OFF;
+        final boolean isEnabled = mode == PRIVATE_DNS_MODE_PROVIDER_HOSTNAME;
         if (stateEnabled && !isEnabled || !stateEnabled && isEnabled) {
             refreshState();
             return;
@@ -140,7 +140,7 @@ public class DnsTile extends QSTileImpl<BooleanState> {
         state.contentDescription = state.label;
 
         final int mode = ConnectivitySettingsManager.getPrivateDnsMode(mContext);
-        final boolean isTileActive = mode != PRIVATE_DNS_MODE_OFF;
+        final boolean isTileActive = mode == PRIVATE_DNS_MODE_PROVIDER_HOSTNAME;
         state.value = isTileActive;
         state.state = isTileActive ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
         state.secondaryLabel = getSecondaryLabel(mode);
@@ -166,18 +166,20 @@ public class DnsTile extends QSTileImpl<BooleanState> {
 
     private void setPrivateDnsEnabled(boolean enabled) {
         if (!enabled) {
-            // save current mode for returning
-            // double check it is not off!
+            // toggling to opportunistic mode
             final int mode = ConnectivitySettingsManager.getPrivateDnsMode(mContext);
-            if (mode == PRIVATE_DNS_MODE_OFF) return;
-            Prefs.putInt(mContext, KEY_PREV_MODE, mode);
-            ConnectivitySettingsManager.setPrivateDnsMode(mContext, PRIVATE_DNS_MODE_OFF);
+            if (mode == PRIVATE_DNS_MODE_OPPORTUNISTIC) return;
+            ConnectivitySettingsManager.setPrivateDnsMode(mContext, PRIVATE_DNS_MODE_OPPORTUNISTIC);
             return;
         }
-        // return to the last state
-        int mode = Prefs.getInt(mContext, KEY_PREV_MODE, PRIVATE_DNS_MODE_OPPORTUNISTIC);
-        // never toggle off to off - use opportunistic
-        if (mode == PRIVATE_DNS_MODE_OFF) mode = PRIVATE_DNS_MODE_OPPORTUNISTIC;
-        ConnectivitySettingsManager.setPrivateDnsMode(mContext, mode);
+        // check if we have a hostname to toggle to
+        final String hostname = ConnectivitySettingsManager.getPrivateDnsHostname(mContext);
+        if (hostname == null || hostname.isEmpty()) {
+            // no hostname configured, show toast and return
+            Toast.makeText(mContext, R.string.quick_settings_dns_no_hostname, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        // set to provider hostname mode directly
+        ConnectivitySettingsManager.setPrivateDnsMode(mContext, PRIVATE_DNS_MODE_PROVIDER_HOSTNAME);
     }
 }
