@@ -1,11 +1,19 @@
-<resources>
-    <string name="interruption_level_none_with_warning" msgid="8394434073508145437">"Без звуку. Звук також буде вимкнено в програмах зчитування з екрана."</string>
-    <string name="interruption_level_priority" msgid="661294280016622209">"Лише пріоритетні"</string>
-    <string name="interruption_level_alarms" msgid="2457850481335846959">"Лише будильник"</string>
-    <string name="interruption_level_none_twoline" msgid="8579382742855486372">"Без
-сигналів"</string>
-    <string name="interruption_level_priority_twoline" msgid="8523482736582498083">"Лише
-приорітетні"</string>
-    <string name="interruption_level_alarms_twoline" msgid="2045067991335708767">"Лише
-сигнали"</string>
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: DerpFest AOSP
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <string name="interruption_level_none_with_warning">Повна тиша. Це також вимкне звук екранних дикторів.</string>
+    <string name="interruption_level_priority">Тільки пріоритетні</string>
+    <string name="interruption_level_alarms">Тільки будильники</string>
+    <string name="interruption_level_none_twoline">Повна
+        тиша</string>
+    <string name="interruption_level_priority_twoline">Тільки
+        пріоритетні</string>
+    <string name="interruption_level_alarms_twoline">Тільки
+        будильники</string>
+
+    <string name="status_deep_sleep">(Глибокий сон: %1$d%2$s)</string>
 </resources>
