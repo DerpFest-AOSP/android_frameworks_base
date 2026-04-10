@@ -126,6 +126,14 @@ public class KeyboxUtils {
         metadata.certificateChain = output.toByteArray();
     }
 
+    public static byte[] toCertificateChainBytes(Certificate[] chain) throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        for (Certificate certificate : chain) {
+            output.write(certificate.getEncoded());
+        }
+        return output.toByteArray();
+    }
+
     public static X509Certificate getCertificateFromHolder(X509CertificateHolder holder) throws Exception {
         CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
         ByteArrayInputStream in = new ByteArrayInputStream(holder.getEncoded());
