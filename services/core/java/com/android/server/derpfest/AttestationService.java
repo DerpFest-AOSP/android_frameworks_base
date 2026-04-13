@@ -21,10 +21,11 @@ import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.Log;
 
-import android.hardware.security.keymint.KeyParameter;
-import android.security.keybox.AttestationCertificates;
-import android.security.keybox.IKeyboxAttestationService;
 import android.system.keystore2.KeyDescriptor;
+
+import com.android.internal.security.keybox.AttestationCertificates;
+import com.android.internal.security.keybox.IKeyboxAttestationService;
+import com.android.internal.security.keybox.KeyboxKeyParameters;
 
 import com.android.internal.util.KeyboxChainGenerator;
 import com.android.internal.util.KeyboxChainGenerator.KeyGenParameters;
@@ -234,7 +235,7 @@ public final class AttestationService extends SystemService {
 
         @Override
         public AttestationCertificates generateCertificateChain(int targetUid, String alias,
-                int domain, long nspace, KeyParameter[] params, byte[] leafCertificate) {
+                int domain, long nspace, KeyboxKeyParameters params, byte[] leafCertificate) {
             enforcePermission();
             try {
                 KeyGenParameters keyGenParams = new KeyGenParameters(params);
@@ -260,7 +261,7 @@ public final class AttestationService extends SystemService {
 
         @Override
         public AttestationCertificates generateSoftwareKey(int targetUid, String alias,
-                int domain, long nspace, KeyParameter[] params, byte[] entropy) {
+                int domain, long nspace, KeyboxKeyParameters params, byte[] entropy) {
             enforcePermission();
             try {
                 KeyGenParameters keyGenParams = new KeyGenParameters(params);

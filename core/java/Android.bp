@@ -36,7 +36,6 @@ filegroup {
         ":aisealhostservice_aidl_sources",
         ":dropboxmanager_aidl_sources",
         ":dynamic_instrumentation_manager_aidl_sources",
-        "android/security/keybox/*.aidl",
         "android/os/*MessageQueue/**/*.java",
         "android/os/DeliQueue/**/*.java",
         "android/os/IProcessInfoService.aidl",
@@ -352,12 +351,9 @@ aidl_interface {
 aidl_interface {
     name: "keybox_attestation_aidl",
     srcs: [
-        "android/security/keybox/AttestationCertificates.aidl",
-        "android/security/keybox/IKeyboxAttestationService.aidl",
-    ],
-    defaults: ["android.hardware.security.keymint-latest-defaults"],
-    imports: [
-        "android.system.keystore2-V6",
+        "com/android/internal/security/keybox/AttestationCertificates.aidl",
+        "com/android/internal/security/keybox/IKeyboxAttestationService.aidl",
+        "com/android/internal/security/keybox/KeyboxKeyParameters.aidl",
     ],
     unstable: true,
     backend: {
