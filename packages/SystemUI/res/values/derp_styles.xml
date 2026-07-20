@@ -70,7 +70,7 @@
     <!-- Status bar lyric -->
     <style name="TextApperance.StatusBar.Lyric" parent="@*android:style/TextAppearance.StatusBar">
         <item name="android:textSize">14sp</item>
-        <item name="android:fontFamily">@*android:string/config_bodyFontFamily</item>
+        <item name="android:fontFamily">variable-title-small-emphasized</item>
         <item name="android:includeFontPadding">false</item>
     </style>
 
