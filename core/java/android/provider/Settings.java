@@ -14825,6 +14825,13 @@ public final class Settings {
         public static final String KEYBOX_DATA = "keybox_data";
 
         /**
+         * Packages that should use the device attestation implementation instead of the
+         * configured keybox.
+         * @hide
+         */
+        public static final String KEYBOX_EXCLUDED_PACKAGES = "keybox_excluded_packages";
+
+        /**
          * Timestamp for user selectable keybox data.
          * @hide
          */

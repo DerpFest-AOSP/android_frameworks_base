@@ -17,6 +17,7 @@ import android.net.NetworkCapabilities;
 import android.os.Binder;
 import android.os.Process;
 import android.os.SystemProperties;
+import android.os.UserHandle;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.Log;
@@ -38,6 +39,8 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
 import java.security.cert.Certificate;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -61,8 +64,7 @@ public final class AttestationService extends SystemService {
 
     private final Context mContext;
     private final ScheduledExecutorService mScheduler;
-    private final KeyboxAttestationServiceImpl mKeyboxAttestationService =
-            new KeyboxAttestationServiceImpl();
+    private final KeyboxAttestationServiceImpl mKeyboxAttestationService;
     private final ConnectivityManager mConnectivityManager;
     private final FetchGmsCertifiedProps mFetchRunnable;
 
@@ -71,6 +73,7 @@ public final class AttestationService extends SystemService {
     public AttestationService(Context context) {
         super(context);
         mContext = context;
+        mKeyboxAttestationService = new KeyboxAttestationServiceImpl(context);
         mFetchRunnable = new FetchGmsCertifiedProps();
         mScheduler = Executors.newSingleThreadScheduledExecutor();
         mConnectivityManager = (ConnectivityManager) mContext.getSystemService(
@@ -217,6 +220,12 @@ public final class AttestationService extends SystemService {
     }
 
     private static class KeyboxAttestationServiceImpl extends IKeyboxAttestationService.Stub {
+        private final Context mContext;
+
+        KeyboxAttestationServiceImpl(Context context) {
+            mContext = context;
+        }
+
         private static AttestationCertificates emptyCertificates() {
             AttestationCertificates certs = new AttestationCertificates();
             certs.privateKey = new byte[0];
@@ -251,6 +260,26 @@ public final class AttestationService extends SystemService {
             descriptor.nspace = nspace;
             descriptor.blob = null;
             return descriptor;
+        }
+
+        @Override
+        public boolean shouldUseKeybox(int targetUid) {
+            enforcePermission();
+            Context userContext = mContext.createContextAsUser(
+                    UserHandle.of(UserHandle.getUserId(targetUid)), 0);
+            String excluded = Settings.Secure.getString(
+                    userContext.getContentResolver(), Settings.Secure.KEYBOX_EXCLUDED_PACKAGES);
+            if (excluded == null || excluded.isBlank()) {
+                return true;
+            }
+
+            String[] packages = mContext.getPackageManager().getPackagesForUid(targetUid);
+            if (packages == null || packages.length == 0) {
+                return true;
+            }
+
+            List<String> excludedPackages = Arrays.asList(excluded.split(":"));
+            return Collections.disjoint(Arrays.asList(packages), excludedPackages);
         }
 
         @Override
