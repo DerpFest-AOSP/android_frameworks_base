@@ -5,6 +5,7 @@
 package com.android.systemui.dagger
 
 import com.android.systemui.CoreStartable
+import com.android.systemui.hotspot.HotspotDataLimitController
 import com.android.systemui.statusbar.policy.NetworkSpeedController
 import dagger.Binds
 import dagger.Module
@@ -18,4 +19,9 @@ abstract class DerpStartableModule {
     @IntoMap
     @ClassKey(NetworkSpeedController::class)
     abstract fun bindNetworkSpeedController(impl: NetworkSpeedController): CoreStartable
+
+    @Binds
+    @IntoMap
+    @ClassKey(HotspotDataLimitController::class)
+    abstract fun bindHotspotDataLimitController(impl: HotspotDataLimitController): CoreStartable
 }

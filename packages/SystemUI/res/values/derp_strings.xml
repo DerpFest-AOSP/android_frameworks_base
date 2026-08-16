@@ -29,6 +29,12 @@
         <item quantity="other">%d devices connected</item>
     </plurals>
 
+    <!-- One-time hotspot data limit -->
+    <string name="hotspot_data_limit_channel_name">Hotspot data limit</string>
+    <string name="hotspot_data_limit_notification_title">Hotspot data limit reached</string>
+    <string name="hotspot_data_limit_notification_text_off">Your data limit was reached. Hotspot has been turned off.</string>
+    <string name="hotspot_data_limit_notification_text">Your data limit was reached.</string>
+
     <!-- Name of the nfc status bar icon. -->
     <string name="status_bar_nfc">NFC</string>
 
