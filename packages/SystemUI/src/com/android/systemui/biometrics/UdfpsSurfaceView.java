@@ -100,6 +100,11 @@ public class UdfpsSurfaceView extends SurfaceView implements SurfaceHolder.Callb
 
     public void setGhbmIlluminationListener(@Nullable GhbmIlluminationListener listener) {
         mGhbmIlluminationListener = listener;
+        if (listener != null && mAwaitingSurfaceToStartIllumination && mHasValidSurface) {
+            doIlluminate(mOnDisplayConfigured);
+            mOnDisplayConfigured = null;
+            mAwaitingSurfaceToStartIllumination = false;
+        }
     }
 
     /**
