@@ -56,9 +56,9 @@ public class BatterySaverTile extends QSTileImpl<BooleanState> implements
     protected final UserSettingObserver mSetting;
 
     private int mLevel;
-    private boolean mPowerSave;
+    protected boolean mPowerSave;
     private boolean mCharging;
-    private boolean mPluggedIn;
+    protected boolean mPluggedIn;
 
     @Inject
     public BatterySaverTile(

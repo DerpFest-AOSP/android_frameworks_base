@@ -15,6 +15,7 @@ import com.android.systemui.qs.tiles.impl.battery.domain.interactor.BatterySaver
 import com.android.systemui.qs.tiles.impl.battery.domain.model.BatterySaverTileModel
 import com.android.systemui.qs.tiles.impl.battery.ui.mapper.BatterySaverTileMapper
 import com.android.systemui.res.R
+import com.google.android.systemui.qs.tiles.BatterySaverTileGoogle
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -28,7 +29,7 @@ interface BatterySaverModule {
     @Binds
     @IntoMap
     @StringKey(BatterySaverTile.TILE_SPEC)
-    fun bindBatterySaverTile(batterySaverTile: BatterySaverTile): QSTileImpl<*>
+    fun bindBatterySaverTile(batterySaverTile: BatterySaverTileGoogle): QSTileImpl<*>
 
     @Binds
     @IntoMap
