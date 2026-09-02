@@ -14975,6 +14975,20 @@ public final class Settings {
         public static final String PER_APPS_DEVICE_SPOOF_CACHE = "per_apps_device_spoof_cache";
 
         /**
+         * Whether advanced app spoofing (GPU/CPU model spoofing) is enabled
+         * @hide
+         */
+        @Readable
+        public static final String ADVANCED_APP_SPOOF_ENABLED = "advanced_app_spoof_enabled";
+
+        /**
+         * JSON configuration for advanced app spoofing (package -> GPU/CPU profiles)
+         * @hide
+         */
+        @Readable
+        public static final String ADVANCED_APP_SPOOF_CONFIG = "advanced_app_spoof_config";
+
+        /**
          * Keys we no longer back up under the current schema, but want to continue to
          * process when restoring historical backup datasets.
          *

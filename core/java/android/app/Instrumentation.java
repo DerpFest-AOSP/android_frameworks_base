@@ -70,6 +70,7 @@ import android.view.Window;
 import android.view.WindowManagerGlobal;
 
 import com.android.internal.content.ReferrerIntent;
+import com.android.internal.util.AdvancedAppSpoofUtils;
 import com.android.internal.util.PropImitationHooks;
 import com.android.internal.util.PerAppsPropsUtils;
 
@@ -1365,6 +1366,7 @@ public class Instrumentation {
         app.attach(context);
         PropImitationHooks.setProps(context);
         PerAppsPropsUtils.setProps(context);
+        AdvancedAppSpoofUtils.setProps(context);
         return app;
     }
     
@@ -1385,6 +1387,7 @@ public class Instrumentation {
         app.attach(context);
         PropImitationHooks.setProps(context);
         PerAppsPropsUtils.setProps(context);
+        AdvancedAppSpoofUtils.setProps(context);
         return app;
     }
 
