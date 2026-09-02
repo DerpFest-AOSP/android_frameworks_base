@@ -8084,4 +8084,11 @@
 
     <!-- Whether to explicitly disable the Video capability over IWLAN when Wi-Fi Calling is turned off. -->
     <bool name="config_disable_video_capability_when_wfc_off">false</bool>
+    <!-- Whether telephony should explicitly allow data (PS attach) on every SIM slot when the
+         radio HAL is driven with the preferred-data-modem command. Some RILs otherwise disable
+         PS service on the slot that is not the preferred data modem and persist that in the
+         modem; on newer modem firmware such a slot can no longer attach to LTE/NR at all and
+         is left with 2G/3G circuit-switched service only. Enable on devices whose modem
+         supports PS attach on all slots (e.g. Google Tensor / Samsung Shannon). -->
+    <bool name="config_dsds_allow_data_all_slots">false</bool>
 </resources>

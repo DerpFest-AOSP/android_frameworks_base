@@ -5196,6 +5196,7 @@
   <java-symbol type="string" name="sensor_privacy_notification_channel_label" />
 
   <java-symbol type="bool" name="config_telephony5gStandalone" />
+  <java-symbol type="bool" name="config_dsds_allow_data_all_slots" />
   <java-symbol type="bool" name="config_telephony5gNonStandalone" />
 
   <java-symbol type="bool" name="config_voice_data_sms_auto_fallback" />
