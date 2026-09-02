@@ -8091,4 +8091,11 @@
          is left with 2G/3G circuit-switched service only. Enable on devices whose modem
          supports PS attach on all slots (e.g. Google Tensor / Samsung Shannon). -->
     <bool name="config_dsds_allow_data_all_slots">false</bool>
+
+    <!-- Whether 5G SA (N1 mode) stays allowed even when the carrier configuration does not list
+         SA in carrier_nr_availabilities_int_array. The modem only picks up a change of the N1
+         mode when it registers again, so a device that overrides the carrier's NR availabilities
+         at runtime would lose the first registration after a factory reset to LTE. Enable on
+         devices that force 5G SA for every carrier. -->
+    <bool name="config_force_nr_sa_allowed">false</bool>
 </resources>
