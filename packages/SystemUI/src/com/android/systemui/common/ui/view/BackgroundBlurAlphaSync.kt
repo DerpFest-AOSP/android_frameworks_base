@@ -28,13 +28,19 @@ import kotlinx.coroutines.DisposableHandle
  * Blur regions are composited by SurfaceFlinger from the drawable's own alpha alone; the alpha of
  * the view's ancestors never reaches them. When the keyguard root view fades out (unlock, a shade
  * drag, the bouncer) a blurred lock icon or shortcut therefore keeps its full blur until the view
- * stops drawing, well after the icon itself has gone. Before every frame, fold the alphas from the
- * view up to the window root into the drawable instead.
+ * stops drawing, well after the icon itself has gone. Before every frame, fold the alphas (and
+ * visibility) from the view up to the window root into the drawable instead.
+ *
+ * This sync must be the only writer of the drawable's alpha: BackgroundBlurDrawable does not
+ * report its alpha back through getAlpha(), so the last applied value is tracked here.
  */
 class BackgroundBlurAlphaSync(
     private val view: View,
     private val drawable: () -> BackgroundBlurDrawable?,
 ) : ViewTreeObserver.OnPreDrawListener {
+
+    private var lastDrawable: BackgroundBlurDrawable? = null
+    private var lastAlpha = -1
 
     override fun onPreDraw(): Boolean {
         sync()
@@ -44,28 +50,40 @@ class BackgroundBlurAlphaSync(
     /** Applies the current effective alpha of [view] to the drawable. */
     fun sync() {
         val blur = drawable() ?: return
-        var alpha = 1f
-        var v: View? = view
-        while (v != null && alpha > 0f) {
-            alpha *= v.alpha * v.transitionAlpha
-            v = v.parent as? View
-        }
-        val blurAlpha = (255 * alpha.coerceIn(0f, 1f)).roundToInt()
-        if (blur.alpha != blurAlpha) {
+        val blurAlpha = (255 * effectiveAlpha()).roundToInt()
+        // Only touch the drawable when something changed: setAlpha() invalidates, and doing it
+        // unconditionally from onPreDraw would schedule a new frame forever.
+        if (blur !== lastDrawable || blurAlpha != lastAlpha) {
+            lastDrawable = blur
+            lastAlpha = blurAlpha
             blur.alpha = blurAlpha
         }
     }
 
+    private fun effectiveAlpha(): Float {
+        var alpha = 1f
+        var v: View? = view
+        while (v != null && alpha > 0f) {
+            if (v.visibility != View.VISIBLE) return 0f
+            alpha *= v.alpha * v.transitionAlpha
+            v = v.parent as? View
+        }
+        return alpha.coerceIn(0f, 1f)
+    }
+
     /**
-     * Starts syncing before every frame. Call while [view] is attached; dispose the handle before
-     * it detaches (the observer is reset on detach).
+     * Starts syncing before every frame. Call while [view] is attached; dispose the handle when
+     * done (safe to dispose after the view has detached).
      */
     fun start(): DisposableHandle {
         val observer = view.viewTreeObserver
         observer.addOnPreDrawListener(this)
+        lastDrawable = null
+        lastAlpha = -1
         sync()
         return DisposableHandle {
-            (if (observer.isAlive) observer else view.viewTreeObserver).removeOnPreDrawListener(this)
+            (if (observer.isAlive) observer else view.viewTreeObserver)
+                .removeOnPreDrawListener(this)
         }
     }
 }
