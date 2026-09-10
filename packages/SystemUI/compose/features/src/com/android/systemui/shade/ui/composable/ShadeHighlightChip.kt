@@ -16,7 +16,9 @@
 
 package com.android.systemui.shade.ui.composable
 
+import android.provider.Settings
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -37,9 +39,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import com.android.compose.modifiers.clickableWithoutFocus
 import com.android.compose.modifiers.thenIf
+import com.android.systemui.qs.ui.compose.qsGradientBrush
+import com.android.systemui.qs.ui.compose.rememberContrastColorOn
+import com.android.systemui.qs.ui.compose.rememberQsGradientColors
+import com.android.systemui.qs.ui.compose.rememberQsSystemBoolSetting
 import com.android.systemui.shade.ui.composable.ShadeHeader.Dimensions.ChipPaddingHorizontal
 import com.android.systemui.shade.ui.composable.ShadeHeader.Dimensions.ChipPaddingVertical
 
@@ -110,6 +117,47 @@ sealed interface ChipHighlightModel {
     }
 }
 
+/** Colors and optional gradient used to paint a [ShadeHighlightChip]. */
+data class ResolvedChipHighlight(
+    val backgroundColor: Color,
+    val foregroundColor: Color,
+    val hoverBackgroundColor: Color,
+    val backgroundBrush: Brush? = null,
+)
+
+/**
+ * Resolves the dual-shade Quick Settings status-chip (signal + battery) colors. When
+ * [Settings.System.QS_CHIP_GRADIENT_ENABLED] is on and [highlight] is the active Strong chip,
+ * uses the same gradient start/end as tiles and sliders.
+ */
+@Composable
+fun rememberResolvedQsStatusChipHighlight(highlight: ChipHighlightModel): ResolvedChipHighlight {
+    val gradientEnabled =
+        rememberQsSystemBoolSetting(Settings.System.QS_CHIP_GRADIENT_ENABLED, defaultValue = true)
+    val gradientColors = rememberQsGradientColors()
+    val contrast = rememberContrastColorOn(gradientColors.mid)
+    val brush =
+        remember(gradientColors.start, gradientColors.end) {
+            qsGradientBrush(gradientColors.start, gradientColors.end)
+        }
+    val useGradient = gradientEnabled && highlight == ChipHighlightModel.Strong
+    return if (useGradient) {
+        ResolvedChipHighlight(
+            backgroundColor = gradientColors.mid,
+            foregroundColor = contrast,
+            hoverBackgroundColor =
+                gradientColors.mid.copy(alpha = ChipHighlightModel.Companion.Alpha.DEFAULT_HOVER),
+            backgroundBrush = brush,
+        )
+    } else {
+        ResolvedChipHighlight(
+            backgroundColor = highlight.backgroundColor,
+            foregroundColor = highlight.foregroundColor,
+            hoverBackgroundColor = highlight.hoverBackgroundColor,
+        )
+    }
+}
+
 /** A chip with a colored highlight. Used as an entry point for the shade. */
 @Composable
 fun ShadeHighlightChip(
@@ -117,6 +165,7 @@ fun ShadeHighlightChip(
     backgroundColor: Color = Color.Unspecified,
     hoverBackgroundColor: Color = Color.Unspecified,
     rippleColor: Color = Color.Unspecified,
+    backgroundBrush: Brush? = null,
     horizontalArrangement: Arrangement.Horizontal = Arrangement.Start,
     includePadding: Boolean = true,
     isClickable: Boolean = true,
@@ -126,6 +175,11 @@ fun ShadeHighlightChip(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
+    val hoverProgress by
+        animateFloatAsState(
+            targetValue = if (isClickable && isHovered) 1f else 0f,
+            label = "chipHover",
+        )
 
     // Note: Intentionally assigning here instead of using `by`, which would unwrap the value and
     // cause recomposition.
@@ -157,12 +211,20 @@ fun ShadeHighlightChip(
                         indication = ripple(color = rippleColor),
                     )
                     .drawBehind {
-                        val bgColor = animatedBackgroundColor.value
-                        if (bgColor != Color.Unspecified) {
+                        val corner = CornerRadius(size.minDimension / 2f)
+                        if (backgroundBrush != null) {
+                            val alpha =
+                                1f - (1f - ChipHighlightModel.Companion.Alpha.DEFAULT_HOVER) * hoverProgress
                             drawRoundRect(
-                                color = bgColor,
-                                cornerRadius = CornerRadius(size.minDimension / 2f),
+                                brush = backgroundBrush,
+                                cornerRadius = corner,
+                                alpha = alpha,
                             )
+                        } else {
+                            val bgColor = animatedBackgroundColor.value
+                            if (bgColor != Color.Unspecified) {
+                                drawRoundRect(color = bgColor, cornerRadius = corner)
+                            }
                         }
                     }
                     .thenIf(backgroundColor != Color.Unspecified && includePadding) {

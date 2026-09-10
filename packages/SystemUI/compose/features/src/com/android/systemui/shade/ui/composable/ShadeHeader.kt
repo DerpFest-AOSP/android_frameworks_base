@@ -475,14 +475,16 @@ fun ContentScope.OverlayShadeHeader(
             }
         },
         endContent = {
+            val qsChip = rememberResolvedQsStatusChipHighlight(quickSettingsHighlight)
             Row(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.layoutId(ShadeHeader.LayoutId.EndContent),
             ) {
                 ShadeHighlightChip(
-                    backgroundColor = quickSettingsHighlight.backgroundColor,
-                    hoverBackgroundColor = quickSettingsHighlight.hoverBackgroundColor,
+                    backgroundColor = qsChip.backgroundColor,
+                    hoverBackgroundColor = qsChip.hoverBackgroundColor,
+                    backgroundBrush = qsChip.backgroundBrush,
                     onClick = viewModel::onSystemIconChipClicked,
                     clickTargetModifier =
                         Modifier.fillMaxHeight().padding(horizontal = horizontalPadding),
@@ -502,15 +504,15 @@ fun ContentScope.OverlayShadeHeader(
                         viewModel = viewModel,
                         useExpandedFormat = false,
                         modifier = Modifier.padding(end = paddingEnd).weight(1f, fill = false),
-                        foregroundColor = quickSettingsHighlight.foregroundColor.toArgb(),
-                        backgroundColor = quickSettingsHighlight.backgroundColor.toArgb(),
+                        foregroundColor = qsChip.foregroundColor.toArgb(),
+                        backgroundColor = qsChip.backgroundColor.toArgb(),
                     )
                     BatteryInfo(
                         viewModel = viewModel,
                         showIcon = true,
                         useExpandedFormat = false,
                         chipHighlightModel = quickSettingsHighlight,
-                        textColor = quickSettingsHighlight.foregroundColor,
+                        textColor = qsChip.foregroundColor,
                     )
                 }
                 if (!groupedPrivacyChip() && viewModel.isPrivacyChipVisible) {
@@ -744,8 +746,7 @@ private fun BatteryInfo(
             null -> IsAreaDark { isQuickSettingsDarkTheme }
             ChipHighlightModel.Transparent -> viewModel.isShadeAreaDark
             else -> {
-                val lightForeground =
-                    ColorUtils.calculateLuminance(highlight.foregroundColor.toArgb()) > 0.5
+                val lightForeground = ColorUtils.calculateLuminance(textColor.toArgb()) > 0.5
                 IsAreaDark { lightForeground }
             }
         }

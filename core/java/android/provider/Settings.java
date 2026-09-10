@@ -7082,7 +7082,14 @@ public final class Settings {
         public static final String QS_VOLUME_GRADIENT_ENABLED = "qs_volume_gradient_enabled";
 
         /**
-         * Gradient start color for tiles, brightness slider, and volume slider.
+         * Whether to enable gradient styling for the dual-shade Quick Settings status chip
+         * (signal and battery icons). 1 to enable, 0 to disable. Default is 1.
+         * @hide
+         */
+        public static final String QS_CHIP_GRADIENT_ENABLED = "qs_chip_gradient_enabled";
+
+        /**
+         * Gradient start color for tiles, brightness slider, volume slider, and QS status chip.
          * When non-zero ARGB, used as gradient start; 0 = use default from theme. Used with
          * ColorPickerSystemPreference.
          * @hide
@@ -7090,7 +7097,7 @@ public final class Settings {
         public static final String GRADIENT_START_COLOR = "gradient_start_color";
 
         /**
-         * Gradient end color for tiles, brightness slider, and volume slider.
+         * Gradient end color for tiles, brightness slider, volume slider, and QS status chip.
          * When non-zero ARGB, used as gradient end; 0 = use default from theme. Used with
          * ColorPickerSystemPreference.
          * @hide
