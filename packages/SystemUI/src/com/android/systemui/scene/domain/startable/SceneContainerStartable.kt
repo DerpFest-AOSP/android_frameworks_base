@@ -472,13 +472,24 @@ constructor(
                     alternateBouncerInteractor.hide()
                     dismissCallbackRegistry.notifyDismissCancelled()
                     val isAodAvailable = keyguardInteractor.isAodAvailable.value
+                    // If sleep interrupts an in-progress unlock, freeze-and-animate can hang
+                    // and leave lockscreen content at alpha 0 over the launcher. Snap instead.
+                    val interruptingUnlock =
+                        sceneInteractor.transitioningTo.value == Scenes.Gone
 
                     switchToScene(
                         targetSceneKey = Scenes.Lockscreen,
-                        loggingReason = "device is starting to sleep",
-                        transitionKey = ToAlwaysOnDisplay.takeIf { isAodAvailable },
+                        loggingReason =
+                            if (interruptingUnlock) {
+                                "device is starting to sleep during unlock"
+                            } else {
+                                "device is starting to sleep"
+                            },
+                        transitionKey =
+                            ToAlwaysOnDisplay.takeIf { isAodAvailable && !interruptingUnlock },
                         keyguardState = getKeyguardStateForWakefulness(isAwake = false),
-                        freezeAndAnimateToCurrentState = true,
+                        freezeAndAnimateToCurrentState = !interruptingUnlock,
+                        instantlySnapScenes = interruptingUnlock,
                     )
                 } else {
                     if (wakeDirectlyToGoneInteractor.canWakeDirectlyToGone.value) {

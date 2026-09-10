@@ -3299,6 +3299,14 @@ public class KeyguardViewMediator implements CoreStartable,
             mKeyguardInteractor.showKeyguard();
             mShadeController.get().instantCollapseShade();
             mKeyguardStateController.notifyKeyguardGoingAway(false);
+            if (mKeyguardStateController.isKeyguardFadingAway()) {
+                // handleShow can run while an unlock fade is still in progress (sleep during
+                // unlock). Clear fadingAway here too: StatusBarKeyguardViewManager#show is not
+                // called when KeyguardWmStateRefactor is enabled.
+                Log.d(TAG, "handleShow while fading away; finishing interrupted unlock fade");
+                mKeyguardStateController.notifyKeyguardDoneFading();
+                mNotificationShadeWindowControllerLazy.get().setKeyguardFadingAway(false);
+            }
 
             if (!KeyguardWmStateRefactor.isEnabled()) {
                 // Handled directly in StatusBarKeyguardViewManager if enabled.

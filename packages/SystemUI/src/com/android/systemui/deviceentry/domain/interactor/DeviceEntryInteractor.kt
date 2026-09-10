@@ -459,7 +459,16 @@ constructor(
                     handleDeviceEntry(state)
                 } else {
                     // LOCKED
-                    if (
+                    if (sceneInteractor.get().transitioningTo.value == Scenes.Gone) {
+                        // Unlock was cancelled mid-transition (for example sleep during face
+                        // unlock). Remaining on Lockscreen without snapping Idle leaves STL in
+                        // Transition, with lockscreen alpha stuck at 0 over the launcher.
+                        switchToScene(
+                            Scenes.Lockscreen,
+                            "locked during unlock transition",
+                            instantlySnapScenes = true,
+                        )
+                    } else if (
                         state.renderedScenes.any { it.isKeyguardScene() } ||
                             state.isOnPrimaryBouncer
                     ) {

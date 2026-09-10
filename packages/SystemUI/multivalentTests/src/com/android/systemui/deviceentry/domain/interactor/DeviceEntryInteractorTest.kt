@@ -26,6 +26,7 @@ import androidx.test.filters.SmallTest
 import com.android.compose.animation.scene.ObservableTransitionState
 import com.android.compose.animation.scene.OverlayKey
 import com.android.compose.animation.scene.SceneKey
+import com.android.compose.animation.scene.content.state.TransitionState
 import com.android.internal.logging.uiEventLoggerFake
 import com.android.systemui.Flags.FLAG_DUAL_SHADE
 import com.android.systemui.SysuiTestCase
@@ -75,6 +76,7 @@ import com.android.systemui.kosmos.useUnconfinedTestDispatcher
 import com.android.systemui.plugins.statusbar.statusBarStateController
 import com.android.systemui.scene.data.model.SceneStack
 import com.android.systemui.scene.data.model.asIterable
+import com.android.systemui.scene.data.repository.setSceneTransition
 import com.android.systemui.scene.domain.interactor.sceneBackInteractor
 import com.android.systemui.scene.domain.interactor.sceneInteractor
 import com.android.systemui.scene.domain.startable.sceneContainerStartable
@@ -833,6 +835,40 @@ class DeviceEntryInteractorTest(flags: FlagsParameterization) : SysuiTestCase() 
 
             assertThat(isUnlocked).isFalse()
             assertThat(currentScene).isEqualTo(Scenes.Lockscreen)
+        }
+
+    @Test
+    fun lockNow_duringUnlockTransition_snapsToIdleLockscreen() =
+        kosmos.runTest {
+            val isUnlocked by collectLastValue(underTest.isUnlocked)
+            val currentScene by collectLastValue(sceneInteractor.currentScene)
+            val transitioningTo by collectLastValue(sceneInteractor.transitioningTo)
+            fakeAuthenticationRepository.setAuthenticationMethod(Pin)
+            biometricUnlockInteractor.setBiometricUnlockState(
+                unlockStateInt = BiometricUnlockController.MODE_DISMISS,
+                biometricUnlockSource = BiometricUnlockSource.FINGERPRINT_SENSOR,
+            )
+            switchToScene(Scenes.Gone)
+            assertThat(isUnlocked).isTrue()
+
+            setSceneTransition(
+                ObservableTransitionState.Transition(
+                    fromScene = Scenes.Lockscreen,
+                    toScene = Scenes.Gone,
+                    currentScene = flowOf(Scenes.Lockscreen),
+                    progress = flowOf(0.8f),
+                    isInitiatedByUserInput = false,
+                    isUserInputOngoing = flowOf(false),
+                )
+            )
+            assertThat(transitioningTo).isEqualTo(Scenes.Gone)
+
+            underTest.lockNow("test")
+
+            assertThat(isUnlocked).isFalse()
+            assertThat(currentScene).isEqualTo(Scenes.Lockscreen)
+            assertThat(fakeSceneDataSource.transitionState)
+                .isInstanceOf(TransitionState.Idle::class.java)
         }
 
     @Test

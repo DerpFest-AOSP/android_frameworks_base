@@ -724,6 +724,73 @@ class SceneContainerStartableTest(flags: FlagsParameterization) : SysuiTestCase(
         }
 
     @Test
+    fun snapToLockscreenWhenDeviceSleepsDuringUnlock() =
+        kosmos.runTest {
+            val currentSceneKey by collectLastValue(sceneInteractor.currentScene)
+            val transitioningTo by collectLastValue(sceneInteractor.transitioningTo)
+            prepareState(
+                isDeviceUnlocked = false,
+                initialSceneKey = Scenes.Lockscreen,
+                authenticationMethod = AuthenticationMethodModel.Pin,
+            )
+            underTest.start()
+            runCurrent()
+            assertThat(currentSceneKey).isEqualTo(Scenes.Lockscreen)
+
+            setSceneTransition(
+                ObservableTransitionState.Transition(
+                    fromScene = Scenes.Lockscreen,
+                    toScene = Scenes.Gone,
+                    currentScene = flowOf(Scenes.Lockscreen),
+                    progress = flowOf(0.8f),
+                    isInitiatedByUserInput = false,
+                    isUserInputOngoing = flowOf(false),
+                )
+            )
+            runCurrent()
+            assertThat(transitioningTo).isEqualTo(Scenes.Gone)
+
+            powerInteractor.setAsleepForTest()
+            runCurrent()
+
+            assertThat(currentSceneKey).isEqualTo(Scenes.Lockscreen)
+            assertThat(fakeSceneDataSource.transitionState)
+                .isInstanceOf(TransitionState.Idle::class.java)
+        }
+
+    @Test
+    fun snapToLockscreenWhenDeviceSleepsDuringUnlock_afterGoneCommitted() =
+        kosmos.runTest {
+            val currentSceneKey by collectLastValue(sceneInteractor.currentScene)
+            val transitioningTo by collectLastValue(sceneInteractor.transitioningTo)
+            prepareState(
+                isDeviceUnlocked = false,
+                initialSceneKey = Scenes.Lockscreen,
+                authenticationMethod = AuthenticationMethodModel.Pin,
+            )
+            underTest.start()
+            runCurrent()
+
+            setSceneTransition(
+                ObservableTransitionState.Transition(
+                    fromScene = Scenes.Lockscreen,
+                    toScene = Scenes.Gone,
+                    currentScene = flowOf(Scenes.Gone),
+                    progress = flowOf(0.9f),
+                    isInitiatedByUserInput = false,
+                    isUserInputOngoing = flowOf(false),
+                )
+            )
+            runCurrent()
+            assertThat(transitioningTo).isEqualTo(Scenes.Gone)
+
+            powerInteractor.setAsleepForTest()
+            runCurrent()
+
+            assertThat(currentSceneKey).isEqualTo(Scenes.Lockscreen)
+        }
+
+    @Test
     fun switchToAOD_whenAvailable_whenDeviceSleepsLocked_transitionFlagEnabled() =
         kosmos.runTest {
             enableSingleShade()

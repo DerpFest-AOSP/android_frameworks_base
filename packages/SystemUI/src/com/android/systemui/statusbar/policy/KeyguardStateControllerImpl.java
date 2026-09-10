@@ -27,8 +27,11 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.hardware.biometrics.BiometricSourceType;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.SystemProperties;
 import android.os.Trace;
+import android.util.Log;
 
 import androidx.annotation.VisibleForTesting;
 
@@ -64,8 +67,15 @@ import javax.inject.Inject;
 @SysUISingleton
 public class KeyguardStateControllerImpl implements KeyguardStateController {
 
+    private static final String TAG = "KeyguardStateController";
     private static final boolean DEBUG_AUTH_WITH_ADB = false;
     private static final String AUTH_BROADCAST_KEY = "debug_trigger_auth";
+    /**
+     * Extra time after the expected fade duration before we force {@link #isKeyguardFadingAway()}
+     * back to false. An interrupted unlock (for example sleep during face unlock) can otherwise
+     * leave the lockscreen transparent over the launcher indefinitely.
+     */
+    private static final long FADING_AWAY_FAILSAFE_MS = 2000L;
 
     private final ConcurrentHashMap.KeySetView<Callback, Boolean> mCallbacks =
             ConcurrentHashMap.<Callback>newKeySet();
@@ -118,6 +128,8 @@ public class KeyguardStateControllerImpl implements KeyguardStateController {
     private boolean mSnappingKeyguardBackAfterSwipe = false;
 
     private FeatureFlags mFeatureFlags;
+    private final Handler mHandler = new Handler(Looper.getMainLooper());
+    private final Runnable mFadingAwayFailsafe = this::finishFadingAwayIfStuck;
 
     /**
      *
@@ -213,6 +225,11 @@ public class KeyguardStateControllerImpl implements KeyguardStateController {
         mKeyguardUpdateMonitor.setKeyguardShowing(showing, occluded);
         Trace.instantForTrack(Trace.TRACE_TAG_APP, "UI Events",
                 "Keyguard showing: " + showing + " occluded: " + occluded);
+        if (showing && mKeyguardFadingAway) {
+            // Unlock was interrupted (for example sleep during fade). Don't leave fadingAway
+            // stuck or lockscreen content stays transparent over the launcher.
+            notifyKeyguardDoneFading();
+        }
         notifyKeyguardChanged();
 
         // Update the dismiss amount to the full 0f/1f if we explicitly show or hide the keyguard.
@@ -248,6 +265,9 @@ public class KeyguardStateControllerImpl implements KeyguardStateController {
         mKeyguardFadingAwayDelay = delay;
         mKeyguardFadingAwayDuration = fadeoutDuration;
         setKeyguardFadingAway(true);
+        mHandler.removeCallbacks(mFadingAwayFailsafe);
+        mHandler.postDelayed(mFadingAwayFailsafe,
+                Math.max(0L, delay + fadeoutDuration) + FADING_AWAY_FAILSAFE_MS);
     }
 
     private void setKeyguardFadingAway(boolean keyguardFadingAway) {
@@ -262,8 +282,16 @@ public class KeyguardStateControllerImpl implements KeyguardStateController {
 
     @Override
     public void notifyKeyguardDoneFading() {
+        mHandler.removeCallbacks(mFadingAwayFailsafe);
         notifyKeyguardGoingAway(false);
         setKeyguardFadingAway(false);
+    }
+
+    private void finishFadingAwayIfStuck() {
+        if (mKeyguardFadingAway) {
+            Log.w(TAG, "Keyguard still fading away after timeout; forcing fade complete");
+            notifyKeyguardDoneFading();
+        }
     }
 
     @VisibleForTesting

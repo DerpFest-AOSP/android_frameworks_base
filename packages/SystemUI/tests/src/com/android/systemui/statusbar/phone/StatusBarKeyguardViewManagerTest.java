@@ -276,6 +276,18 @@ public class StatusBarKeyguardViewManagerTest extends SysuiTestCase {
     }
 
     @Test
+    public void show_whileFadingAway_finishesInterruptedUnlockFade() {
+        when(mKeyguardStateController.isKeyguardFadingAway()).thenReturn(true);
+
+        mStatusBarKeyguardViewManager.show(null);
+
+        verify(mNotificationShadeWindowController).setKeyguardFadingAway(false);
+        verify(mCentralSurfaces).finishKeyguardFadingAway();
+        verify(mBiometricUnlockController).finishKeyguardFadingAway();
+        verify(mShadeLockscreenInteractor).resetViewGroupFade();
+    }
+
+    @Test
     @DisableSceneContainer
     public void dismissWithAction_AfterKeyguardGoneSetToFalse() {
         OnDismissAction action = () -> false;

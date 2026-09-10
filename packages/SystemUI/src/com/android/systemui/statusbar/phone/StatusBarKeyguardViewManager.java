@@ -752,6 +752,23 @@ public class StatusBarKeyguardViewManager implements RemoteInputController.Callb
     public void show(Bundle options) {
         Trace.beginSection("StatusBarKeyguardViewManager#show");
         mNotificationShadeWindowController.setKeyguardShowing(true);
+        if (mKeyguardStateController.isKeyguardFadingAway()) {
+            // Unlock was interrupted (for example sleep during face unlock). Finish the fade so
+            // lockscreen content is not left transparent over the launcher.
+            Log.d(TAG, "show() while fading away; finishing interrupted unlock fade");
+            mNotificationShadeWindowController.setKeyguardFadingAway(false);
+            if (mCentralSurfaces != null) {
+                mCentralSurfaces.finishKeyguardFadingAway();
+            } else {
+                mKeyguardStateController.notifyKeyguardDoneFading();
+            }
+            if (mBiometricUnlockController != null) {
+                mBiometricUnlockController.finishKeyguardFadingAway();
+            }
+            if (mShadeLockscreenInteractor != null) {
+                mShadeLockscreenInteractor.resetViewGroupFade();
+            }
+        }
         mKeyguardStateController.notifyKeyguardState(true, mKeyguardStateController.isOccluded());
         reset(true /* hideBouncerWhenShowing */);
         SysUiStatsLog.write(SysUiStatsLog.KEYGUARD_STATE_CHANGED,

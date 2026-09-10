@@ -255,4 +255,23 @@ public class KeyguardStateControllerTest extends SysuiTestCase {
         mUpdateCallbackCaptor.getValue().onEnabledTrustAgentsChanged(random.nextInt());
         verify(stateCallback).onUnlockedChanged();
     }
+
+    @Test
+    public void testShowingKeyguardClearsFadingAway() {
+        mKeyguardStateController.notifyKeyguardFadingAway(0, 0);
+        assertThat(mKeyguardStateController.isKeyguardFadingAway()).isTrue();
+
+        mKeyguardStateController.notifyKeyguardState(true /* showing */, false /* occluded */);
+        assertThat(mKeyguardStateController.isKeyguardFadingAway()).isFalse();
+    }
+
+    @Test
+    public void testFadingAwayFailsafeClearsStuckFade() {
+        mKeyguardStateController.notifyKeyguardFadingAway(0, 0);
+        assertThat(mKeyguardStateController.isKeyguardFadingAway()).isTrue();
+
+        TestableLooper.get(this).moveTimeForward(3000);
+        TestableLooper.get(this).processAllMessages();
+        assertThat(mKeyguardStateController.isKeyguardFadingAway()).isFalse();
+    }
 }

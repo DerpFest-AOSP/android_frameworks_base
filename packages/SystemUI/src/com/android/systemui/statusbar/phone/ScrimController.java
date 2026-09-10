@@ -513,6 +513,22 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, Dump
                     }
                 };
 
+        // LOCKSCREEN->GONE (including scene-container Scenes.Gone). hide() starts fadingAway,
+        // but with the scene framework the legacy UNLOCKED scrim callback may never run. Finish
+        // the fade on CANCELED as well so an interrupted unlock cannot stick fadingAway forever.
+        final Consumer<TransitionStep> lockscreenToGoneFade =
+                (TransitionStep step) -> {
+                    TransitionState state = step.getTransitionState();
+                    if ((state == TransitionState.FINISHED || state == TransitionState.CANCELED)
+                            && mKeyguardStateController.isKeyguardFadingAway()) {
+                        mStatusBarKeyguardViewManager.onKeyguardFadedAway();
+                    }
+                };
+        collectFlow(behindScrim, mKeyguardTransitionInteractor.transition(
+                        Edge.Companion.create(LOCKSCREEN, Scenes.Gone),
+                        Edge.Companion.create(LOCKSCREEN, GONE)),
+                lockscreenToGoneFade, mMainDispatcher);
+
         // PRIMARY_BOUNCER->DREAMING
         collectFlow(behindScrim, mKeyguardTransitionInteractor.transition(
                         Edge.Companion.create(PRIMARY_BOUNCER, Scenes.Dream),
