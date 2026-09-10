@@ -4112,7 +4112,15 @@ public class NotificationStackScrollLayout
                 }
             }
             if (mSendingTouchesToSceneFramework) {
-                sendToSceneFramework(ev);
+                // Dual shade / SceneContainer swipe detectors use the regular touch slop, which
+                // is smaller than SwipeHelper's paging slop. If we keep forwarding a horizontal
+                // drag, Compose can start Swipe.Up (close shade) before NSSL intercepts
+                // swipe-to-dismiss. Cancel Compose as soon as the gesture is clearly horizontal.
+                if (shouldClaimGestureFromSceneFramework(ev)) {
+                    claimTouchFromSceneFramework(ev);
+                } else {
+                    sendToSceneFramework(ev);
+                }
             }
             return handled;
         } else if (SceneContainerFlag.isEnabled()) {
@@ -4183,6 +4191,25 @@ public class NotificationStackScrollLayout
             mSendingTouchesToSceneFramework = false;
             sendCancelToSceneFramework(ev);
         }
+    }
+
+    /**
+     * Whether this motion should be taken from the Scene Framework so NSSL can handle it.
+     *
+     * Horizontal swipe-to-dismiss must not be forwarded to Compose: overlay user actions (for
+     * example {@code Swipe.Up} to close the dual-shade notifications panel) will otherwise win
+     * the gesture at touch slop, before {@link NotificationSwipeHelper} reaches paging slop.
+     */
+    private boolean shouldClaimGestureFromSceneFramework(MotionEvent ev) {
+        if (mSwipeHelper != null && mSwipeHelper.isSwiping()) {
+            return true;
+        }
+        if (ev.getActionMasked() != MotionEvent.ACTION_MOVE) {
+            return false;
+        }
+        final float dx = Math.abs(ev.getX() - mInitialTouchX);
+        final float dy = Math.abs(ev.getY() - mInitialTouchY);
+        return dx > getTouchSlop(ev) && dx > dy;
     }
 
     /**

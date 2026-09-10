@@ -188,6 +188,29 @@ class NsslTouchDispatchTest : SysuiTestCase() {
 
     @Test
     @EnableFlags(FLAG_NSSL_TOUCH_DISPATCH_FIX)
+    fun horizontalSwipe_claimsFromSceneFramework() {
+        val receivedEvents = sibling.capturedEvents
+        var xPosition = 100f
+
+        onDownEvent(pointerId = 0, x = xPosition, y = 100f)
+        assertThat(receivedEvents.last()).isDown()
+
+        onMoveEvent(pointerId = 0, x = ++xPosition, y = 100f)
+        assertThat(receivedEvents.last()).isMove()
+
+        xPosition += touchSlop * 2 // exceed the slop horizontally
+        onMoveEvent(pointerId = 0, x = xPosition, y = 100f)
+        // Horizontal swipe-to-dismiss must not be forwarded to Compose.
+        assertThat(receivedEvents.last()).isCancel()
+
+        onUpEvent()
+        // Already claimed; the UP is not forwarded.
+        assertThat(receivedEvents.last()).isCancel()
+        assertThat(receivedEvents).hasSize(3)
+    }
+
+    @Test
+    @EnableFlags(FLAG_NSSL_TOUCH_DISPATCH_FIX)
     fun verticalSwipe_externalSetDragCall() {
         val receivedEvents = sibling.capturedEvents
         val dispatchedEvents = controller.capturedEvents
