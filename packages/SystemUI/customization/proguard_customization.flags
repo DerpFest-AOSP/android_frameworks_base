@@ -108,6 +108,17 @@
     *** getCurrentCompositeKeyHashCode(...);
 }
 
+# Plugin @Composable elements are compiled separately. The Compose compiler emits
+# ComposerKt.sourceInformation* / traceEvent* at those call sites. SystemUI itself may
+# not invoke them, so R8 drops the methods from the host runtime and plugin composition
+# throws NoSuchMethodError — which PluginInstance then disables for 24h.
+-keep class androidx.compose.runtime.ComposerKt {
+    *** sourceInformation*(...);
+    *** isTraceInProgress(...);
+    *** traceEventStart(...);
+    *** traceEventEnd(...);
+}
+
 -keep class androidx.compose.ui.node.ComposeUiNode$Companion {
     *** getConstructor(...);
     *** getSetMeasurePolicy(...);
