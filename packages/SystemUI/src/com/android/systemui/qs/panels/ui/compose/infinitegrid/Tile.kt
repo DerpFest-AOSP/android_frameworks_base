@@ -120,6 +120,8 @@ import com.android.systemui.qs.pipeline.shared.TileSpec
 import com.android.systemui.qs.tileimpl.QSTileImpl
 import com.android.systemui.qs.ui.composable.QuickSettingsShade
 import com.android.systemui.qs.ui.compose.borderOnFocus
+import com.android.systemui.qs.ui.compose.qsGradientBrush
+import com.android.systemui.qs.ui.compose.rememberContrastColorOn
 import com.android.systemui.qs.ui.compose.rememberQsGradientColors
 import com.android.systemui.res.R
 import kotlinx.coroutines.CoroutineScope
@@ -910,9 +912,10 @@ fun rememberQsGradientEnabled(): Boolean {
         }
     }
 
-    var gradientEnabled by remember { mutableStateOf(readGradientEnabled()) }
+    var gradientEnabled by remember(contentResolver) { mutableStateOf(readGradientEnabled()) }
 
     DisposableEffect(contentResolver) {
+        gradientEnabled = readGradientEnabled()
         val observer = object : ContentObserver(null) {
             override fun onChange(selfChange: Boolean) {
                 context.mainExecutor.execute {
@@ -938,13 +941,24 @@ private object TileDefaults {
     /** An active tile uses the active color as background */
     @Composable
     fun activeTileColors(): TileColors {
-        val gradient = tileGradientBrushOrNull()
+        val gradientEnabled = rememberQsGradientEnabled()
+        val gradientColors = rememberQsGradientColors()
+        val contrast = rememberContrastColorOn(gradientColors.mid)
+        val gradient =
+            remember(gradientEnabled, gradientColors.start, gradientColors.end) {
+                if (gradientEnabled) {
+                    qsGradientBrush(gradientColors.start, gradientColors.end)
+                } else {
+                    null
+                }
+            }
+        val onGradient = if (gradientEnabled) contrast else MaterialTheme.colorScheme.onPrimary
         return TileColors(
             background = MaterialTheme.colorScheme.primary,
             iconBackground = MaterialTheme.colorScheme.primary,
-            label = MaterialTheme.colorScheme.onPrimary,
-            secondaryLabel = MaterialTheme.colorScheme.onPrimary,
-            icon = MaterialTheme.colorScheme.onPrimary,
+            label = onGradient,
+            secondaryLabel = onGradient,
+            icon = onGradient,
             backgroundBrush = gradient,
             iconBackgroundBrush = gradient,
             outline = MaterialTheme.colorScheme.primary,
@@ -954,13 +968,25 @@ private object TileDefaults {
     /** An active tile with dual target only show the active color on the icon */
     @Composable
     fun activeDualTargetTileColors(): TileColors {
-        val gradient = tileGradientBrushOrNull()
+        val gradientEnabled = rememberQsGradientEnabled()
+        val gradientColors = rememberQsGradientColors()
+        val contrast = rememberContrastColorOn(gradientColors.start)
+        val gradient =
+            remember(gradientEnabled, gradientColors.start, gradientColors.end) {
+                if (gradientEnabled) {
+                    qsGradientBrush(gradientColors.start, gradientColors.end)
+                } else {
+                    null
+                }
+            }
+        // Dual-target icon sits on the start (left) of the horizontal gradient.
+        val onGradient = if (gradientEnabled) contrast else MaterialTheme.colorScheme.onPrimary
         return TileColors(
             background = LocalAndroidColorScheme.current.surfaceEffect1,
             iconBackground = MaterialTheme.colorScheme.primary,
             label = MaterialTheme.colorScheme.onSurface,
             secondaryLabel = MaterialTheme.colorScheme.onSurface,
-            icon = MaterialTheme.colorScheme.onPrimary,
+            icon = onGradient,
             iconBackgroundBrush = gradient,
             outline = MaterialTheme.colorScheme.primary,
         )
@@ -1089,16 +1115,6 @@ private object TileDefaults {
                 }
             mutableStateOf(RoundedCornerShape(corner))
         }
-    }
-
-    @Composable
-    private fun tileGradientBrushOrNull(): Brush? {
-        val gradientEnabled = rememberQsGradientEnabled()
-        if (!gradientEnabled) {
-            return null
-        }
-        val colors = rememberQsGradientColors()
-        return Brush.linearGradient(listOf(colors.start, colors.end))
     }
 }
 

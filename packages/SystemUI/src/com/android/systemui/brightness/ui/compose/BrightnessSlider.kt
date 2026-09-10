@@ -82,7 +82,6 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.graphics.painter.Painter
@@ -99,7 +98,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.ColorUtils
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.app.tracing.coroutines.launchTraced as launch
 import com.android.compose.lifecycle.DisposableEffectWithLifecycle
@@ -124,9 +122,11 @@ import com.android.systemui.haptics.slider.SliderHapticFeedbackConfig
 import com.android.systemui.haptics.slider.compose.ui.SliderHapticsViewModel
 import com.android.systemui.lifecycle.rememberViewModel
 import com.android.systemui.qs.ui.compose.borderOnFocus
+import com.android.systemui.qs.ui.compose.qsGradientBrush
+import com.android.systemui.qs.ui.compose.qsGradientMidColor
+import com.android.systemui.qs.ui.compose.rememberContrastColorOn
 import com.android.systemui.qs.ui.compose.rememberQsGradientColors
 import com.android.systemui.res.R
-import com.android.systemui.statusbar.pipeline.battery.shared.ui.BatteryColors
 import com.android.systemui.util.policy.PolicyRestriction
 import lineageos.providers.LineageSettings
 import platform.test.motion.compose.values.MotionTestValueKey
@@ -186,6 +186,8 @@ fun BrightnessSlider(
         }
     val gradient = brightnessGradient()
     val gradientBrush = gradient?.brush
+    val gradientTickSample = gradient?.mid ?: Color.Transparent
+    val gradientTickColor = rememberContrastColorOn(gradientTickSample)
     val colors =
         if (gradientBrush != null) {
             SystemUISliderColors.Defaults.copy(
@@ -193,6 +195,7 @@ fun BrightnessSlider(
                 inactiveTrackColor = Color.Transparent,
                 thumbColor = gradient.endColor,
                 disabledThumbColor = gradient.endColor.copy(alpha = 0.38f),
+                activeTickColor = gradientTickColor,
             )
         } else {
             SystemUISliderColors.Defaults
@@ -450,6 +453,7 @@ fun BrightnessSlider(
                 onIconClick = onIconClick,
                 size = dimensions.trackHeight,
                 gradientBrush = gradientBrush,
+                gradientStartColor = gradient?.startColor,
                 gradientEndColor = gradient?.endColor,
             )
         }
@@ -574,20 +578,23 @@ private fun drawAutoBrightnessButton(
     onIconClick: suspend () -> Unit,
     size: Dp,
     gradientBrush: Brush? = null,
+    gradientStartColor: Color? = null,
     gradientEndColor: Color? = null,
 ) {
     val view = LocalView.current
-    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val shapeMode = rememberSliderShapeMode()
     val autoIconShape = qsSliderButtonShape(shapeMode)
     val backgroundColor = MaterialTheme.colorScheme.primary
     val defaultIconTint = MaterialTheme.colorScheme.onPrimary
-    val contrastIconTint =
-        remember(gradientEndColor, context) {
-            gradientEndColor?.let { Color(BatteryColors.textColorOnBackground(context, it.toArgb())) }
+    val contrastSample =
+        if (gradientStartColor != null && gradientEndColor != null) {
+            qsGradientMidColor(gradientStartColor, gradientEndColor)
+        } else {
+            Color.Transparent
         }
-    val iconTint = contrastIconTint ?: defaultIconTint
+    val contrastIconTint = rememberContrastColorOn(contrastSample)
+    val iconTint = if (gradientBrush != null) contrastIconTint else defaultIconTint
     val painterRes = if (autoMode) {
         R.drawable.ic_qs_brightness_auto_on
     } else {
@@ -816,9 +823,10 @@ private fun rememberQsBrightnessGradientEnabled(): Boolean {
         }
     }
 
-    var gradientEnabled by remember { mutableStateOf(readGradientEnabled()) }
+    var gradientEnabled by remember(contentResolver) { mutableStateOf(readGradientEnabled()) }
 
     DisposableEffect(contentResolver) {
+        gradientEnabled = readGradientEnabled()
         val observer =
             object : ContentObserver(null) {
                 override fun onChange(selfChange: Boolean) {
@@ -842,30 +850,22 @@ private fun rememberQsBrightnessGradientEnabled(): Boolean {
 @Composable
 private fun brightnessGradient(): BrightnessGradient? {
     val gradientEnabled = rememberQsBrightnessGradientEnabled()
-    if (!gradientEnabled) {
-        return null
-    }
     val resolved = rememberQsGradientColors()
     val startOpaque = resolved.start.copy(alpha = 1f)
     val endOpaque = resolved.end.copy(alpha = 1f)
-    val colors =
-        remember(startOpaque, endOpaque) {
-            if (startOpaque == endOpaque) {
-                listOf(startOpaque.lighten(0.2f), startOpaque, startOpaque.darken(0.2f))
-            } else {
-                listOf(startOpaque, endOpaque)
-            }
+    val brush = remember(startOpaque, endOpaque) { qsGradientBrush(startOpaque, endOpaque) }
+    val gradient =
+        remember(brush, startOpaque, endOpaque) {
+            BrightnessGradient(brush = brush, startColor = startOpaque, endColor = endOpaque)
         }
-    val brush = remember(colors) { Brush.linearGradient(colors) }
-    return remember(brush, colors) { BrightnessGradient(brush = brush, endColor = colors.last()) }
+    return gradient.takeIf { gradientEnabled }
 }
 
-private fun Color.lighten(amount: Float): Color = blendWith(Color.White, amount)
-
-private fun Color.darken(amount: Float): Color = blendWith(Color.Black, amount)
-
-private fun Color.blendWith(other: Color, ratio: Float): Color {
-    return Color(ColorUtils.blendARGB(this.toArgb(), other.toArgb(), ratio))
+private data class BrightnessGradient(
+    val brush: Brush,
+    val startColor: Color,
+    val endColor: Color,
+) {
+    val mid: Color
+        get() = qsGradientMidColor(startColor, endColor)
 }
-
-private data class BrightnessGradient(val brush: Brush, val endColor: Color)

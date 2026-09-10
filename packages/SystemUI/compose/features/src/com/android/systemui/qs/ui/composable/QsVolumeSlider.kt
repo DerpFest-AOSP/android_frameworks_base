@@ -22,8 +22,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -32,9 +30,9 @@ import com.android.compose.modifiers.thenIf
 import com.android.systemui.brightness.ui.compose.qsSliderButtonShape
 import com.android.systemui.brightness.ui.compose.qsSliderTrackCornerSize
 import com.android.systemui.brightness.ui.compose.rememberSliderShapeMode
+import com.android.systemui.qs.ui.compose.rememberContrastColorOn
 import com.android.systemui.qs.ui.viewmodel.QuickSettingsContainerViewModel
 import com.android.systemui.res.R
-import com.android.systemui.statusbar.pipeline.battery.shared.ui.BatteryColors
 import com.android.systemui.volume.dialog.sliders.ui.compose.rememberVolumeSliderGradient
 import com.android.systemui.volume.panel.component.volume.slider.ui.viewmodel.AudioStreamSliderViewModel
 import com.android.systemui.volume.panel.component.volume.ui.composable.VolumeSlider
@@ -63,16 +61,10 @@ fun QsVolumeSliderRow(
     val trackCornerSize = qsSliderTrackCornerSize(shapeMode)
     val buttonShape = qsSliderButtonShape(shapeMode)
     val gradient = rememberVolumeSliderGradient(isVertical = false)
-    val context = LocalContext.current
+    val overflowContrastSample = gradient?.mid ?: Color.Transparent
+    val overflowContrast = rememberContrastColorOn(overflowContrastSample)
     val overflowIconColor =
-        remember(gradient?.endColor, context) {
-            val endColor = gradient?.endColor
-            if (endColor != null) {
-                Color(BatteryColors.textColorOnBackground(context, endColor.toArgb()))
-            } else {
-                null
-            }
-        } ?: MaterialTheme.colorScheme.onPrimary
+        if (gradient != null) overflowContrast else MaterialTheme.colorScheme.onPrimary
 
     Row(
         modifier = modifier.fillMaxWidth(),

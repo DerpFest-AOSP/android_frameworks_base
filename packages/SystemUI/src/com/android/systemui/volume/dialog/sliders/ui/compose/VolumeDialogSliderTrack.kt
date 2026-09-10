@@ -60,7 +60,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastFirst
-import androidx.core.graphics.ColorUtils
+import com.android.systemui.qs.ui.compose.qsGradientBrush
+import com.android.systemui.qs.ui.compose.qsGradientMidColor
 import com.android.systemui.qs.ui.compose.rememberQsGradientColors
 import com.android.systemui.statusbar.pipeline.battery.shared.ui.BatteryColors
 import kotlin.math.min
@@ -85,6 +86,8 @@ fun SliderTrack(
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val gradient = rememberVolumeSliderGradient(isVertical)
     val gradientBrush = gradient?.brush
+    // Vertical fill grows from the bottom (end stop); horizontal fill is on the start side.
+    val activeGradientColor = if (isVertical) gradient?.endColor else gradient?.startColor
     val trackColors =
         if (gradientBrush != null) {
             val thumbColor = gradient.endColor
@@ -232,7 +235,7 @@ fun SliderTrack(
                 isEnabled = isEnabled,
                 colors = colors,
                 trackMeasurePolicy = measurePolicy,
-                gradientEndColor = gradient?.endColor,
+                gradientEndColor = activeGradientColor,
             )
             TrackIcon(
                 icon = activeTrackEndIcon,
@@ -240,7 +243,7 @@ fun SliderTrack(
                 isEnabled = isEnabled,
                 colors = colors,
                 trackMeasurePolicy = measurePolicy,
-                gradientEndColor = gradient?.endColor,
+                gradientEndColor = activeGradientColor,
             )
             TrackIcon(
                 icon = inactiveTrackStartIcon,
@@ -548,35 +551,28 @@ interface SliderIconsState {
 @Composable
 fun rememberVolumeSliderGradient(isVertical: Boolean = false): VolumeSliderGradient? {
     val gradientEnabled = rememberQsVolumeGradientEnabled()
-    if (!gradientEnabled) {
-        return null
-    }
     val resolved = rememberQsGradientColors()
     val startOpaque = resolved.start.copy(alpha = 1f)
     val endOpaque = resolved.end.copy(alpha = 1f)
-    val colors =
-        remember(startOpaque, endOpaque) {
-            if (startOpaque == endOpaque) {
-                listOf(startOpaque.lighten(0.2f), startOpaque, startOpaque.darken(0.2f))
-            } else {
-                listOf(startOpaque, endOpaque)
-            }
-        }
     val brush =
-        remember(colors, isVertical) {
-            if (isVertical) {
-                Brush.verticalGradient(colors)
-            } else {
-                Brush.linearGradient(colors)
-            }
+        remember(startOpaque, endOpaque, isVertical) {
+            qsGradientBrush(startOpaque, endOpaque, isVertical)
         }
-    return remember(brush, colors) { VolumeSliderGradient(brush = brush, endColor = colors.last()) }
+    val gradient =
+        remember(brush, startOpaque, endOpaque) {
+            VolumeSliderGradient(brush = brush, startColor = startOpaque, endColor = endOpaque)
+        }
+    return gradient.takeIf { gradientEnabled }
 }
 
 data class VolumeSliderGradient(
     val brush: Brush,
+    val startColor: Color,
     val endColor: Color,
-)
+) {
+    val mid: Color
+        get() = qsGradientMidColor(startColor, endColor)
+}
 
 @Composable
 private fun rememberQsVolumeGradientEnabled(): Boolean {
@@ -594,9 +590,10 @@ private fun rememberQsVolumeGradientEnabled(): Boolean {
         }
     }
 
-    var gradientEnabled by remember { mutableStateOf(readGradientEnabled()) }
+    var gradientEnabled by remember(contentResolver) { mutableStateOf(readGradientEnabled()) }
 
     DisposableEffect(contentResolver) {
+        gradientEnabled = readGradientEnabled()
         val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
             override fun onChange(selfChange: Boolean) {
                 context.mainExecutor.execute {
@@ -616,12 +613,4 @@ private fun rememberQsVolumeGradientEnabled(): Boolean {
     }
 
     return gradientEnabled
-}
-
-private fun Color.lighten(amount: Float): Color = blendWith(Color.White, amount)
-
-private fun Color.darken(amount: Float): Color = blendWith(Color.Black, amount)
-
-private fun Color.blendWith(other: Color, ratio: Float): Color {
-    return Color(ColorUtils.blendARGB(this.toArgb(), other.toArgb(), ratio))
 }
