@@ -10,3 +10,9 @@
     *** startRestartGroup(...);
     *** getApplier(...);
 }
+
+# Same classloader-boundary issue as DefaultClockFaceLayout: keep scene-container
+# element keys so R8 does not stub getKey() to null.
+-keep class * implements com.android.systemui.plugins.keyguard.ui.composable.elements.BaseLockscreenElement { *; }
+-keep class * implements com.android.systemui.plugins.keyguard.ui.composable.elements.LockscreenElement { *; }
+-keep class * implements com.android.systemui.plugins.keyguard.ui.composable.elements.MovableLockscreenElement { *; }

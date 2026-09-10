@@ -4,3 +4,9 @@
 -keepclassmembers class androidx.constraintlayout.widget.ConstraintSet { public *; }
 -keepclassmembers class androidx.constraintlayout.widget.ConstraintSet$* { public *; }
 -keepclassmembers class com.android.systemui.customization.clocks.R$* { public static <fields>; }
+
+# Clock plugins shrink separately from SystemUI. R8 cannot see SystemUI reading
+# DefaultClockFaceLayout.elements / getKey() across the plugin boundary and will
+# stub getKey() to null, which hides the clock when scene_container is enabled.
+-keep class com.android.systemui.customization.clocks.view.DefaultClockFaceLayout { *; }
+-keep class com.android.systemui.customization.clocks.view.DefaultClockFaceLayout$* { *; }
