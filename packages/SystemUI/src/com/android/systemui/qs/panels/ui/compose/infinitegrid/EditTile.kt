@@ -56,19 +56,20 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.mandatorySystemGestures
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -374,17 +375,23 @@ fun DefaultEditTileGrid(
         },
         bottomBar = {
             if (layoutModeEnabled) {
-                Box(
-                    Modifier.fillMaxWidth()
-                        .padding(WindowInsets.navigationBars.asPaddingValues())
-                        .padding(bottom = 8.dp),
-                    contentAlignment = Alignment.Center,
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
-                    editModeTabs!!.Content(
-                        viewModel = editModeTabsViewModel!!,
-                        colors = EditModeTabsDefaults.colors(),
-                        modifier = Modifier,
-                    )
+                    Box(
+                        Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        editModeTabs!!.Content(
+                            viewModel = editModeTabsViewModel!!,
+                            colors = EditModeTabsDefaults.colors(),
+                            modifier = Modifier,
+                        )
+                    }
+                    // Do not let the tab bar sit on the home handle. navigationBars can be 0
+                    // when IME space is hidden; mandatorySystemGestures stays the handle height.
+                    PassThroughBottomGestureZone()
                 }
             }
         },
@@ -507,6 +514,22 @@ private fun EditModeScrollableColumn(
 }
 
 @Composable
+private fun editModeBottomGestureInsets(): WindowInsets {
+    return WindowInsets.navigationBars.union(WindowInsets.mandatorySystemGestures)
+}
+
+/** Occupies the home-handle inset without consuming the swipe, so STL can take it to Home. */
+@Composable
+private fun PassThroughBottomGestureZone(modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .fillMaxWidth()
+            .windowInsetsBottomHeight(editModeBottomGestureInsets())
+            .scrollable(rememberScrollableState { 0f }, orientation = Orientation.Vertical)
+    )
+}
+
+@Composable
 private fun NavBarInsetScrollZone(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Box(modifier.fillMaxWidth()) {
         content()
@@ -515,13 +538,7 @@ private fun NavBarInsetScrollZone(modifier: Modifier = Modifier, content: @Compo
         // with a higher zIndex than the scrollable list of tiles.
         // This box intercepts scroll gestures in the navigation bar area without consuming them to
         // allow STL to handle them.
-        Box(
-            Modifier.align(Alignment.BottomCenter)
-                .zIndex(2f)
-                .fillMaxWidth()
-                .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                .scrollable(rememberScrollableState { 0f }, orientation = Orientation.Vertical)
-        )
+        PassThroughBottomGestureZone(Modifier.align(Alignment.BottomCenter).zIndex(2f))
     }
 }
 
