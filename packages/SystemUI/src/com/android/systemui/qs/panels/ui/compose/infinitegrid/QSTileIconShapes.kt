@@ -8,10 +8,16 @@ package com.android.systemui.qs.panels.ui.compose.infinitegrid
 import android.graphics.Matrix
 import android.util.PathParser
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asComposePath
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.DrawStyle
+import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 
@@ -209,6 +215,14 @@ object QSTileIconShapes {
         return shape
     }
 
+    /**
+     * Shape used to paint classic tiles in edit mode. Ornament-only styles have no fill path, so
+     * they fall back to the default circle to keep a visible tile target.
+     */
+    fun shapeForEditMode(key: String): Shape {
+        return if (key in NO_BACKGROUND_KEYS) shapeForKey(DEFAULT_KEY) else shapeForKey(key)
+    }
+
     private class PathShape(pathData: String) : Shape {
         private val basePath: android.graphics.Path =
             try {
@@ -229,4 +243,23 @@ object QSTileIconShapes {
             return Outline.Generic(scaled.asComposePath())
         }
     }
+}
+
+/**
+ * Draws [shape] as a centered square that fits inside this scope, matching how classic QS tiles
+ * keep their icon silhouette when the cell itself is not square.
+ */
+fun DrawScope.drawCenteredIconShape(
+    shape: Shape,
+    color: Color,
+    alpha: Float = 1f,
+    style: DrawStyle = Fill,
+    insetPx: Float = 0f,
+) {
+    val side = minOf(size.width, size.height) - insetPx * 2f
+    if (side <= 0f) return
+    val left = (size.width - side) / 2f
+    val top = (size.height - side) / 2f
+    val outline = shape.createOutline(Size(side, side), layoutDirection, this)
+    translate(left, top) { drawOutline(outline, color = color, alpha = alpha, style = style) }
 }

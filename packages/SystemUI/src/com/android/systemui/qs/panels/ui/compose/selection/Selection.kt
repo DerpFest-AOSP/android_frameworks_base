@@ -82,7 +82,10 @@ import com.android.systemui.qs.flags.QsEditModeFocusFixes
 import com.android.systemui.qs.flags.QsEditModeHoverFixes
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.ActiveTileCornerRadius
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.InactiveTileCornerRadius
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.QSTileIconShapes
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.drawCenteredIconShape
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSPanelStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSTileIconShapeKey
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberTileShapeMode
 import com.android.systemui.qs.panels.ui.compose.selection.SelectionDefaults.BADGE_ANGLE_RAD
 import com.android.systemui.qs.panels.ui.compose.selection.SelectionDefaults.BadgeIconSize
@@ -126,7 +129,9 @@ fun InteractiveTileContainer(
     iconOnly: Boolean = false,
     content: @Composable BoxScope.() -> Unit = {},
 ) {
-    val transition: Transition<Decoration> = updateTransition(tileState.decoration())
+    val classicStyle = rememberQSPanelStyle()
+    val decoration = tileState.decoration(classicStyle)
+    val transition: Transition<Decoration> = updateTransition(decoration)
     val decorationColor by transition.animateColor()
     val decorationAngle by transition.animateAngle()
     val decorationSize by transition.animateSize { it.size }
@@ -135,8 +140,8 @@ fun InteractiveTileContainer(
     val badgeIconAlpha by transition.animateFloat { it.iconAlpha }
     val selectionBorderAlpha by transition.animateFloat { it.borderAlpha }
     val isIdle = transition.currentState == transition.targetState
-    val isDraggable = tileState == Selected
-    val isClickable = tileState == Selected || tileState == Removable
+    val isDraggable = tileState == Selected && !classicStyle
+    val isClickable = tileState == Removable || (tileState == Selected && !classicStyle)
 
     Box(
         modifier.resizable(tileState == Selected, resizingState).selectionBorder(
@@ -153,14 +158,14 @@ fun InteractiveTileContainer(
          * We need to hide the decoration if there is none this prevents the decoration from
          * blocking a hover/click of the tile
          */
-        if (!QsEditModeHoverFixes.isEnabled || tileState.decoration() !is NoDecoration) {
+        if (!QsEditModeHoverFixes.isEnabled || decoration !is NoDecoration) {
             MinimumInteractiveSizeComponent(
                 angle = { decorationAngle },
                 offset = { decorationOffset },
                 excludeSystemGesture = isIdle && isDraggable,
                 isClickable = isClickable,
                 onClick = onClick,
-                rippleRadius = tileState.decoration().rippleRadius,
+                rippleRadius = decoration.rippleRadius,
                 modifier = Modifier.sysuiResTag("EditTileDecoration"),
             ) {
                 Box(
@@ -193,7 +198,7 @@ fun InteractiveTileContainer(
                         .thenIf(!QsEditModeHoverFixes.isEnabled) {
                             Modifier.clickable(enabled = isClickable, onClick = onClick)
                         }
-                        .thenIf(tileState == Selected) {
+                        .thenIf(isDraggable) {
                             Modifier.dragSpy(
                                 onDragStart = resizingState::dragStarted,
                                 onDragEnd = resizingState::dragEnded,
@@ -233,7 +238,9 @@ private fun Modifier.selectionBorder(
             else -> InactiveTileCornerRadius
         }
     val panelStyle = rememberQSPanelStyle()
-    val wantCircle = panelStyle || (shapeMode == 3 && iconOnly)
+    val wantCircle = shapeMode == 3 && iconOnly
+    val iconShapeKey = rememberQSTileIconShapeKey()
+    val iconShape = remember(iconShapeKey) { QSTileIconShapes.shapeForEditMode(iconShapeKey) }
 
     return drawWithContent {
         drawContent()
@@ -242,24 +249,36 @@ private fun Modifier.selectionBorder(
         val borderWidth = selectionBorderWidth.toPx()
         val alpha = selectionAlpha()
 
-        if (wantCircle) {
-            val radius = (min(size.width, size.height) - borderWidth) / 2f
-            drawCircle(
-                brush = SolidColor(selectionColor),
-                radius = radius,
-                center = Offset(size.width / 2f, size.height / 2f),
-                style = Stroke(borderWidth),
-                alpha = alpha,
-            )
-        } else {
-            drawRoundRect(
-                SolidColor(selectionColor),
-                cornerRadius = CornerRadius(cornerRadius.toPx()),
-                topLeft = Offset(borderWidth / 2, borderWidth / 2),
-                size = Size(size.width - borderWidth, size.height - borderWidth),
-                style = Stroke(borderWidth),
-                alpha = alpha,
-            )
+        when {
+            panelStyle -> {
+                drawCenteredIconShape(
+                    iconShape,
+                    color = selectionColor,
+                    alpha = alpha,
+                    style = Stroke(borderWidth),
+                    insetPx = borderWidth / 2f,
+                )
+            }
+            wantCircle -> {
+                val radius = (min(size.width, size.height) - borderWidth) / 2f
+                drawCircle(
+                    brush = SolidColor(selectionColor),
+                    radius = radius,
+                    center = Offset(size.width / 2f, size.height / 2f),
+                    style = Stroke(borderWidth),
+                    alpha = alpha,
+                )
+            }
+            else -> {
+                drawRoundRect(
+                    SolidColor(selectionColor),
+                    cornerRadius = CornerRadius(cornerRadius.toPx()),
+                    topLeft = Offset(borderWidth / 2, borderWidth / 2),
+                    size = Size(size.width - borderWidth, size.height - borderWidth),
+                    style = Stroke(borderWidth),
+                    alpha = alpha,
+                )
+            }
         }
     }
 }
@@ -497,10 +516,11 @@ private object SelectionDefaults {
 
     @Composable
     @ReadOnlyComposable
-    fun TileState.decoration(): Decoration {
+    fun TileState.decoration(classicStyle: Boolean = false): Decoration {
         return when (this) {
             Removable -> removalBadge()
-            Selected -> resizingHandle()
+            // Classic circular tiles can't be resized, so selected tiles only get a highlight.
+            Selected -> if (classicStyle) placeable() else resizingHandle()
             Placeable -> placeable()
             New,
             None,
