@@ -16,7 +16,7 @@
 
 package com.android.systemui.qs.panels.ui.compose
 
-import androidx.activity.compose.BackHandler
+import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -30,7 +30,12 @@ fun EditMode(viewModel: EditModeViewModel, modifier: Modifier = Modifier) {
     val gridLayout by viewModel.gridLayout.collectAsStateWithLifecycle()
     val tiles by viewModel.tiles.collectAsStateWithLifecycle(emptyList())
 
-    BackHandler { viewModel.stopEditing() }
+    // Scene container disables its own Back action while customizing so the shade is not
+    // dismissed. Claim the system back gesture here; BackHandler only handles the key.
+    PredictiveBackHandler { progress ->
+        progress.collect {}
+        viewModel.stopEditing()
+    }
 
     DisposableEffect(Unit) { onDispose { viewModel.stopEditing() } }
 
