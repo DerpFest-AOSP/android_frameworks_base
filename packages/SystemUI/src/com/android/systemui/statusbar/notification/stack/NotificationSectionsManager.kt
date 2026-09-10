@@ -255,6 +255,20 @@ internal constructor(
             noMoreLastChild.requestBottomRoundness(0f, SECTION)
         }
 
+        // Each top-level notification is its own rounded card. Section first/last rounding alone
+        // leaves middle rows at the 4dp base radius, so colorized or template-filled content
+        // shows square corners, and minimized autogroup summaries look cut off.
+        for (child in children) {
+            if (child is ExpandableNotificationRow) {
+                if (child.isChildInGroup) {
+                    child.requestRoundnessReset(INDIVIDUAL_CARD)
+                } else {
+                    child.requestRoundness(1f, 1f, INDIVIDUAL_CARD)
+                }
+                child.attachedChildren?.forEach { it.requestRoundnessReset(INDIVIDUAL_CARD) }
+            }
+        }
+
         if (android.app.Flags.richOngoingImprovements() || NmContextualDisplay.isEnabled) {
             for ((index, child) in children.withIndex()) {
                 if (child is ExpandableNotificationRow) {
@@ -319,7 +333,8 @@ internal constructor(
     @VisibleForTesting
     fun hasIntrinsicTopRoundness(view: ExpandableView): Boolean {
         return view.getTopRoundnessSources().contains(BUNDLE) ||
-            view.getTopRoundnessSources().contains(GROUPING_DISABLED_SECTION)
+            view.getTopRoundnessSources().contains(GROUPING_DISABLED_SECTION) ||
+            view.getTopRoundnessSources().contains(INDIVIDUAL_CARD)
     }
 
     fun isInSameSection(
@@ -336,7 +351,8 @@ internal constructor(
     @VisibleForTesting
     fun hasIntrinsicBottomRoundness(view: ExpandableView): Boolean {
         return view.getBottomRoundnessSources().contains(BUNDLE) ||
-            view.getBottomRoundnessSources().contains(GROUPING_DISABLED_SECTION)
+            view.getBottomRoundnessSources().contains(GROUPING_DISABLED_SECTION) ||
+            view.getBottomRoundnessSources().contains(INDIVIDUAL_CARD)
     }
 
     private fun logSections(sections: List<NotificationSection>) {
@@ -392,6 +408,7 @@ internal constructor(
         private const val DEBUG = false
         val SECTION = SourceType.from("Section")
         val GROUPING_DISABLED_SECTION = SourceType.from("Grouping Disabled Section")
+        val INDIVIDUAL_CARD = SourceType.from("Individual Card")
         val BUNDLE = SourceType.from("Bundle")
         val PREVIOUS: SourceType = from("Previous view bottom rounded")
         val FOLLOWING: SourceType = from("Following view top rounded")

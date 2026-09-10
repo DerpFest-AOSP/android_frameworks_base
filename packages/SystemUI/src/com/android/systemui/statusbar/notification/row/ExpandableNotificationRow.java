@@ -1702,6 +1702,12 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
                 if (!isTransparent && mBgTint == NO_COLOR) {
                     color = mOpaqueColor;
                 }
+                // Minimized group summaries (including autogroup) have no template fill. If blur
+                // never attached, the surface-effect tint is invisible on the shade.
+                if (mIsMinimized && mIsSummaryWithChildren
+                        && (mBackgroundNormal == null || !mBackgroundNormal.isBlurEnabled())) {
+                    color = mOpaqueColor;
+                }
             }
         }
         super.setBackgroundTintColor(color);
@@ -1984,6 +1990,12 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
         mPrivateLayout.setIsLowPriority(isMinimized);
         if (mChildrenContainer != null) {
             mChildrenContainer.setIsMinimized(isMinimized);
+        }
+        // Minimized group summaries hide the template fill and rely on the row background. Refresh
+        // tint/blur so autogroup cards do not stay fully transparent.
+        if (mBackgroundNormal != null) {
+            updateBackgroundTint();
+            mBackgroundNormal.setBlurBackgroundEnabled(usesBlurredBackground());
         }
     }
 
@@ -4042,6 +4054,10 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
         }
         updateOutline();
         updateBackground();
+        if (!mShowNoBackground && mBackgroundNormal != null) {
+            super.updateBackgroundTint();
+            mBackgroundNormal.setBlurBackgroundEnabled(usesBlurredBackground());
+        }
     }
 
     @Override
@@ -4266,12 +4282,8 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
 
     @Override
     protected boolean childNeedsClipping(View child) {
-        if (child instanceof NotificationContentView contentView) {
-            if (isClippingNeeded()) {
-                return true;
-            } else if (hasRoundedCorner()
-                    && contentView.shouldClipToRounding(getTopRoundness() != 0.0f,
-                    getBottomRoundness() != 0.0f)) {
+        if (child instanceof NotificationContentView) {
+            if (isClippingNeeded() || hasRoundedCorner()) {
                 return true;
             }
         } else if (child == mChildrenContainer) {

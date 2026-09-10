@@ -168,37 +168,49 @@ public class NotificationSectionsManagerTest extends SysuiTestCase {
         assertThat(silentSolo.hasRoundedTopCorners()).isTrue();
         assertThat(silentSolo.hasRoundedBottomCorners()).isTrue();
         assertThat(silentSolo.getTopRoundnessSources()).containsExactly(
-                NotificationSectionsManager.Companion.getSECTION());
+                NotificationSectionsManager.Companion.getSECTION(),
+                NotificationSectionsManager.Companion.getINDIVIDUAL_CARD());
         assertThat(silentSolo.getBottomRoundnessSources()).containsExactly(
-                NotificationSectionsManager.Companion.getFOLLOWING());
+                NotificationSectionsManager.Companion.getFOLLOWING(),
+                NotificationSectionsManager.Companion.getINDIVIDUAL_CARD());
 
         assertThat(be1.hasRoundedTopCorners()).isTrue();
         assertThat(be1.hasRoundedBottomCorners()).isTrue();
         assertThat(be1.getTopRoundnessSources()).containsExactly(
-                NotificationSectionsManager.Companion.getBUNDLE());
+                NotificationSectionsManager.Companion.getBUNDLE(),
+                NotificationSectionsManager.Companion.getINDIVIDUAL_CARD());
         assertThat(be1.getBottomRoundnessSources()).containsExactly(
                 NotificationSectionsManager.Companion.getBUNDLE(),
-                NotificationSectionsManager.Companion.getFOLLOWING());
+                NotificationSectionsManager.Companion.getFOLLOWING(),
+                NotificationSectionsManager.Companion.getINDIVIDUAL_CARD());
 
         assertThat(be2.hasRoundedTopCorners()).isTrue();
         assertThat(be2.hasRoundedBottomCorners()).isTrue();
         assertThat(be2.getTopRoundnessSources()).containsExactly(
                 NotificationSectionsManager.Companion.getBUNDLE(),
-                NotificationSectionsManager.Companion.getPREVIOUS());
+                NotificationSectionsManager.Companion.getPREVIOUS(),
+                NotificationSectionsManager.Companion.getINDIVIDUAL_CARD());
         assertThat(be2.getBottomRoundnessSources()).containsExactly(
-                NotificationSectionsManager.Companion.getBUNDLE());
+                NotificationSectionsManager.Companion.getBUNDLE(),
+                NotificationSectionsManager.Companion.getINDIVIDUAL_CARD());
 
         assertThat(silentSolo2.hasRoundedTopCorners()).isTrue();
-        assertThat(silentSolo2.hasRoundedBottomCorners()).isFalse();
+        assertThat(silentSolo2.hasRoundedBottomCorners()).isTrue();
         assertThat(silentSolo2.getTopRoundnessSources()).containsExactly(
-                NotificationSectionsManager.Companion.getPREVIOUS());
-        assertThat(silentSolo2.getBottomRoundnessSources()).isEmpty();
+                NotificationSectionsManager.Companion.getPREVIOUS(),
+                NotificationSectionsManager.Companion.getINDIVIDUAL_CARD());
+        assertThat(silentSolo2.getBottomRoundnessSources()).containsExactly(
+                NotificationSectionsManager.Companion.getFOLLOWING(),
+                NotificationSectionsManager.Companion.getINDIVIDUAL_CARD());
 
-        assertThat(silentSolo3.hasRoundedTopCorners()).isFalse();
+        assertThat(silentSolo3.hasRoundedTopCorners()).isTrue();
         assertThat(silentSolo3.hasRoundedBottomCorners()).isTrue();
-        assertThat(silentSolo3.getTopRoundnessSources()).isEmpty();
+        assertThat(silentSolo3.getTopRoundnessSources()).containsExactly(
+                NotificationSectionsManager.Companion.getPREVIOUS(),
+                NotificationSectionsManager.Companion.getINDIVIDUAL_CARD());
         assertThat(silentSolo3.getBottomRoundnessSources()).containsExactly(
-                NotificationSectionsManager.Companion.getSECTION());
+                NotificationSectionsManager.Companion.getSECTION(),
+                NotificationSectionsManager.Companion.getINDIVIDUAL_CARD());
     }
 
     @Test
@@ -223,39 +235,51 @@ public class NotificationSectionsManagerTest extends SysuiTestCase {
         assertThat(silentSolo.hasRoundedTopCorners()).isTrue();
         assertThat(silentSolo.hasRoundedBottomCorners()).isTrue();
         assertThat(silentSolo.getTopRoundnessSources()).containsExactly(
-                NotificationSectionsManager.Companion.getSECTION());
+                NotificationSectionsManager.Companion.getSECTION(),
+                NotificationSectionsManager.Companion.getINDIVIDUAL_CARD());
         assertThat(silentSolo.getBottomRoundnessSources()).containsExactly(
-                NotificationSectionsManager.Companion.getFOLLOWING());
+                NotificationSectionsManager.Companion.getFOLLOWING(),
+                NotificationSectionsManager.Companion.getINDIVIDUAL_CARD());
 
         assertThat(be1.hasRoundedTopCorners()).isTrue();
         assertThat(be1.hasRoundedBottomCorners()).isTrue();
         assertThat(be1.getTopRoundnessSources()).containsExactly(
-                NotificationSectionsManager.Companion.getBUNDLE());
+                NotificationSectionsManager.Companion.getBUNDLE(),
+                NotificationSectionsManager.Companion.getINDIVIDUAL_CARD());
         assertThat(be1.getBottomRoundnessSources()).containsExactly(
-                NotificationSectionsManager.Companion.getBUNDLE());
+                NotificationSectionsManager.Companion.getBUNDLE(),
+                NotificationSectionsManager.Companion.getINDIVIDUAL_CARD());
 
         assertThat(silentSolo2.hasRoundedTopCorners()).isTrue();
         assertThat(silentSolo2.hasRoundedBottomCorners()).isTrue();
         assertThat(silentSolo2.getTopRoundnessSources()).containsExactly(
-                NotificationSectionsManager.Companion.getPREVIOUS());
+                NotificationSectionsManager.Companion.getPREVIOUS(),
+                NotificationSectionsManager.Companion.getINDIVIDUAL_CARD());
         assertThat(silentSolo2.getBottomRoundnessSources()).containsExactly(
-                NotificationSectionsManager.Companion.getSECTION());
+                NotificationSectionsManager.Companion.getSECTION(),
+                NotificationSectionsManager.Companion.getINDIVIDUAL_CARD());
 
         // remove bundle and check corners of remaining ENRs
         views = List.of(silentSolo, silentSolo2);
         mSectionsManager.updateFirstAndLastViewsForAllSections(views);
 
         assertThat(silentSolo.hasRoundedTopCorners()).isTrue();
-        assertThat(silentSolo.hasRoundedBottomCorners()).isFalse();
+        assertThat(silentSolo.hasRoundedBottomCorners()).isTrue();
         assertThat(silentSolo.getTopRoundnessSources()).containsExactly(
-                NotificationSectionsManager.Companion.getSECTION());
-        assertThat(silentSolo.getBottomRoundnessSources()).isEmpty();
+                NotificationSectionsManager.Companion.getSECTION(),
+                NotificationSectionsManager.Companion.getINDIVIDUAL_CARD());
+        assertThat(silentSolo.getBottomRoundnessSources()).containsExactly(
+                NotificationSectionsManager.Companion.getFOLLOWING(),
+                NotificationSectionsManager.Companion.getINDIVIDUAL_CARD());
 
-        assertThat(silentSolo2.hasRoundedTopCorners()).isFalse();
+        assertThat(silentSolo2.hasRoundedTopCorners()).isTrue();
         assertThat(silentSolo2.hasRoundedBottomCorners()).isTrue();
-        assertThat(silentSolo2.getTopRoundnessSources()).isEmpty();
+        assertThat(silentSolo2.getTopRoundnessSources()).containsExactly(
+                NotificationSectionsManager.Companion.getPREVIOUS(),
+                NotificationSectionsManager.Companion.getINDIVIDUAL_CARD());
         assertThat(silentSolo2.getBottomRoundnessSources()).containsExactly(
-                NotificationSectionsManager.Companion.getSECTION());
+                NotificationSectionsManager.Companion.getSECTION(),
+                NotificationSectionsManager.Companion.getINDIVIDUAL_CARD());
     }
 
     @Test
@@ -274,18 +298,22 @@ public class NotificationSectionsManagerTest extends SysuiTestCase {
         assertThat(silentSolo.hasRoundedTopCorners()).isTrue();
         assertThat(silentSolo.hasRoundedBottomCorners()).isTrue();
         assertThat(silentSolo.getTopRoundnessSources()).containsExactly(
-                NotificationSectionsManager.Companion.getSECTION());
+                NotificationSectionsManager.Companion.getSECTION(),
+                NotificationSectionsManager.Companion.getINDIVIDUAL_CARD());
         assertThat(silentSolo.getBottomRoundnessSources()).containsExactly(
-                NotificationSectionsManager.Companion.getSECTION());
+                NotificationSectionsManager.Companion.getSECTION(),
+                NotificationSectionsManager.Companion.getINDIVIDUAL_CARD());
 
         assertThat(be1.hasRoundedTopCorners()).isTrue();
         assertThat(be1.hasRoundedBottomCorners()).isTrue();
         assertThat(be1.getTopRoundnessSources()).containsExactly(
                 NotificationSectionsManager.Companion.getSECTION(),
-                NotificationSectionsManager.Companion.getBUNDLE());
+                NotificationSectionsManager.Companion.getBUNDLE(),
+                NotificationSectionsManager.Companion.getINDIVIDUAL_CARD());
         assertThat(be1.getBottomRoundnessSources()).containsExactly(
                 NotificationSectionsManager.Companion.getSECTION(),
-                NotificationSectionsManager.Companion.getBUNDLE());
+                NotificationSectionsManager.Companion.getBUNDLE(),
+                NotificationSectionsManager.Companion.getINDIVIDUAL_CARD());
     }
 
     @Test
