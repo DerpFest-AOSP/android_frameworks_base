@@ -52,6 +52,7 @@ fun TransitionBuilder.shadeToQuickSettingsTransition(
     // overlap.
     fractionRange(end = 0.5f) { fade(QqsTileElementMatcher) }
     anchoredTranslate(QqsTileElementMatcher, Elements.GridAnchor)
+    sharedElement(MediaCarousel)
     fade(MediaCarousel)
 
     val translationY = ShadeHeader.Dimensions.CollapsedHeightForTransitions

@@ -19,6 +19,7 @@ package com.android.systemui.qs.ui.composable
 import androidx.compose.foundation.layout.Arrangement.spacedBy
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeightIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -122,8 +123,16 @@ fun ContentScope.QuickSettingsContent(
             },
         media =
             @Composable {
+                // Keep a player-sized slot even before the carousel measures so the footer
+                // is not covered and then pushed down a frame later.
+                val mediaSlotModifier =
+                    if (viewModel.showMedia) {
+                        Modifier.requiredHeightIn(min = Media.DEFAULT_HEIGHT)
+                    } else {
+                        Modifier
+                    }
                 if (isAlwaysComposedContentVisible()) {
-                    Element(key = Media.Elements.MediaCarousel, modifier = Modifier) {
+                    Element(key = Media.Elements.MediaCarousel, modifier = mediaSlotModifier) {
                         Media(
                             viewModelFactory = viewModel.mediaViewModelFactory,
                             presentationStyle = MediaPresentationStyle.Default,
@@ -136,7 +145,7 @@ fun ContentScope.QuickSettingsContent(
                 } else {
                     // Add an empty box when QS content is not visible to keep the same number of
                     // elements.
-                    Box(modifier = Modifier)
+                    Box(modifier = mediaSlotModifier)
                 }
             },
         mediaInRow = mediaInRow,

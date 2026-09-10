@@ -17,6 +17,7 @@
 package com.android.systemui.qs.composefragment.ui
 
 import com.android.compose.animation.scene.TransitionBuilder
+import com.android.systemui.media.remedia.ui.compose.Media
 import com.android.systemui.qs.composefragment.SceneKeys
 import com.android.systemui.qs.shared.ui.QuickSettings.Elements
 
@@ -33,6 +34,9 @@ fun TransitionBuilder.quickQuickSettingsToQuickSettings(
     sharedElement(Elements.TileElementMatcher, enabled = animateTilesExpansion())
     sharedElement(Elements.BrightnessSlider)
     sharedElement(Elements.VolumeSlider)
+    // Keep the player interpolating into its QS slot so tiles/footer do not lay out on top of
+    // it while the host is still measuring.
+    sharedElement(Media.Elements.MediaCarousel)
 
     // This will animate between 0f (QQS) and 0.5, fading in the QQS tiles when coming back
     // from non first page QS. The QS content ends fading out at 0.43f, so there's a brief

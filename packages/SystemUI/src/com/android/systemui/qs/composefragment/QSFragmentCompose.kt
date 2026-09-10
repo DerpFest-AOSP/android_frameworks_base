@@ -1480,11 +1480,18 @@ private fun ContentScope.MediaObject(
         Element(
             key = Media.Elements.MediaCarousel,
             modifier =
-                modifier.thenIf(mediaPresentationStyle == MediaPresentationStyle.Compressed) {
-                    Modifier.height {
-                        lerp(Media.COMPRESSED_HEIGHT, Media.DEFAULT_HEIGHT, expansion()).roundToPx()
+                modifier
+                    .thenIf(mediaPresentationStyle == MediaPresentationStyle.Compressed) {
+                        Modifier.height {
+                            lerp(Media.COMPRESSED_HEIGHT, Media.DEFAULT_HEIGHT, expansion())
+                                .roundToPx()
+                        }
                     }
-                },
+                    // Reserve the expanded player height so QS tiles/footer do not collapse over
+                    // the QQS player while the host is still measuring.
+                    .thenIf(mediaPresentationStyle == MediaPresentationStyle.Default) {
+                        Modifier.requiredHeightIn(min = Media.DEFAULT_HEIGHT)
+                    },
         ) {
             Media(
                 viewModelFactory = mediaViewModelFactory,
@@ -1500,7 +1507,7 @@ private fun ContentScope.MediaObject(
     } else {
         Box {
             AndroidView(
-                modifier = modifier,
+                modifier = modifier.requiredHeightIn(min = Media.DEFAULT_HEIGHT),
                 factory = {
                     mediaHost.hostView.apply {
                         layoutParams =
