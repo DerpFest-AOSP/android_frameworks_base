@@ -1683,6 +1683,24 @@ public class DisplayContentTests extends WindowTestsBase {
         appWin.setHasSurface(false);
     }
 
+    @Test
+    public void testCalculateSystemGestureExclusion_imeExcludesTouchableRegion() {
+        final DisplayContent dc = createNewDisplay();
+        final var imeWin = newWindowBuilder("imeWin", TYPE_INPUT_METHOD).setDisplay(dc).build();
+        imeWin.mAttrs.flags |= FLAG_LAYOUT_IN_SCREEN | FLAG_LAYOUT_INSET_DECOR;
+        // Incomplete exclusion, as if the IME left a hole on an edge key such as backspace.
+        imeWin.setSystemGestureExclusion(Collections.emptyList());
+
+        performLayout(dc);
+        imeWin.setHasSurface(true);
+
+        final Region expected = Region.obtain();
+        imeWin.getEffectiveTouchableRegion(expected);
+        assertEquals(expected, calculateSystemGestureExclusion(dc));
+
+        imeWin.setHasSurface(false);
+    }
+
     @SetupWindows(addWindows = {W_ABOVE_ACTIVITY, W_ACTIVITY})
     @Test
     public void testRequestResizeForEmptyFrames() {

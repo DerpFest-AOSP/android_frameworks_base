@@ -940,6 +940,12 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
     }
 
     boolean isImplicitlyExcludingAllSystemGestures() {
+        // Keyboard keys sit in the edge-back strip when IME navigation space is hidden.
+        // IME apps can report incomplete exclusion rects (e.g. a hole on backspace), so always
+        // treat the IME touchable region as excluded from system gestures.
+        if (mAttrs.type == TYPE_INPUT_METHOD || mAttrs.type == TYPE_INPUT_METHOD_DIALOG) {
+            return true;
+        }
         final boolean stickyHideNav =
                 mAttrs.insetsFlags.behavior == BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                         && !isRequestedVisible(navigationBars());

@@ -447,6 +447,18 @@ public class WindowStateTests extends WindowTestsBase {
     }
 
     @Test
+    public void testImeWindowImplicitlyExcludesSystemGestures() {
+        final WindowState imeWindow = newWindowBuilder("imeWindow", TYPE_INPUT_METHOD).build();
+        final WindowState imeDialogWindow =
+                newWindowBuilder("imeDialogWindow", TYPE_INPUT_METHOD_DIALOG).build();
+        final WindowState appWindow = newWindowBuilder("appWindow", TYPE_APPLICATION).build();
+
+        assertTrue(imeWindow.isImplicitlyExcludingAllSystemGestures());
+        assertTrue(imeDialogWindow.isImplicitlyExcludingAllSystemGestures());
+        assertFalse(appWindow.isImplicitlyExcludingAllSystemGestures());
+    }
+
+    @Test
     public void testMagnifyIme_flagOnAndSettingsDisabled_typeIsIme_shouldNotMagnify() {
         final ContentResolver cr = useFakeSettingsProvider();
         Settings.Secure.putInt(cr,
