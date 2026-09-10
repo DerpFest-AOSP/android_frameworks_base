@@ -178,6 +178,8 @@ fun UnifiedBattery(
     modifier: Modifier,
     /** When false (e.g. quick settings), do not apply accent tint even if setting is on */
     useAccentTintInContext: Boolean = true,
+    /** When set, fill/attribution use this color so the icon matches nearby status icons. */
+    iconTint: Color? = null,
 ) {
     var bounds by remember { mutableStateOf(Rect()) }
 
@@ -190,11 +192,13 @@ fun UnifiedBattery(
         if (useAccentTintInContext) viewModel.colorProfile else defaultColorProfile
 
     val colorProvider = {
-        if (isDarkProvider().isDarkTheme(bounds)) {
-            effectiveColorProfile.dark
-        } else {
-            effectiveColorProfile.light
-        }
+        val base =
+            if (isDarkProvider().isDarkTheme(bounds)) {
+                effectiveColorProfile.dark
+            } else {
+                effectiveColorProfile.light
+            }
+        if (iconTint != null) BatteryColors.MatchedIconTint(base, iconTint) else base
     }
 
     BatteryLayout(

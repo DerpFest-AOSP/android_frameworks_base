@@ -758,6 +758,7 @@ private fun BatteryInfo(
         textColor = textColor,
         modifier = modifier.sysuiResTag(ShadeHeader.TestTags.BatteryTestTag),
         useAccentTintInContext = false, // QS header: no accent tint
+        iconTint = if (chipHighlightModel != null) textColor else null,
     )
 }
 

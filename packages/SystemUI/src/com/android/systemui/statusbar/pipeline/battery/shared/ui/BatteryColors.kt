@@ -146,6 +146,18 @@ sealed interface BatteryColors {
         override val backgroundWithGlyph = accentColor.copy(alpha = 0.70f)
     }
 
+    /**
+     * Copies [base] but paints fill and attribution with [tint], so the battery matches
+     * neighboring status icons (e.g. on a shade highlight chip).
+     */
+    class MatchedIconTint(base: BatteryColors, tint: Color) : BatteryColors {
+        override val glyph = base.glyph
+        override val fill = tint
+        override val backgroundOnly = tint.copy(alpha = base.backgroundOnly.alpha)
+        override val backgroundWithGlyph = tint.copy(alpha = base.backgroundWithGlyph.alpha)
+        override val attribution = tint
+    }
+
     companion object {
         /**
          * Calculates a readable text color (ARGB) to sit on top of the given background color.

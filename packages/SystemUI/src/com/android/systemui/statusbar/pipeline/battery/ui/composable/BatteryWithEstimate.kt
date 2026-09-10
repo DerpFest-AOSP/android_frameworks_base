@@ -44,6 +44,8 @@ fun BatteryWithEstimate(
     showIcon: Boolean = true,
     /** When false (e.g. quick settings), do not apply accent tint even if setting is on */
     useAccentTintInContext: Boolean = true,
+    /** When set, the battery body uses this color instead of black/white theme defaults. */
+    iconTint: Color? = null,
 ) {
     val viewModel =
         rememberViewModel(traceName = "BatteryWithEstimate") { viewModelFactory.create() }
@@ -71,6 +73,7 @@ fun BatteryWithEstimate(
                         .wrapContentWidth()
                         .align(Alignment.CenterVertically),
                 useAccentTintInContext = useAccentTintInContext,
+                iconTint = iconTint,
             )
         }
         if (showEstimate) {
