@@ -256,6 +256,15 @@ fun BatteryLayout(
                     modifier = Modifier.layoutId(BatteryMeasurePolicy.LayoutId.FrameCircle),
                     contentDescription = contentDescription,
                 )
+            } else if (iconStyle == BatteryRepository.ICON_STYLE_FULL_CIRCLE) {
+                FullCircleBatteryBody(
+                    attr = attribution,
+                    levelProvider = levelProvider,
+                    showLevelProvider = showLevelProvider,
+                    colorsProvider = colorsProvider,
+                    modifier = Modifier.layoutId(BatteryMeasurePolicy.LayoutId.FrameCircle),
+                    contentDescription = contentDescription,
+                )
             } else if (iconStyle == BatteryRepository.ICON_STYLE_TEXT) {
                 // Empty on purpose
             } else {
@@ -479,15 +488,7 @@ fun CircleBatteryBody(
         // Draw colored arc representing charge level
         if (level != null && level > 0) {
             drawArc(
-                if (attr is BatteryGlyph.Bolt || attr is BatteryGlyph.Defend) {
-                    BatteryColors.DarkTheme.Charging.fill
-                } else if (attr is BatteryGlyph.Plus) {
-                    BatteryColors.DarkTheme.PowerSave.fill
-                } else if (level <= 20) {
-                    colorError
-                } else {
-                    colors.attribution
-                },
+                circleFillColor(attr, level, colors, colorError),
                 270f,
                 3.6f * level,
                 useCenter = false,
@@ -549,6 +550,108 @@ fun CircleBatteryBody(
                     ),
             )
         }
+    }
+}
+
+/**
+ * Filled circle battery (PA / full-circle style). Charge level is a solid disk that grows from the
+ * center, rather than a ring/arc.
+ */
+@Composable
+fun FullCircleBatteryBody(
+    attr: BatteryGlyph?,
+    levelProvider: () -> Int?,
+    showLevelProvider: () -> Boolean,
+    colorsProvider: () -> BatteryColors,
+    modifier: Modifier = Modifier,
+    contentDescription: String = "",
+) {
+    val colorError = MaterialTheme.colorScheme.error
+    val textMeasurer = rememberTextMeasurer()
+
+    Canvas(modifier = modifier, contentDescription = contentDescription) {
+        val level = levelProvider()
+        val showLevel = showLevelProvider()
+        val colors = colorsProvider()
+
+        val radius = size.minDimension / 2f
+        val center = Offset(size.width / 2, size.height / 2)
+        val fillColor = circleFillColor(attr, level, colors, colorError)
+        val drawFrac = if (level != null && level > 0) level / 100f else 0f
+
+        drawCircle(colors.backgroundOnly, radius, center)
+        if (drawFrac != 0f) {
+            drawCircle(fillColor, radius * drawFrac, center)
+        }
+
+        if (attr is BatteryGlyph.Plus) {
+            drawCircle(
+                BatteryColors.DarkTheme.PowerSave.fill,
+                radius,
+                center,
+                style = Stroke(size.height / 16f),
+            )
+        }
+
+        if (attr != null) {
+            inset(radius * 0.4f) {
+                val attrScale = attr.scaleTo(size.width, size.height)
+                val pathBounds = attr.path.getBounds()
+                withTransform({
+                    scale(attrScale, Offset.Zero)
+                    translate(
+                        (size.width - (pathBounds.width * attrScale)) / 2f,
+                        (size.height - (pathBounds.height * attrScale)) / 2f,
+                    )
+                }) {
+                    drawPath(
+                        path = attr.path,
+                        color = Color.Black,
+                        style = Stroke(2f),
+                        blendMode = BlendMode.Clear,
+                    )
+                    drawPath(attr.path, colors.attribution)
+                }
+            }
+        } else if (showLevel && level != null && level < 100) {
+            val textLayoutResult =
+                textMeasurer.measure(
+                    text = level.toString(),
+                    style =
+                        TextStyle(
+                            fontSize = 6.sp,
+                            fontWeight = FontWeight.Bold,
+                        ),
+                )
+            val fillCoversText =
+                radius * drawFrac >= textLayoutResult.size.height / 2f
+            drawText(
+                textLayoutResult = textLayoutResult,
+                color = if (fillCoversText) colors.backgroundOnly else fillColor,
+                topLeft =
+                    Offset(
+                        size.width / 2 - textLayoutResult.size.width / 2f,
+                        size.height / 2 - textLayoutResult.size.height / 2f,
+                    ),
+            )
+        }
+    }
+}
+
+private fun circleFillColor(
+    attr: BatteryGlyph?,
+    level: Int?,
+    colors: BatteryColors,
+    colorError: Color,
+): Color {
+    return if (attr is BatteryGlyph.Bolt || attr is BatteryGlyph.Defend) {
+        BatteryColors.DarkTheme.Charging.fill
+    } else if (attr is BatteryGlyph.Plus) {
+        BatteryColors.DarkTheme.PowerSave.fill
+    } else if (level != null && level <= 20) {
+        colorError
+    } else {
+        colors.attribution
     }
 }
 
