@@ -301,9 +301,9 @@ constructor(
     }
 
     private fun addViewNowOrLater(view: View, animation: UdfpsAnimationViewController<*>?) {
-        udfpsHelper?.addDimLayer()
         addViewRunnable =
             kotlinx.coroutines.Runnable {
+                udfpsHelper?.addDimLayer()
                 Trace.setCounter("UdfpsAddView", 1)
                 if (Build.IS_DEBUGGABLE) {
                     Log.d(TAG, "adding view=$view")
