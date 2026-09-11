@@ -9,9 +9,6 @@
     <dimen name="horizontal_max_shift">4dp</dimen>
     <dimen name="vertical_max_shift">4dp</dimen>
 
-    <!-- HD calling icon -->
-    <dimen name="signal_icon_viewport_size">24dp</dimen>
-
     <!-- Network Speed -->
     <dimen name="network_speed_margin_bottom">7dp</dimen>
     <dimen name="network_speed_text_size">8dp</dimen>
