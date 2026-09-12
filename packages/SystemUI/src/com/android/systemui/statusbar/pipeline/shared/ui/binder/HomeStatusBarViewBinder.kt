@@ -468,8 +468,26 @@ constructor(
                 launch {
                     viewModel.isNotificationIconContainerVisible.collect {
                         lyricController.updateNotificationIconsVisibility(it)
-                        leftLogo.adjustVisibility(it)
                     }
+                }
+
+                launch {
+                    combine(
+                            viewModel.isNotificationIconContainerVisible,
+                            viewModel.hideStartSideContentForHeadsUp,
+                        ) { visibilityModel, hideForHun ->
+                            visibilityModel to hideForHun
+                        }
+                        .collect { (visibilityModel, hideForHun) ->
+                            leftLogo.setHiddenForHeadsUp(hideForHun)
+                            val logoVisibility =
+                                if (leftLogo.shouldShowLogo()) {
+                                    visibilityModel
+                                } else {
+                                    visibilityModel.copy(visibility = View.GONE)
+                                }
+                            leftLogo.adjustVisibility(logoVisibility)
+                        }
                 }
 
                 launch {

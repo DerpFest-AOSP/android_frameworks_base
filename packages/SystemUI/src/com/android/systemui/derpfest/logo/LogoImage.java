@@ -48,6 +48,7 @@ public abstract class LogoImage extends ImageView implements DarkReceiver {
     public int mLogoPosition;
     private int mLogoStyle;
     private int mTintColor = Color.WHITE;
+    private boolean mHiddenForHeadsUp;
 
     private ContentObserver mSettingsObserver;
 
@@ -65,6 +66,20 @@ public abstract class LogoImage extends ImageView implements DarkReceiver {
     }
 
     protected abstract boolean isLogoVisible();
+
+    /** Hide the logo while a heads-up notification is pinned, matching the left clock. */
+    public void setHiddenForHeadsUp(boolean hidden) {
+        if (mHiddenForHeadsUp == hidden) {
+            return;
+        }
+        mHiddenForHeadsUp = hidden;
+        updateSettings();
+    }
+
+    /** True when settings want this side's logo shown and a heads-up is not pinning it away. */
+    public boolean shouldShowLogo() {
+        return mShowLogo && isLogoVisible() && !mHiddenForHeadsUp;
+    }
 
     @Override
     protected void onAttachedToWindow() {
@@ -263,7 +278,7 @@ public abstract class LogoImage extends ImageView implements DarkReceiver {
         mLogoStyle = Settings.System.getIntForUser(mContext.getContentResolver(),
                 Settings.System.STATUS_BAR_LOGO_STYLE, 0, UserHandle.USER_CURRENT);
         updateLogoSpacing();
-        if (!mShowLogo || !isLogoVisible()) {
+        if (!shouldShowLogo()) {
             setImageDrawable(null);
             setVisibility(View.GONE);
             return;
