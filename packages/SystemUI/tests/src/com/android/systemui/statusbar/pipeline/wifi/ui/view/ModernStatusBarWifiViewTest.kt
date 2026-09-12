@@ -30,6 +30,7 @@ import androidx.test.filters.SmallTest
 import com.android.systemui.SysuiTestCase
 import com.android.systemui.log.table.logcatTableLogBuffer
 import com.android.systemui.res.R
+import com.android.systemui.shared.settings.data.repository.fakeSecureSettingsRepository
 import com.android.systemui.statusbar.StatusBarIconView.STATE_DOT
 import com.android.systemui.statusbar.StatusBarIconView.STATE_HIDDEN
 import com.android.systemui.statusbar.StatusBarIconView.STATE_ICON
@@ -101,6 +102,7 @@ class ModernStatusBarWifiViewTest : SysuiTestCase() {
                 interactor,
                 scope,
                 wifiConstants,
+                kosmos.fakeSecureSettingsRepository,
             )
         viewModel = viewModelForLocation(viewModelCommon, StatusBarLocation.HOME)
     }

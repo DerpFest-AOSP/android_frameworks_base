@@ -243,6 +243,9 @@ sealed class WifiNetworkModel : Diffable<WifiNetworkModel> {
          * isn't a hotspot connection.
          */
         val hotspotDeviceType: HotspotDeviceType,
+
+        /** See [android.net.wifi.WifiInfo.getWifiStandard]. */
+        val wifiStandard: Int,
     ) : WifiNetworkModel() {
         companion object {
             /**
@@ -255,11 +258,12 @@ sealed class WifiNetworkModel : Diffable<WifiNetworkModel> {
                 level: Int,
                 ssid: String? = null,
                 hotspotDeviceType: HotspotDeviceType = HotspotDeviceType.NONE,
+                wifiStandard: Int = 0,
             ): WifiNetworkModel {
                 if (!level.isValid()) {
                     return Inactive(getInvalidLevelErrorString(level))
                 }
-                return Active(showExclamation, level, ssid, hotspotDeviceType)
+                return Active(showExclamation, level, ssid, hotspotDeviceType, wifiStandard)
             }
 
             private fun Int.isValid(): Boolean {
@@ -304,6 +308,9 @@ sealed class WifiNetworkModel : Diffable<WifiNetworkModel> {
             if (prevVal.hotspotDeviceType != hotspotDeviceType) {
                 row.logChange(COL_HOTSPOT, hotspotDeviceType.name)
             }
+            if (prevVal.wifiStandard != wifiStandard) {
+                row.logChange(COL_WIFI_STANDARD, wifiStandard)
+            }
         }
 
         override fun logFull(row: TableRowLogger) {
@@ -314,6 +321,7 @@ sealed class WifiNetworkModel : Diffable<WifiNetworkModel> {
             row.logChange(COL_NUM_LEVELS, null)
             row.logChange(COL_SSID, ssid)
             row.logChange(COL_HOTSPOT, hotspotDeviceType.name)
+            row.logChange(COL_WIFI_STANDARD, wifiStandard)
         }
     }
 
@@ -368,6 +376,7 @@ const val COL_LEVEL = "level"
 const val COL_NUM_LEVELS = "maxLevel"
 const val COL_SSID = "ssid"
 const val COL_HOTSPOT = "hotspot"
+const val COL_WIFI_STANDARD = "wifiStandard"
 
 val LEVEL_DEFAULT: String? = null
 val NUM_LEVELS_DEFAULT: String? = null

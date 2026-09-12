@@ -1,25 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
      Copyright (C) 2022 Project Kaleidoscope
+               (C) 2022-2026 Paranoid Android
 
-     Licensed under the Apache License, Version 2.0 (the "License");
-     you may not use this file except in compliance with the License.
-     You may obtain a copy of the License at
-
-          http://www.apache.org/licenses/LICENSE-2.0
-
-     Unless required by applicable law or agreed to in writing, software
-     distributed under the License is distributed on an "AS IS" BASIS,
-     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-     See the License for the specific language governing permissions and
-     limitations under the License.
+     SPDX-License-Identifier: Apache-2.0
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="26dp"
-    android:height="24dp"
-    android:viewportWidth="26"
-    android:viewportHeight="24">
+    android:width="17.0dp"
+    android:height="12.58dp"
+    android:viewportWidth="16.21"
+    android:viewportHeight="12.0">
     <path
         android:fillColor="@android:color/white"
-        android:pathData="M0.52,19a4.41,4.41 0,0 1,0.3 -1.6,8.21 8.21,0 0,1 1,-1.76l1.49,-2.1L4.79,13.54L3,16a10.64,10.64 0,0 0,-0.66 1,2.63 2.63,0 0,1 0.6,-0.25 2.54,2.54 0,0 1,0.68 -0.09,2.5 2.5,0 0,1 1.26,0.31 2.1,2.1 0,0 1,0.88 0.89,2.72 2.72,0 0,1 0.31,1.33 2.48,2.48 0,0 1,-0.36 1.33,2.35 2.35,0 0,1 -1,0.89 3.12,3.12 0,0 1,-1.42 0.31,3.1 3.1,0 0,1 -1.45,-0.33 2.38,2.38 0,0 1,-1 -0.93A2.7,2.7 0,0 1,0.52 19ZM1.8,19.13a1.5,1.5 0,0 0,0.41 1.11,1.49 1.49,0 0,0 1.09,0.4 1.46,1.46 0,0 0,1.09 -0.41,1.7 1.7,0 0,0 0,-2.2 1.46,1.46 0,0 0,-1.1 -0.41,1.55 1.55,0 0,0 -0.8,0.19 1.22,1.22 0,0 0,-0.52 0.51A1.73,1.73 0,0 0,1.8 19.16Z"/>
+        android:pathData="M 4.000,10.274 L 4.000,10.274 Q 4.000,11.082 3.501,11.541 Q 3.003,12.000 2.124,12.000 L 2.124,12.000 Q 1.140,12.000 0.610,11.375 Q 0.082,10.748 0.082,9.519 L 0.082,9.519 Q 0.082,8.166 0.619,7.483 Q 1.154,6.800 2.152,6.800 L 2.152,6.800 Q 2.860,6.800 3.270,7.083 Q 3.680,7.366 3.850,7.961 L 3.850,7.961 L 2.801,8.095 Q 2.650,7.597 2.128,7.597 L 2.128,7.597 Q 1.681,7.597 1.426,8.001 Q 1.171,8.406 1.171,9.231 L 1.171,9.231 Q 1.348,8.963 1.665,8.820 Q 1.982,8.675 2.382,8.675 L 2.382,8.675 Q 3.130,8.675 3.565,9.106 Q 4.000,9.536 4.000,10.274 Z M 2.883,10.304 L 2.883,10.304 Q 2.883,9.873 2.665,9.646 Q 2.445,9.418 2.060,9.418 L 2.060,9.418 Q 1.693,9.418 1.472,9.631 Q 1.250,9.845 1.250,10.196 L 1.250,10.196 Q 1.250,10.637 1.482,10.926 Q 1.712,11.214 2.088,11.214 L 2.088,11.214 Q 2.464,11.214 2.674,10.972 Q 2.883,10.730 2.883,10.304 Z" />
 </vector>

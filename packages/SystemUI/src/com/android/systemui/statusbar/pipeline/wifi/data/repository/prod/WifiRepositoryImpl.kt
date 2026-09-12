@@ -418,6 +418,7 @@ constructor(
             level = this.level,
             ssid = this.title,
             hotspotDeviceType = hotspotDeviceType,
+            wifiStandard = connectedInfo?.wifiStandard ?: ScanResult.WIFI_STANDARD_UNKNOWN,
         )
     }
 

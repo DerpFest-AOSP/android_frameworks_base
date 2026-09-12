@@ -190,6 +190,15 @@ object WifiViewBinder {
                     }
                 }
 
+                launch {
+                    viewModel.wifiStandardIcon.collect { standardIcon ->
+                        wifiStandardView.isVisible = standardIcon != null
+                        if (standardIcon != null) {
+                            IconViewBinder.bind(standardIcon, wifiStandardView)
+                        }
+                    }
+                }
+
                 launch { decorTint.collect { tint -> dotView.setDecorColor(tint) } }
 
                 launch {

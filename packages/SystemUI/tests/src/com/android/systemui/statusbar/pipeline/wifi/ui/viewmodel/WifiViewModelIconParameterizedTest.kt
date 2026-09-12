@@ -24,6 +24,7 @@ import com.android.settingslib.AccessibilityContentDescriptions.WIFI_NO_CONNECTI
 import com.android.systemui.SysuiTestCase
 import com.android.systemui.common.shared.model.ContentDescription.Companion.loadContentDescription
 import com.android.systemui.log.table.TableLogBuffer
+import com.android.systemui.shared.settings.data.repository.fakeSecureSettingsRepository
 import com.android.systemui.statusbar.connectivity.WifiIcons.WIFI_FULL_ICONS
 import com.android.systemui.statusbar.connectivity.WifiIcons.WIFI_NO_INTERNET_ICONS
 import com.android.systemui.statusbar.connectivity.WifiIcons.WIFI_NO_NETWORK
@@ -119,6 +120,7 @@ internal class WifiViewModelIconParameterizedTest(private val testCase: TestCase
                     interactor,
                     scope,
                     wifiConstants,
+                    kosmos.fakeSecureSettingsRepository,
                 )
 
             val iconFlow = underTest.wifiIcon
