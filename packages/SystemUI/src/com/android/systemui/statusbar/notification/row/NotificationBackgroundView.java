@@ -336,7 +336,12 @@ public class NotificationBackgroundView extends View implements Dumpable,
         if (!lockscreenBlurForNotifications()) {
             return;
         }
-        Assert.isMainThread();
+        // Async row inflation runs onFinishInflate off the main thread before the view has a
+        // ViewRootImpl. Creating or tearing down a BackgroundBlurDrawable is UI-thread work, so
+        // only assert once we are attached or already holding a drawable.
+        if (isAttachedToWindow() || mBackgroundBlurDrawable != null) {
+            Assert.isMainThread();
+        }
 
         if (enabled && mBackgroundBlurDrawable == null) {
             if (mOnAttachStateChangeListener != null) {
@@ -346,6 +351,7 @@ public class NotificationBackgroundView extends View implements Dumpable,
                     new OnAttachStateChangeListener() {
                         @Override
                         public void onViewAttachedToWindow(View view) {
+                            Assert.isMainThread();
                             if (mBackgroundBlurDrawable == null) {
                                 mBackgroundBlurDrawable =
                                         view.getViewRootImpl().createBackgroundBlurDrawable();
