@@ -65,7 +65,9 @@ class SliderHapticFeedbackProvider(
         private set
 
     private val lowTickDurationMs =
-        vibratorHelper.getPrimitiveDurations(VibrationEffect.Composition.PRIMITIVE_LOW_TICK)[0]
+        vibratorHelper.getPrimitiveDurations(VibrationEffect.Composition.PRIMITIVE_LOW_TICK)
+            .firstOrNull()
+            ?.takeIf { it > 0 } ?: 12
     private var hasVibratedAtLowerBookend = false
     private var hasVibratedAtUpperBookend = false
 
