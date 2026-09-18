@@ -173,7 +173,7 @@ class BurnInProtectionController @Inject constructor(
     private fun getBurnInOffset(maxOffset: Int): Int {
         val amplitude = maxOffset.toFloat()
         val period = amplitude * 2
-        val mult = if ((shiftCounter / period) % 2 == 0f) 1 else -1
+        val mult = if ((shiftCounter / period).toInt() % 2 == 0) 1 else -1
         return mult * Math.round(zigzag(shiftCounter.toFloat(), amplitude, period))
     }
 
