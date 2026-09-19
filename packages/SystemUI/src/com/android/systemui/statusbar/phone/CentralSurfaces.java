@@ -270,5 +270,19 @@ public interface CentralSurfaces extends Dumpable, LifecycleOwner, CoreStartable
 
     void cancelBrightnessControl();
 
+    /**
+     * Whether status bar swipe-to-brightness is enabled for the current state (including the
+     * lockscreen-specific setting when keyguard is showing).
+     */
+    boolean isStatusBarBrightnessControlEnabled();
+
+    /**
+     * Handles a touch that may be a status bar brightness gesture.
+     *
+     * @return {@code true} if the event was consumed as a brightness gesture and should not be
+     *     dispatched to other touch handlers
+     */
+    boolean handleStatusBarBrightnessTouch(MotionEvent event);
+
     void toggleCameraFlash();
 }

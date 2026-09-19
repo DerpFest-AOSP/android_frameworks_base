@@ -17,7 +17,12 @@
 package com.android.systemui.statusbar.pipeline.shared.ui.composable
 
 import android.content.Context
+import android.database.ContentObserver
 import android.graphics.Rect
+import android.os.Handler
+import android.os.Looper
+import android.os.UserHandle
+import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -259,6 +264,7 @@ fun StatusBarRoot(
     var touchableExclusionRegionDisposableHandle: DisposableHandle? = null
 
     val touchSlop = LocalViewConfiguration.current.touchSlop
+    val brightnessControlEnabled = rememberStatusBarBrightnessControlEnabled()
 
     // Let the DesktopStatusBar compose all the UI if [useDesktopStatusBar] is true.
     if (StatusBarForDesktop.isEnabled && statusBarViewModel.useDesktopStatusBar) {
@@ -269,7 +275,11 @@ fun StatusBarRoot(
             iconManagerFactory = tintedIconManagerFactory,
             iconViewStore = iconViewStore,
             modifier =
-                modifier.forwardDragAndSwipeToShadeRootView(shadeWindowRootView, touchSlop) {
+                modifier.forwardDragAndSwipeToShadeRootView(
+                    shadeWindowRootView,
+                    touchSlop,
+                    interceptHorizontal = brightnessControlEnabled,
+                ) {
                     position,
                     size,
                     isConsumed ->
@@ -402,7 +412,11 @@ fun StatusBarRoot(
                                     }
                                 }
                             }
-                            .forwardDragAndSwipeToShadeRootView(shadeWindowRootView, touchSlop) {
+                            .forwardDragAndSwipeToShadeRootView(
+                                shadeWindowRootView,
+                                touchSlop,
+                                interceptHorizontal = brightnessControlEnabled,
+                            ) {
                                 position,
                                 size,
                                 isConsumed ->
@@ -817,9 +831,10 @@ private fun rememberViewWidthAsState(view: View): MutableIntState {
 fun Modifier.forwardDragAndSwipeToShadeRootView(
     view: View,
     touchSlop: Float,
+    interceptHorizontal: Boolean = false,
     onDown: (downPosition: Offset, size: IntSize, isConsumed: Boolean) -> Unit,
 ): Modifier =
-    pointerInput(view) {
+    pointerInput(view, interceptHorizontal) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Main)
             val isConsumed = down.isConsumed
@@ -843,7 +858,14 @@ fun Modifier.forwardDragAndSwipeToShadeRootView(
                     } else {
                         // If not intercepting, check if we should start.
                         val dy = mainChange.position.y - down.position.y
-                        if (abs(dy) > touchSlop) {
+                        val dx = mainChange.position.x - down.position.x
+                        val exceedsSlop =
+                            if (interceptHorizontal) {
+                                abs(dx) > touchSlop || abs(dy) > touchSlop
+                            } else {
+                                abs(dy) > touchSlop
+                            }
+                        if (exceedsSlop) {
                             isIntercepting = true
 
                             // Slop exceeded. Dispatch the cached events...
@@ -866,6 +888,39 @@ fun Modifier.forwardDragAndSwipeToShadeRootView(
             }
         }
     }
+
+@Composable
+private fun rememberStatusBarBrightnessControlEnabled(): Boolean {
+    val context = LocalContext.current
+    val resolver = remember { context.contentResolver }
+
+    fun read(): Boolean {
+        return Settings.System.getIntForUser(
+            resolver,
+            Settings.System.STATUS_BAR_BRIGHTNESS_CONTROL,
+            0,
+            UserHandle.USER_CURRENT,
+        ) != 0
+    }
+
+    var enabled by remember { mutableStateOf(read()) }
+    DisposableEffect(resolver) {
+        val observer =
+            object : ContentObserver(Handler(Looper.getMainLooper())) {
+                override fun onChange(selfChange: Boolean) {
+                    enabled = read()
+                }
+            }
+        resolver.registerContentObserver(
+            Settings.System.getUriFor(Settings.System.STATUS_BAR_BRIGHTNESS_CONTROL),
+            false,
+            observer,
+            UserHandle.USER_ALL,
+        )
+        onDispose { resolver.unregisterContentObserver(observer) }
+    }
+    return enabled
+}
 
 /** Helper to dispatch a copy of the MotionEvent and consume all PointerChanges. */
 private fun dispatchAndConsume(event: PointerEvent, legacyView: View) {

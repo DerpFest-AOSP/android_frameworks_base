@@ -450,6 +450,21 @@ class PhoneStatusBarViewControllerTest(flags: FlagsParameterization) : SysuiTest
     @Test
     @EnableSceneContainer
     @DisableFlags(Flags.FLAG_STATUS_BAR_EVENT_FORWARDING_MODERNIZATION)
+    fun handleInterceptTouchEventFromStatusBar_horizontalSwipe_brightnessControl_intercepts() {
+        whenever(centralSurfacesImpl.isStatusBarBrightnessControlEnabled).thenReturn(true)
+        val downEvent = MotionEvent.obtain(0L, 0L, MotionEvent.ACTION_DOWN, 0f, 10f, 0)
+        view.onInterceptTouchEvent(downEvent)
+
+        val moveEvent = MotionEvent.obtain(0L, 0L, MotionEvent.ACTION_MOVE, 100f, 11f, 0)
+        val intercepted = view.onInterceptTouchEvent(moveEvent)
+
+        assertThat(intercepted).isTrue()
+        verify(windowRootView).dispatchTouchEvent(moveEvent)
+    }
+
+    @Test
+    @EnableSceneContainer
+    @DisableFlags(Flags.FLAG_STATUS_BAR_EVENT_FORWARDING_MODERNIZATION)
     fun handleInterceptTouchEventFromStatusBar_clearsCacheBetweenGestures() {
         // Gesture 1: A short tap/swipe that does NOT trigger interception.
         val downEvent1 = MotionEvent.obtain(0L, 0L, MotionEvent.ACTION_DOWN, 0f, 10f, 0)

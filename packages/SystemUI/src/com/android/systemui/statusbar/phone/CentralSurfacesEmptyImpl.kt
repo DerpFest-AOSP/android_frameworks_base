@@ -164,6 +164,10 @@ abstract class CentralSurfacesEmptyImpl : CentralSurfaces {
 
     override fun cancelBrightnessControl() {}
 
+    override fun isStatusBarBrightnessControlEnabled(): Boolean = false
+
+    override fun handleStatusBarBrightnessTouch(event: MotionEvent?): Boolean = false
+
     override fun toggleCameraFlash() {}
 
     override fun toggleSettingsPanel() {}

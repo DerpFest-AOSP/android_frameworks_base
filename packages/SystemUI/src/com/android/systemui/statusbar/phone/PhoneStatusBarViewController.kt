@@ -59,6 +59,7 @@ import java.util.Optional
 import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Provider
+import kotlin.math.abs
 
 private const val TAG = "PhoneStatusBarViewController"
 
@@ -360,8 +361,17 @@ private constructor(
                     initialTouchY = event.y
                 }
                 MotionEvent.ACTION_MOVE -> {
+                    val dx = abs(event.x - initialTouchX)
                     val dy = event.y - initialTouchY
-                    if (dy > touchSlop) {
+                    val interceptForBrightness =
+                        centralSurfaces.isStatusBarBrightnessControlEnabled &&
+                            dx > touchSlop &&
+                            dx >= abs(dy)
+                    // Only treat this as a shade swipe when movement is clearly vertical.
+                    // Otherwise left/right brightness swipes with a bit of downward drift get
+                    // stolen by shade expansion.
+                    val interceptForShade = dy > touchSlop && abs(dy) > dx
+                    if (interceptForShade || interceptForBrightness) {
                         if (!isIntercepting) {
                             isIntercepting = true
                             dispatchCachedEvents()

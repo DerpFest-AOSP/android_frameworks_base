@@ -98,6 +98,7 @@ import androidx.lifecycle.LifecycleRegistry;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.colorextraction.ColorExtractor;
+import com.android.internal.policy.SystemBarUtils;
 import com.android.internal.display.BrightnessSynchronizer;
 import com.android.internal.logging.MetricsLogger;
 import com.android.internal.logging.UiEventLogger;
@@ -561,6 +562,13 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
     private boolean mBrightnessChanged;
     private float mCurrentBrightness;
     private float mBrightnessAtTouchStart = -1f;
+    private boolean mBrightnessControl;
+    private boolean mBrightnessControlLockscreen;
+    private boolean mBrightnessStealing;
+    private boolean mBrightnessRejectedThisGesture;
+    private boolean mBrightnessGestureTracking;
+    private float mBrightnessDownRawX;
+    private float mBrightnessDownRawY;
 
     /**
      * Public constructor for CentralSurfaces.
@@ -854,6 +862,27 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
         mContext.getContentResolver().registerContentObserver(
                 blurIntensity, false, contentObserver);
         contentObserver.onChange(true, blurIntensity);
+
+        ContentObserver brightnessControlObserver = new ContentObserver(null) {
+            @Override
+            public void onChange(boolean selfChange) {
+                mBrightnessControl = Settings.System.getIntForUser(mContext.getContentResolver(),
+                        Settings.System.STATUS_BAR_BRIGHTNESS_CONTROL,
+                        0, UserHandle.USER_CURRENT) != 0;
+                mBrightnessControlLockscreen = Settings.System.getIntForUser(
+                        mContext.getContentResolver(),
+                        Settings.System.STATUS_BAR_BRIGHTNESS_CONTROL_LOCKSCREEN,
+                        0, UserHandle.USER_CURRENT) != 0;
+            }
+        };
+        mContext.getContentResolver().registerContentObserver(
+                Settings.System.getUriFor(Settings.System.STATUS_BAR_BRIGHTNESS_CONTROL),
+                false, brightnessControlObserver, UserHandle.USER_ALL);
+        mContext.getContentResolver().registerContentObserver(
+                Settings.System.getUriFor(
+                        Settings.System.STATUS_BAR_BRIGHTNESS_CONTROL_LOCKSCREEN),
+                false, brightnessControlObserver, UserHandle.USER_ALL);
+        brightnessControlObserver.onChange(true);
 
         mDisplayManager = mContext.getSystemService(DisplayManager.class);
 
@@ -1677,22 +1706,18 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
         final int action = event.getAction();
         final int x = (int) event.getRawX();
         final int y = (int) event.getRawY();
-        mQuickQsOffsetHeight = mContext.getResources().getDimensionPixelSize(
-                com.android.internal.R.dimen.quick_qs_offset_height);
         if (action == MotionEvent.ACTION_DOWN) {
-            if (y < mQuickQsOffsetHeight) {
-                mLinger = 0;
-                mInitialTouchX = x;
-                mInitialTouchY = y;
-                mCurrentBrightness = mDisplayManager.getBrightness(mDisplayId);
-                mBrightnessAtTouchStart = -1f;
-                mMessageRouter.cancelMessages(MSG_LONG_PRESS_BRIGHTNESS_CHANGE);
-                mMessageRouter.sendMessageDelayed(MSG_LONG_PRESS_BRIGHTNESS_CHANGE,
-                        BRIGHTNESS_CONTROL_LONG_PRESS_TIMEOUT);
-            }
+            startBrightnessTracking(x, y, false /* force */);
         } else if (action == MotionEvent.ACTION_MOVE) {
-            if (y < mQuickQsOffsetHeight) {
-                if (mLinger > BRIGHTNESS_CONTROL_LINGER_THRESHOLD) {
+            // Cutout devices have a status bar taller than quick_qs_offset_height. Once a
+            // brightness swipe is in progress, keep tracking X even if the finger dips below
+            // the bar — otherwise left-swipes (decrease) die as the thumb naturally drifts down.
+            final boolean alreadyAdjusting =
+                    mLinger > BRIGHTNESS_CONTROL_LINGER_THRESHOLD
+                            || mBrightnessChanged
+                            || mBrightnessStealing;
+            if (alreadyAdjusting || y < getBrightnessTouchHeight()) {
+                if (alreadyAdjusting) {
                     adjustBrightness(x);
                 } else {
                     final int xDiff = Math.abs(x - mInitialTouchX);
@@ -1701,7 +1726,7 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
                     if (yDiff > xDiff && yDiff > touchSlop) {
                         mMessageRouter.cancelMessages(MSG_LONG_PRESS_BRIGHTNESS_CHANGE);
                         mLinger = 0;
-                    } else if (xDiff > yDiff) {
+                    } else if (xDiff >= yDiff) {
                         mLinger++;
                     }
                     if (xDiff > touchSlop || yDiff > touchSlop) {
@@ -1716,6 +1741,26 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
                 || action == MotionEvent.ACTION_CANCEL) {
             mMessageRouter.cancelMessages(MSG_LONG_PRESS_BRIGHTNESS_CHANGE);
         }
+    }
+
+    private void startBrightnessTracking(int x, int y, boolean force) {
+        if (!force && y >= getBrightnessTouchHeight()) {
+            return;
+        }
+        mLinger = 0;
+        mInitialTouchX = x;
+        mInitialTouchY = y;
+        mCurrentBrightness = mDisplayManager.getBrightness(mDisplayId);
+        mBrightnessAtTouchStart = -1f;
+        mMessageRouter.cancelMessages(MSG_LONG_PRESS_BRIGHTNESS_CHANGE);
+        mMessageRouter.sendMessageDelayed(MSG_LONG_PRESS_BRIGHTNESS_CHANGE,
+                BRIGHTNESS_CONTROL_LONG_PRESS_TIMEOUT);
+    }
+
+    private int getBrightnessTouchHeight() {
+        mQuickQsOffsetHeight = mContext.getResources().getDimensionPixelSize(
+                com.android.internal.R.dimen.quick_qs_offset_height);
+        return Math.max(SystemBarUtils.getStatusBarHeight(mContext), mQuickQsOffsetHeight);
     }
 
     @Override
@@ -1735,6 +1780,107 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
         mLinger = 0;
         mBrightnessChanged = false;
         mBrightnessAtTouchStart = -1f;
+        mBrightnessStealing = false;
+        mBrightnessGestureTracking = false;
+    }
+
+    @Override
+    public boolean isStatusBarBrightnessControlEnabled() {
+        if (!mBrightnessControl) {
+            return false;
+        }
+        if (isBrightnessControlOnLockscreen()) {
+            return mBrightnessControlLockscreen;
+        }
+        return true;
+    }
+
+    @Override
+    public boolean handleStatusBarBrightnessTouch(MotionEvent event) {
+        if (!mBrightnessControl) {
+            return false;
+        }
+
+        final int action = event.getActionMasked();
+        final float x = event.getRawX();
+        final float y = event.getRawY();
+        final int statusBarHeight = SystemBarUtils.getStatusBarHeight(mContext);
+        final int touchSlop = ViewConfiguration.get(mContext).getScaledTouchSlop();
+
+        switch (action) {
+            case MotionEvent.ACTION_DOWN: {
+                mBrightnessStealing = false;
+                mBrightnessGestureTracking = false;
+                mBrightnessRejectedThisGesture = isBrightnessControlOnLockscreen()
+                        && !mBrightnessControlLockscreen;
+                mBrightnessDownRawX = x;
+                mBrightnessDownRawY = y;
+                if (!mBrightnessRejectedThisGesture && y < statusBarHeight) {
+                    mBrightnessGestureTracking = true;
+                    brightnessControl(event);
+                } else {
+                    mBrightnessRejectedThisGesture = true;
+                }
+                return false;
+            }
+            case MotionEvent.ACTION_MOVE: {
+                if (mBrightnessRejectedThisGesture) {
+                    return false;
+                }
+                if (!mBrightnessGestureTracking) {
+                    if (y >= statusBarHeight) {
+                        mBrightnessRejectedThisGesture = true;
+                        return false;
+                    }
+                    mBrightnessGestureTracking = true;
+                    mBrightnessDownRawX = x;
+                    mBrightnessDownRawY = y;
+                    startBrightnessTracking((int) x, (int) y, true /* force */);
+                    brightnessControl(event);
+                    return false;
+                }
+                final float dx = Math.abs(x - mBrightnessDownRawX);
+                final float dy = Math.abs(y - mBrightnessDownRawY);
+                // Prefer brightness whenever the swipe is at least as horizontal as vertical.
+                // Shade expansion still wins for clearly downward swipes.
+                if (!mBrightnessStealing && dy > touchSlop && dy > dx) {
+                    mBrightnessRejectedThisGesture = true;
+                    cancelBrightnessControl();
+                    return false;
+                }
+                if (mBrightnessStealing) {
+                    if (mBrightnessAtTouchStart < 0f && mLinger == 0) {
+                        startBrightnessTracking((int) x, (int) y, true /* force */);
+                    }
+                    brightnessControl(event);
+                    return true;
+                }
+                brightnessControl(event);
+                if ((dx > touchSlop && dx >= dy) || mLinger > BRIGHTNESS_CONTROL_LINGER_THRESHOLD
+                        || mBrightnessChanged) {
+                    mBrightnessStealing = true;
+                    return true;
+                }
+                return false;
+            }
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL: {
+                final boolean steal = mBrightnessStealing || mBrightnessChanged;
+                if (mBrightnessGestureTracking) {
+                    brightnessControl(event);
+                    onBrightnessChanged(true);
+                }
+                cancelBrightnessControl();
+                mBrightnessRejectedThisGesture = false;
+                return steal;
+            }
+            default:
+                return false;
+        }
+    }
+
+    private boolean isBrightnessControlOnLockscreen() {
+        return mKeyguardStateController.isShowing() && !mKeyguardStateController.isOccluded();
     }
 
     void onLongPressBrightnessChange() {

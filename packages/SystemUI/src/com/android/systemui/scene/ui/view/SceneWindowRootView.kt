@@ -24,6 +24,8 @@ class SceneWindowRootView(context: Context, attrs: AttributeSet?) : WindowRootVi
     private var motionEventHandler: SceneContainerViewModel.MotionEventHandler? = null
     // TODO(b/298525212): remove once Compose exposes window inset bounds.
     private val windowInsets: MutableState<WindowInsets?> = mutableStateOf(null)
+    private var statusBarBrightnessTouchHandler: ((MotionEvent) -> Boolean)? = null
+    private var brightnessCancelledSceneGesture = false
 
     fun init(
         viewModelFactory: SceneContainerViewModel.Factory,
@@ -66,6 +68,10 @@ class SceneWindowRootView(context: Context, attrs: AttributeSet?) : WindowRootVi
         setWindowRootViewKeyEventHandler(windowRootViewKeyEventHandler)
     }
 
+    fun setStatusBarBrightnessTouchHandler(handler: ((MotionEvent) -> Boolean)?) {
+        statusBarBrightnessTouchHandler = handler
+    }
+
     override fun setVisibility(visibility: Int) {
         // Do nothing. We don't want external callers to invoke this. Instead, we drive our own
         // visibility from our view-binder.
@@ -79,10 +85,31 @@ class SceneWindowRootView(context: Context, attrs: AttributeSet?) : WindowRootVi
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         motionEventHandler?.onMotionEvent(ev)
-        return super.dispatchTouchEvent(ev).also {
-            TouchLogger.logDispatchTouch(TAG, ev, it)
-            motionEventHandler?.onMotionEventComplete()
+        val stealForBrightness = statusBarBrightnessTouchHandler?.invoke(ev) == true
+        val handled =
+            if (stealForBrightness) {
+                if (!brightnessCancelledSceneGesture) {
+                    brightnessCancelledSceneGesture = true
+                    val cancel = MotionEvent.obtain(ev)
+                    cancel.action = MotionEvent.ACTION_CANCEL
+                    super.dispatchTouchEvent(cancel)
+                    cancel.recycle()
+                }
+                TouchLogger.logDispatchTouch(TAG, ev, true)
+                true
+            } else {
+                super.dispatchTouchEvent(ev).also { handled ->
+                    TouchLogger.logDispatchTouch(TAG, ev, handled)
+                }
+            }
+        if (
+            ev.actionMasked == MotionEvent.ACTION_UP ||
+                ev.actionMasked == MotionEvent.ACTION_CANCEL
+        ) {
+            brightnessCancelledSceneGesture = false
         }
+        motionEventHandler?.onMotionEventComplete()
+        return handled
     }
 
     override fun onTouchEvent(event: MotionEvent?): Boolean {

@@ -48,11 +48,13 @@ import com.android.systemui.statusbar.NotificationInsetsController
 import com.android.systemui.statusbar.notification.stack.NotificationStackScrollLayout
 import com.android.systemui.statusbar.notification.stack.ui.view.NotificationScrollView
 import com.android.systemui.statusbar.notification.stack.ui.view.SharedNotificationContainer
+import com.android.systemui.statusbar.phone.CentralSurfaces
 import com.android.systemui.statusbar.phone.StatusIconContainer
 import com.android.systemui.statusbar.phone.TapAgainView
 import com.android.systemui.statusbar.phone.ui.TintedIconManager
 import com.android.systemui.window.ui.BlurChoreographerModule
 import dagger.Binds
+import dagger.Lazy
 import dagger.Module
 import dagger.Provides
 import javax.inject.Named
@@ -89,6 +91,7 @@ abstract class ShadeViewProviderModule {
             windowRootViewKeyEventHandler: WindowRootViewKeyEventHandler,
             tintedIconManagerFactory: TintedIconManager.Factory,
             authRippleViewModelFactory: AuthRippleScrimViewModel.Factory,
+            centralSurfaces: Lazy<CentralSurfaces>,
         ): WindowRootView {
             return if (SceneContainerFlag.isEnabled) {
                 checkNoSceneDuplicates(scenesProvider.get())
@@ -109,6 +112,9 @@ abstract class ShadeViewProviderModule {
                     tintedIconManagerFactory = tintedIconManagerFactory,
                     authRippleViewModelFactory = authRippleViewModelFactory,
                 )
+                sceneWindowRootView.setStatusBarBrightnessTouchHandler { event ->
+                    centralSurfaces.get().handleStatusBarBrightnessTouch(event)
+                }
                 sceneWindowRootView
             } else {
                 layoutInflater.inflate(R.layout.super_notification_shade, null)
