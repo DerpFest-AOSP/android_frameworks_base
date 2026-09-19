@@ -3431,14 +3431,14 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     LineageSettings.System.KEY_MENU_LONG_PRESS_ACTION,
                     mMenuLongPressAction);
         }
-        if (hasAssist) {
-            mAssistPressAction = Action.fromSettings(resolver,
-                    LineageSettings.System.KEY_ASSIST_ACTION,
-                    mAssistPressAction);
-            mAssistLongPressAction = Action.fromSettings(resolver,
-                    LineageSettings.System.KEY_ASSIST_LONG_PRESS_ACTION,
-                    mAssistLongPressAction);
-        }
+        // Always load assist key actions from settings regardless of hardware key mask,
+        // as AssistKeyRule is registered unconditionally in SingleKeyGestureDetector.
+        mAssistPressAction = Action.fromSettings(resolver,
+                LineageSettings.System.KEY_ASSIST_ACTION,
+                mAssistPressAction);
+        mAssistLongPressAction = Action.fromSettings(resolver,
+                LineageSettings.System.KEY_ASSIST_LONG_PRESS_ACTION,
+                mAssistLongPressAction);
         if (hasAppSwitch) {
             mAppSwitchPressAction = Action.fromSettings(resolver,
                     LineageSettings.System.KEY_APP_SWITCH_ACTION,
