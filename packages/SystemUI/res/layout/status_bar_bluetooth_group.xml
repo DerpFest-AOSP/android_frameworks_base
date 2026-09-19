@@ -26,8 +26,6 @@
             android:layout_width="wrap_content"
             android:layout_height="@*android:dimen/status_bar_system_icon_size"
             android:layout_gravity="center_vertical"
-            android:adjustViewBounds="true"
-            android:scaleType="fitCenter"
             android:src="@drawable/stat_sys_data_bluetooth_connected" />
 
         <ImageView
@@ -37,8 +35,6 @@
             android:layout_gravity="center_vertical"
             android:layout_marginStart="-2dp"
             android:layout_marginEnd="3dp"
-            android:adjustViewBounds="true"
-            android:scaleType="fitCenter"
             android:src="@drawable/ic_bluetooth_battery"
             android:visibility="gone" />
     </com.android.keyguard.AlphaOptimizedLinearLayout>
