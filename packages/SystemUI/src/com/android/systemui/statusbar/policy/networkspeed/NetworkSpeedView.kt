@@ -34,8 +34,8 @@ class NetworkSpeedView @JvmOverloads constructor(
         fun fromContext(
             context: Context,
             slot: String,
-            blocked: Boolean,
-            controller: NetworkSpeedController
+            blocked: Boolean = false,
+            controller: NetworkSpeedController? = null
         ): NetworkSpeedView {
             val view = LayoutInflater.from(context)
                 .inflate(R.layout.network_speed_view, null) as NetworkSpeedView

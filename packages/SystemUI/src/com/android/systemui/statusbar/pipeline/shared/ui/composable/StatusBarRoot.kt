@@ -135,6 +135,8 @@ import com.android.systemui.statusbar.quickactions.island.ui.compose.StatusBarDy
 import com.android.systemui.statusbar.quickactions.island.ui.model.PopupChipId
 import com.android.systemui.statusbar.policy.Clock
 import com.android.systemui.statusbar.policy.KeyguardStateController
+import com.android.systemui.statusbar.policy.NetworkSpeedController
+import com.android.systemui.statusbar.policy.networkspeed.NetworkSpeedStatusBarIcon
 import com.android.systemui.statusbar.systemstatusicons.SystemStatusIconsInCompose
 import com.android.systemui.statusbar.systemstatusicons.domain.interactor.SystemStatusIconBlocklistInteractor
 import com.android.systemui.statusbar.systemstatusicons.ui.compose.SystemStatusIcons
@@ -172,6 +174,7 @@ constructor(
     private val headsUpManager: HeadsUpManager,
     private val mediaHierarchyManager: MediaHierarchyManager,
     private val axDynamicBarChipViewModel: AxDynamicBarChipViewModel,
+    private val networkSpeedController: NetworkSpeedController,
 ) {
     fun create(root: ViewGroup, andThen: (ViewGroup) -> Unit): ComposeView {
         val composeView = ComposeView(root.context)
@@ -200,6 +203,7 @@ constructor(
                         headsUpManager = headsUpManager,
                         mediaHierarchyManager = mediaHierarchyManager,
                         onViewCreated = andThen,
+                        networkSpeedController = networkSpeedController,
                         modifier = Modifier.sysUiResTagContainer(),
                     )
                 }
@@ -241,6 +245,7 @@ fun StatusBarRoot(
     headsUpManager: HeadsUpManager? = null,
     mediaHierarchyManager: MediaHierarchyManager? = null,
     axDynamicBarChipViewModel: AxDynamicBarChipViewModel,
+    networkSpeedController: NetworkSpeedController? = null,
     onViewCreated: (ViewGroup) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -329,7 +334,11 @@ fun StatusBarRoot(
                 if (SystemStatusIconsInCompose.isEnabled) {
                     phoneStatusBarView.requireViewById<View>(R.id.system_icons).visibility =
                         View.GONE
-                    addEndSideComposable(phoneStatusBarView, statusBarViewModel)
+                    addEndSideComposable(
+                        phoneStatusBarView,
+                        statusBarViewModel,
+                        networkSpeedController,
+                    )
                 } else {
                     val statusIconContainer =
                         phoneStatusBarView.requireViewById<StatusIconContainer>(R.id.statusIcons)
@@ -704,6 +713,7 @@ private fun addBatteryComposable(
 private fun addEndSideComposable(
     phoneStatusBarView: PhoneStatusBarView,
     statusBarViewModel: HomeStatusBarViewModel,
+    networkSpeedController: NetworkSpeedController?,
 ) {
     val endSideContainerView =
         phoneStatusBarView.requireViewById<View>(R.id.status_bar_end_side_container)
@@ -725,6 +735,7 @@ private fun addEndSideComposable(
                         modifier = Modifier.weight(1f, fill = false).sysuiResTag("system_icons"),
                         systemStatusIconBlockListInteractor =
                             statusBarViewModel.systemStatusIconBlockListInteractor,
+                        networkSpeedController = networkSpeedController,
                     )
 
                     val viewModel =
@@ -752,19 +763,31 @@ private fun SystemStatusIconsContainer(
     isDark: IsAreaDark,
     modifier: Modifier = Modifier,
     systemStatusIconBlockListInteractor: SystemStatusIconBlocklistInteractor,
+    networkSpeedController: NetworkSpeedController? = null,
 ) {
     var bounds by remember { mutableStateOf(Rect()) }
     val tint = if (isDark.isDarkTheme(bounds)) Color.White else Color.Black
-    SystemStatusIcons(
-        viewModelFactory = viewModelFactory,
-        tint = tint,
-        modifier =
-            modifier.onLayoutRectChanged { relativeLayoutBounds ->
-                bounds =
-                    with(relativeLayoutBounds.boundsInScreen) { Rect(left, top, right, bottom) }
-            },
-        systemStatusIconBlocklistInteractor = systemStatusIconBlockListInteractor,
-    )
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = modifier,
+    ) {
+        if (networkSpeedController != null) {
+            NetworkSpeedStatusBarIcon(controller = networkSpeedController, isDark = isDark)
+        }
+        SystemStatusIcons(
+            viewModelFactory = viewModelFactory,
+            tint = tint,
+            modifier =
+                Modifier.onLayoutRectChanged { relativeLayoutBounds ->
+                    bounds =
+                        with(relativeLayoutBounds.boundsInScreen) {
+                            Rect(left, top, right, bottom)
+                        }
+                },
+            systemStatusIconBlocklistInteractor = systemStatusIconBlockListInteractor,
+        )
+    }
 }
 
 private fun bindRegionSamplingViewModel(

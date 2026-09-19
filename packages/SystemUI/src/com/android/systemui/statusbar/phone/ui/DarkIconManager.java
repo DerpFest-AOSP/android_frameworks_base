@@ -77,7 +77,9 @@ public class DarkIconManager extends IconManager {
     protected void onIconAdded(
             int index, String slot, boolean blocked, StatusBarIconHolder holder) {
         StatusIconDisplayable view = addHolder(index, slot, blocked, holder);
-        mDarkIconDispatcher.addDarkReceiver(view);
+        if (view != null) {
+            mDarkIconDispatcher.addDarkReceiver(view);
+        }
     }
 
     @Override

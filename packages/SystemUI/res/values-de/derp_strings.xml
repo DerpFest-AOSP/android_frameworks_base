@@ -17,7 +17,6 @@
 
     <!-- Internet speed -->
     <string name="status_bar_settings_network_speed">Internetgeschwindigkeit</string>
-    <string name="status_bar_network_speed">network_speed</string>
 
     <!-- QuickSettings: InternetDialog: Summary for how many devices are connected to the hotspot [CHAR LIMIT=NONE] -->
     <plurals name="quick_settings_internet_hotspot_summary_num_devices">

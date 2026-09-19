@@ -23,9 +23,12 @@ import com.android.systemui.kosmos.Kosmos
 import com.android.systemui.kosmos.Kosmos.Fixture
 import com.android.systemui.shade.notificationPanelView
 import com.android.systemui.statusbar.pipeline.battery.ui.viewmodel.batteryViewModelShowWhenChargingOrSettingFactory
+import com.android.systemui.statusbar.policy.NetworkSpeedController
 import com.android.systemui.statusbar.systemstatusicons.ui.viewmodel.systemStatusIconsViewModelFactory
 import com.android.systemui.statusbar.ui.viewmodel.keyguardStatusBarViewModelFactory
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.whenever
 
 val Kosmos.keyguardStatusBarViewComponentFactory by Fixture {
     mock<KeyguardStatusBarViewComponent.Factory>()
@@ -39,5 +42,9 @@ val Kosmos.statusBarElementProvider by Fixture {
         viewModelFactory = keyguardStatusBarViewModelFactory,
         systemStatusIconsViewModelFactory = systemStatusIconsViewModelFactory,
         batteryViewModelFactory = batteryViewModelShowWhenChargingOrSettingFactory,
+        networkSpeedController =
+            mock<NetworkSpeedController>().also {
+                whenever(it.iconState).thenReturn(MutableStateFlow(null))
+            },
     )
 }

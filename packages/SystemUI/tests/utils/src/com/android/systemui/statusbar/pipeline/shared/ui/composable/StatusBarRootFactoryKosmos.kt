@@ -26,8 +26,11 @@ import com.android.systemui.statusbar.phone.ui.statusBarIconController
 import com.android.systemui.statusbar.pipeline.shared.ui.viewmodel.defaultDisplayHomeStatusBarViewModelFactory
 import com.android.systemui.statusbar.pipeline.shared.ui.viewmodel.displayAwareHeadlineViewModelImplFactory
 import com.android.systemui.statusbar.pipeline.shared.ui.viewmodel.homeStatusBarViewBinder
+import com.android.systemui.statusbar.policy.NetworkSpeedController
 import com.android.systemui.statusbar.ui.viewmodel.statusBarRegionSamplingViewModelFactory
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.whenever
 
 val Kosmos.statusBarRootFactory by
     Kosmos.Fixture {
@@ -50,5 +53,9 @@ val Kosmos.statusBarRootFactory by
             headsUpManager = mock(),
             mediaHierarchyManager = mock(),
             axDynamicBarChipViewModel = mock(),
+            networkSpeedController =
+                mock<NetworkSpeedController>().also {
+                    whenever(it.iconState).thenReturn(MutableStateFlow(null))
+                },
         )
     }

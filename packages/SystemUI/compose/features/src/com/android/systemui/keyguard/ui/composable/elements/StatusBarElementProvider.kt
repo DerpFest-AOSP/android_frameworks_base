@@ -66,6 +66,8 @@ import com.android.systemui.statusbar.systemstatusicons.SystemStatusIconsInCompo
 import com.android.systemui.statusbar.systemstatusicons.domain.interactor.SystemStatusIconBlocklistInteractor
 import com.android.systemui.statusbar.systemstatusicons.ui.compose.SystemStatusIcons
 import com.android.systemui.statusbar.systemstatusicons.ui.viewmodel.SystemStatusIconsViewModel
+import com.android.systemui.statusbar.policy.NetworkSpeedController
+import com.android.systemui.statusbar.policy.networkspeed.NetworkSpeedStatusBarIcon
 import com.android.systemui.statusbar.ui.binder.KeyguardStatusBarViewBinder
 import com.android.systemui.statusbar.ui.viewmodel.KeyguardStatusBarViewModel
 import com.android.systemui.util.Utils
@@ -82,6 +84,7 @@ constructor(
     private val viewModelFactory: KeyguardStatusBarViewModel.Factory,
     private val batteryViewModelFactory: BatteryViewModel.ShowPercentWhenChargingOrSetting.Factory,
     private val systemStatusIconsViewModelFactory: SystemStatusIconsViewModel.Factory,
+    private val networkSpeedController: NetworkSpeedController,
 ) : LockscreenElementProvider {
     override val elements: List<LockscreenElement> by lazy { listOf(StatusBarElement()) }
 
@@ -150,6 +153,7 @@ constructor(
                                     systemStatusIconBlocklistInteractor =
                                         viewModel.statusBarIconBlockListInteractor,
                                     isDark = viewModel.isAreaDark,
+                                    networkSpeedController = networkSpeedController,
                                 )
                             }
                         }
@@ -178,6 +182,7 @@ private fun SystemStatusIconsContainer(
     batteryViewModelFactory: BatteryViewModel.Factory,
     systemStatusIconBlocklistInteractor: SystemStatusIconBlocklistInteractor,
     isDark: IsAreaDark,
+    networkSpeedController: NetworkSpeedController,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -187,6 +192,7 @@ private fun SystemStatusIconsContainer(
     ) {
         var bounds by remember { mutableStateOf(Rect()) }
         val tint = if (isDark.isDarkTheme(bounds)) Color.White else Color.Black
+        NetworkSpeedStatusBarIcon(controller = networkSpeedController, isDark = isDark)
         SystemStatusIcons(
             viewModelFactory = systemStatusIconsViewModelFactory,
             systemStatusIconBlocklistInteractor = systemStatusIconBlocklistInteractor,

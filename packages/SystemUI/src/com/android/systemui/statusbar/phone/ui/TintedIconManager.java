@@ -74,8 +74,10 @@ public class TintedIconManager extends IconManager {
     protected void onIconAdded(int index, String slot, boolean blocked,
             StatusBarIconHolder holder) {
         StatusIconDisplayable view = addHolder(index, slot, blocked, holder);
-        view.setStaticDrawableColor(mColor, mForegroundColor);
-        view.setDecorColor(mColor);
+        if (view != null) {
+            view.setStaticDrawableColor(mColor, mForegroundColor);
+            view.setDecorColor(mColor);
+        }
     }
 
     /**

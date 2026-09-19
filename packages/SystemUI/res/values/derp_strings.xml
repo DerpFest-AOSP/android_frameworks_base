@@ -20,7 +20,8 @@
 
     <!-- Internet speed -->
     <string name="status_bar_settings_network_speed">Internet speed</string>
-    <string name="status_bar_network_speed">network_speed</string>
+    <!-- Slot name; must stay identical to NetworkSpeedController.SLOT_NETWORK_SPEED. -->
+    <string name="status_bar_network_speed" translatable="false">network_speed</string>
 
     <!-- QuickSettings: InternetDialog: Summary for how many devices are connected to the hotspot [CHAR LIMIT=NONE] -->
     <plurals name="quick_settings_internet_hotspot_summary_num_devices">
