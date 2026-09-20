@@ -57,6 +57,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.android.systemui.common.ui.compose.Icon
+import com.android.systemui.statusbar.quickactions.island.shared.DynamicIslandFeatureSettings
+import com.android.systemui.statusbar.quickactions.island.shared.DynamicIslandFeatureSettings.observeDynamicIslandScale
 import com.android.systemui.statusbar.quickactions.island.shared.DynamicIslandFeatureSettings.observeDynamicIslandWidth
 import com.android.systemui.statusbar.quickactions.island.ui.model.PopupChipModel
 import com.android.systemui.statusbar.quickactions.island.ui.model.PopupContentModel
@@ -78,6 +80,7 @@ fun StatusBarDynamicIslandChip(
     val isMediaChip = viewModel.popupContent is PopupContentModel.Media
     val chipShape = RoundedCornerShape(50)
     val colors = viewModel.colors
+    val heightScale = rememberDynamicIslandHeightScale()
     val chipBackgroundColor =
         colors.chipBackground(
             isPopupShown = viewModel.isPopupShown,
@@ -98,6 +101,7 @@ fun StatusBarDynamicIslandChip(
             viewModel = viewModel,
             onTap = onTap,
             cutoutSpec = cutoutSpec,
+            heightScale = heightScale,
             chipBackgroundColor = chipBackgroundColor,
             chipContentColor = chipContentColor,
             chipOutline = chipOutline,
@@ -139,7 +143,7 @@ fun StatusBarDynamicIslandChip(
         modifier =
             modifier
                 .openSquishAnimation(viewModel.isPopupShown)
-                .defaultMinSize(minHeight = 32.dp)
+                .defaultMinSize(minHeight = 32.dp * heightScale)
                 .widthIn(
                     min = compactWidth,
                     max = compactWidth.coerceAtMost(CompactIslandMaxWidth),
@@ -148,7 +152,7 @@ fun StatusBarDynamicIslandChip(
                 .background(chipBackgroundColor)
                 .border(width = 1.dp, color = chipOutline, shape = chipShape)
                 .clickable(onClick = onTap)
-                .padding(horizontal = 12.dp, vertical = 7.dp),
+                .padding(horizontal = 12.dp, vertical = 7.dp * heightScale),
         horizontalArrangement =
             if (isMediaChip) Arrangement.SpaceBetween else Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -240,6 +244,7 @@ private fun UtilityStatusIslandChip(
     viewModel: PopupChipModel.Shown,
     onTap: () -> Unit,
     cutoutSpec: DynamicIslandCutoutSpec,
+    heightScale: Float = 1f,
     chipBackgroundColor: Color,
     chipContentColor: Color,
     chipOutline: Color,
@@ -279,7 +284,7 @@ private fun UtilityStatusIslandChip(
         modifier =
             modifier
                 .openSquishAnimation(viewModel.isPopupShown)
-                .defaultMinSize(minHeight = 32.dp)
+                .defaultMinSize(minHeight = 32.dp * heightScale)
                 .width(connectedIslandWidth)
                 .clip(RoundedCornerShape(50))
                 .background(chipBackgroundColor)
@@ -298,7 +303,12 @@ private fun UtilityStatusIslandChip(
         Box(
             modifier =
                 Modifier.width(rightSegmentWidth)
-                    .padding(start = 6.dp, top = 7.dp, bottom = 7.dp, end = 6.dp),
+                    .padding(
+                        start = 6.dp,
+                        top = 7.dp * heightScale,
+                        bottom = 7.dp * heightScale,
+                        end = 6.dp,
+                    ),
             contentAlignment = Alignment.CenterEnd,
         ) {
             Text(
@@ -431,6 +441,15 @@ private fun compactIslandWidthFor(content: PopupContentModel): Dp? {
         is PopupContentModel.PromotedOngoing -> CompactMediaIslandWidth
         else -> null
     }
+}
+
+@Composable
+private fun rememberDynamicIslandHeightScale(): Float {
+    val context = LocalContext.current
+    val heightScale by
+        remember { observeDynamicIslandScale(context, DynamicIslandFeatureSettings.HEIGHT_SCALE) }
+            .collectAsState(initial = 1f)
+    return heightScale
 }
 
 @Composable

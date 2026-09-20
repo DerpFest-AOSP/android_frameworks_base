@@ -39,6 +39,11 @@ object DynamicIslandFeatureSettings {
     const val ONGOING_ACTIVITIES = Settings.System.STATUS_BAR_DYNAMIC_ISLAND_ONGOING_ACTIVITIES
     const val CALLS = Settings.System.STATUS_BAR_DYNAMIC_ISLAND_CALLS
     const val WIDTH = Settings.System.STATUS_BAR_DYNAMIC_ISLAND_WIDTH
+    const val HEIGHT_SCALE = Settings.System.STATUS_BAR_DYNAMIC_ISLAND_HEIGHT_SCALE
+
+    const val SCALE_MIN = 0.7f
+    const val SCALE_MAX = 1.4f
+    private const val SCALE_PERCENT_DEFAULT = 100
 
     fun ContentResolver.readDynamicIslandFeatureEnabled(
         key: String,
@@ -102,6 +107,30 @@ object DynamicIslandFeatureSettings {
                 UserHandle.USER_ALL,
             )
             trySend(context.contentResolver.readDynamicIslandWidth(defaultValue))
+            awaitClose { context.contentResolver.unregisterContentObserver(observer) }
+        }
+
+    fun ContentResolver.readDynamicIslandScale(key: String): Float {
+        val percent =
+            Settings.System.getIntForUser(this, key, SCALE_PERCENT_DEFAULT, UserHandle.USER_CURRENT)
+        return (percent / 100f).coerceIn(SCALE_MIN, SCALE_MAX)
+    }
+
+    fun observeDynamicIslandScale(context: Context, key: String): Flow<Float> =
+        callbackFlow {
+            val observer =
+                object : ContentObserver(Handler(Looper.getMainLooper())) {
+                    override fun onChange(selfChange: Boolean) {
+                        trySend(context.contentResolver.readDynamicIslandScale(key))
+                    }
+                }
+            context.contentResolver.registerContentObserver(
+                Settings.System.getUriFor(key),
+                false,
+                observer,
+                UserHandle.USER_ALL,
+            )
+            trySend(context.contentResolver.readDynamicIslandScale(key))
             awaitClose { context.contentResolver.unregisterContentObserver(observer) }
         }
 }
