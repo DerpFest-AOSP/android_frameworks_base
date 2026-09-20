@@ -38,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
@@ -54,6 +55,7 @@ fun StatusBarDynamicIslandContainer(
     chips: List<PopupChipModel.Shown>,
     onMediaControlPopupVisibilityChanged: (Boolean) -> Unit,
     islandActions: IslandActions,
+    onIslandBoundsChanged: (android.graphics.Rect) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val cutoutSpec = rememberDynamicIslandCutoutSpec()
@@ -103,10 +105,6 @@ fun StatusBarDynamicIslandContainer(
         )
     }
 
-    if (selectedChip == null) {
-        return
-    }
-
     fun selectRelative(direction: Int) {
         if (chips.size <= 1) return
         val newIndex = (selectedIndex + direction).mod(chips.size)
@@ -121,9 +119,26 @@ fun StatusBarDynamicIslandContainer(
         modifier =
             modifier
                 .padding(horizontal = 8.dp)
-                .offset(x = cutoutSpec.horizontalOffset),
+                .offset(x = cutoutSpec.horizontalOffset)
+                .onGloballyPositioned { coordinates ->
+                    if (selectedChip == null) {
+                        onIslandBoundsChanged(android.graphics.Rect())
+                    } else {
+                        val bounds = coordinates.boundsInWindow()
+                        onIslandBoundsChanged(
+                            android.graphics.Rect(
+                                bounds.left.toInt(),
+                                bounds.top.toInt(),
+                                bounds.right.toInt(),
+                                bounds.bottom.toInt(),
+                            )
+                        )
+                    }
+                },
         contentAlignment = Alignment.Center,
     ) {
+        if (selectedChip == null) return@Box
+
         AnimatedContent(
             targetState = selectedChip.chipId,
             transitionSpec = {

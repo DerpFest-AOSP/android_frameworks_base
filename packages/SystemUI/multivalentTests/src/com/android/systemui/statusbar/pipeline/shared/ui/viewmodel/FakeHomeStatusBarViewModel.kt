@@ -61,6 +61,18 @@ class FakeHomeStatusBarViewModel(
 
     override fun onChipBoundsChanged(key: String, bounds: RectF) {}
 
+    override fun onIslandBoundsChanged(bounds: Rect) {}
+
+    override val dynamicIslandBounds = Rect()
+
+    override fun onIslandBoundsChanged(bounds: Rect) {}
+
+    override val dynamicIslandBounds = Rect()
+
+    override fun onIslandBoundsChanged(bounds: Rect) {}
+
+    override val dynamicIslandBounds = Rect()
+
     override fun onStatusBarTap(eventX: Float) {}
 
     override fun onStatusBarLongPressed() {}

@@ -44,6 +44,7 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -448,13 +449,21 @@ fun StatusBarRoot(
         // Scene container hides the home status bar on lockscreen/shade. The island is a Compose
         // sibling of PhoneStatusBarView, so it must follow the same allowed state.
         val isHomeStatusBarAllowed by statusBarViewModel.isHomeStatusBarAllowed.collectAsState()
-        if (isHomeStatusBarAllowed && statusBarViewModel.dynamicIslandChips.isNotEmpty()) {
+        val showDynamicIsland =
+            isHomeStatusBarAllowed && statusBarViewModel.dynamicIslandChips.isNotEmpty()
+        LaunchedEffect(showDynamicIsland) {
+            if (!showDynamicIsland) {
+                statusBarViewModel.onIslandBoundsChanged(Rect())
+            }
+        }
+        if (showDynamicIsland) {
             StatusBarDynamicIslandContainer(
                 chips = statusBarViewModel.dynamicIslandChips,
                 onMediaControlPopupVisibilityChanged = { popupShowing ->
                     mediaHierarchyManager?.isMediaControlPopupShowing = popupShowing
                 },
                 islandActions = axDynamicBarChipViewModel.interactor,
+                onIslandBoundsChanged = statusBarViewModel::onIslandBoundsChanged,
                 modifier = Modifier.align(Alignment.Center),
             )
         }
@@ -576,6 +585,7 @@ private fun addStartSideComposable(
                         statusBarBoundsViewModel.startSideContainerBounds,
                         statusBarBoundsViewModel.dateBounds,
                         statusBarBoundsViewModel.clockBounds,
+                        statusBarViewModel.dynamicIslandBounds,
                         isRtl,
                         density,
                     ) {
@@ -585,6 +595,7 @@ private fun addStartSideComposable(
                                 statusBarBoundsViewModel.startSideContainerBounds,
                             dateBounds = statusBarBoundsViewModel.dateBounds,
                             clockBounds = statusBarBoundsViewModel.clockBounds,
+                            islandBounds = statusBarViewModel.dynamicIslandBounds,
                             isRtl = isRtl,
                             density = density,
                         )
@@ -640,6 +651,7 @@ fun chipsMaxWidth(
     clockBounds: Rect,
     isRtl: Boolean,
     density: Float,
+    islandBounds: Rect = Rect(),
 ): Dp {
     val relevantAppHandles =
         appHandles
@@ -650,19 +662,34 @@ fun chipsMaxWidth(
     // The chips should be next to the date if it is showing, otherwise they should be next to the
     // clock.
     val clockOrDateBounds = if (dateBounds.isEmpty) clockBounds else dateBounds
+    val islandGapPx = (8f * density).toInt()
 
     val widthInPx =
         if (isRtl) {
                 val chipsLeftBasedOnAppHandles =
                     relevantAppHandles.maxOfOrNull { it.right } ?: Int.MIN_VALUE
                 val chipsLeftBasedOnContainer = startSideContainerBounds.left
-                val chipsLeft = maxOf(chipsLeftBasedOnAppHandles, chipsLeftBasedOnContainer)
+                val chipsLeftBasedOnIsland =
+                    if (islandBounds.isEmpty) Int.MIN_VALUE else islandBounds.right + islandGapPx
+                val chipsLeft =
+                    maxOf(
+                        chipsLeftBasedOnAppHandles,
+                        chipsLeftBasedOnContainer,
+                        chipsLeftBasedOnIsland,
+                    )
                 /* width= */ clockOrDateBounds.left - chipsLeft
             } else { // LTR
                 val chipsRightBasedOnAppHandles =
                     relevantAppHandles.minOfOrNull { it.left } ?: Int.MAX_VALUE
                 val chipsRightBasedOnContainer = startSideContainerBounds.right
-                val chipsRight = minOf(chipsRightBasedOnAppHandles, chipsRightBasedOnContainer)
+                val chipsRightBasedOnIsland =
+                    if (islandBounds.isEmpty) Int.MAX_VALUE else islandBounds.left - islandGapPx
+                val chipsRight =
+                    minOf(
+                        chipsRightBasedOnAppHandles,
+                        chipsRightBasedOnContainer,
+                        chipsRightBasedOnIsland,
+                    )
                 /* width= */ chipsRight - clockOrDateBounds.right
             }
             .coerceAtLeast(0)
