@@ -351,6 +351,9 @@ constructor(
                     val configListener =
                         object : ConfigurationController.ConfigurationListener {
                             override fun onThemeChanged() {
+                                leftClock.refreshTypeface()
+                                centerClock?.refreshTypeface()
+                                rightClock?.refreshTypeface()
                                 chipAppearanceGeneration.update { it + 1 }
                             }
 

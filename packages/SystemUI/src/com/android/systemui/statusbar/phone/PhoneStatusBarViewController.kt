@@ -175,7 +175,17 @@ private constructor(
             override fun onDensityOrFontScaleChanged() {
                 reloadDimens()
             }
+
+            override fun onThemeChanged() {
+                refreshClockTypefaces()
+            }
         }
+
+    private fun refreshClockTypefaces() {
+        clock.refreshTypeface()
+        clockCenter.refreshTypeface()
+        clockRight.refreshTypeface()
+    }
 
     private fun reloadDimens() {
         // The hover listener uses a resource, so we need to re-create it.

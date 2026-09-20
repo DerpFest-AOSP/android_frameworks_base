@@ -50,6 +50,7 @@ import android.widget.TextView;
 import com.android.settingslib.Utils;
 import com.android.settingslib.applications.InterestingConfigChanges;
 import com.android.systemui.Dependency;
+import com.android.systemui.FontStyles;
 import com.android.systemui.FontSizeUtils;
 import com.android.systemui.broadcast.BroadcastDispatcher;
 import com.android.systemui.demomode.DemoModeCommandReceiver;
@@ -198,7 +199,10 @@ public class Clock extends TextView implements
         mBroadcastDispatcher = Dependency.get(BroadcastDispatcher.class);
         mUserTracker = Dependency.get(UserTracker.class);
         mInterestingConfigChanges = new InterestingConfigChanges(
-                ActivityInfo.CONFIG_FONT_SCALE | ActivityInfo.CONFIG_DENSITY);
+                ActivityInfo.CONFIG_FONT_SCALE
+                        | ActivityInfo.CONFIG_DENSITY
+                        | ActivityInfo.CONFIG_ASSETS_PATHS
+                        | ActivityInfo.CONFIG_FONT_WEIGHT_ADJUSTMENT);
 
         setIncludeFontPadding(false);
     }
@@ -325,8 +329,9 @@ public class Clock extends TextView implements
                         // Force refresh of dependent variables.
                         mContentDescriptionFormatString = "";
                         mDateTimePatternGenerator = null;
-                        applyBoldClockStyle();
                     }
+                    // Theme Picker font overlays do not change locale; still re-resolve typeface.
+                    applyBoldClockStyle();
                 });
             }
             handler.post(() -> updateClock());
@@ -380,22 +385,29 @@ public class Clock extends TextView implements
     }
 
     /**
+     * Re-resolve the status bar clock typeface after a Theme Picker or overlay font change.
+     */
+    public void refreshTypeface() {
+        applyBoldClockStyle();
+    }
+
+    /**
      * Bold applies only to the status bar clock. Quick settings / shade headers use {@link Clock}
      * without {@code systemui:isStatusBar} and must keep the QS theme typeface.
+     *
+     * <p>Always re-resolve from the status bar font family. Theme Picker overlays update
+     * {@link android.graphics.Typeface} through FontController, but this view keeps the Typeface
+     * assigned at inflation until a new one is created.
      */
     private void applyBoldClockStyle() {
         if (!mIsStatusBar) {
             return;
         }
-        Typeface tf = getTypeface();
-        if (tf == null) {
-            tf = Typeface.DEFAULT;
-        }
-        // Toggle BOLD while preserving other style bits (e.g. italic); skip no-op updates.
-        final int base = tf.getStyle() & ~Typeface.BOLD;
-        final int target = mBoldStatusBarClock ? (base | Typeface.BOLD) : base;
-        if (tf.getStyle() != target) {
-            setTypeface(Typeface.create(tf, target));
+        // Typeface.create(family, style) goes through FontController.getOverrideTypeface().
+        final int style = mBoldStatusBarClock ? Typeface.BOLD : Typeface.NORMAL;
+        final Typeface resolved = Typeface.create(FontStyles.GSF_LABEL_LARGE_EMPHASIZED, style);
+        if (getTypeface() != resolved) {
+            setTypeface(resolved);
         }
     }
 
