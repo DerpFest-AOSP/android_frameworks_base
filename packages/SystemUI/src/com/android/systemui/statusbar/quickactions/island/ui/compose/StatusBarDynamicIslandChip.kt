@@ -24,6 +24,7 @@ import androidx.compose.animation.core.keyframes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -86,6 +87,15 @@ fun StatusBarDynamicIslandChip(
     val hapticOnTap: () -> Unit = {
         view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
         onTap()
+    }
+    val mediaOpenApp: (() -> Unit)? =
+        (viewModel.popupContent as? PopupContentModel.Media)
+            ?.takeIf { it.model.isPlaying }
+            ?.model
+            ?.openApp
+    val hapticOnLongPress: () -> Unit = {
+        view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+        mediaOpenApp?.invoke()
     }
     val chipBackgroundColor =
         colors.chipBackground(
@@ -157,7 +167,10 @@ fun StatusBarDynamicIslandChip(
                 .clip(chipShape)
                 .background(chipBackgroundColor)
                 .border(width = 1.dp, color = chipOutline, shape = chipShape)
-                .clickable(onClick = hapticOnTap)
+                .combinedClickable(
+                    onClick = hapticOnTap,
+                    onLongClick = mediaOpenApp?.let { { hapticOnLongPress() } },
+                )
                 .padding(horizontal = 12.dp, vertical = 7.dp * heightScale),
         horizontalArrangement =
             if (isMediaChip) Arrangement.SpaceBetween else Arrangement.spacedBy(8.dp),
