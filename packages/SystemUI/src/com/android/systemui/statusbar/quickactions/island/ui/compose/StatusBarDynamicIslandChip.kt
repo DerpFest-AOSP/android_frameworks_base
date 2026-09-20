@@ -17,6 +17,7 @@
 package com.android.systemui.statusbar.quickactions.island.ui.compose
 
 import android.view.DisplayCutout
+import android.view.HapticFeedbackConstants
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.keyframes
@@ -81,6 +82,11 @@ fun StatusBarDynamicIslandChip(
     val chipShape = RoundedCornerShape(50)
     val colors = viewModel.colors
     val heightScale = rememberDynamicIslandHeightScale()
+    val view = LocalView.current
+    val hapticOnTap: () -> Unit = {
+        view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+        onTap()
+    }
     val chipBackgroundColor =
         colors.chipBackground(
             isPopupShown = viewModel.isPopupShown,
@@ -99,7 +105,7 @@ fun StatusBarDynamicIslandChip(
     if (viewModel.popupContent.isUtilityStatusContent() && viewModel.icons.isNotEmpty()) {
         UtilityStatusIslandChip(
             viewModel = viewModel,
-            onTap = onTap,
+            onTap = hapticOnTap,
             cutoutSpec = cutoutSpec,
             heightScale = heightScale,
             chipBackgroundColor = chipBackgroundColor,
@@ -151,7 +157,7 @@ fun StatusBarDynamicIslandChip(
                 .clip(chipShape)
                 .background(chipBackgroundColor)
                 .border(width = 1.dp, color = chipOutline, shape = chipShape)
-                .clickable(onClick = onTap)
+                .clickable(onClick = hapticOnTap)
                 .padding(horizontal = 12.dp, vertical = 7.dp * heightScale),
         horizontalArrangement =
             if (isMediaChip) Arrangement.SpaceBetween else Arrangement.spacedBy(8.dp),
