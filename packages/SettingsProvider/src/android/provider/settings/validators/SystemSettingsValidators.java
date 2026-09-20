@@ -312,5 +312,7 @@ public class SystemSettingsValidators {
         VALIDATORS.put(System.STATUS_BAR_DYNAMIC_ISLAND_CALLS, BOOLEAN_VALIDATOR);
         VALIDATORS.put(System.STATUS_BAR_DYNAMIC_ISLAND_WIDTH,
                 new InclusiveIntegerRangeValidator(80, 200));
+        VALIDATORS.put(System.STATUS_BAR_DYNAMIC_ISLAND_HEIGHT_SCALE,
+                new InclusiveIntegerRangeValidator(70, 140));
     }
 }

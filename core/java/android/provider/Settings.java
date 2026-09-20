@@ -7406,6 +7406,13 @@ public final class Settings {
                 "status_bar_dynamic_island_width";
 
         /**
+         * Height scale of the collapsed dynamic island pill, as a percent (70-140).
+         * @hide
+         */
+        public static final String STATUS_BAR_DYNAMIC_ISLAND_HEIGHT_SCALE =
+                "status_bar_dynamic_island_height_scale";
+
+        /**
          * Defines the screen-off animation to display
          * @hide
          */
