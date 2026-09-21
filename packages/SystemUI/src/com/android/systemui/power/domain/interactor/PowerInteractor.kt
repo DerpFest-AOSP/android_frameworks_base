@@ -211,6 +211,13 @@ constructor(
             rawState = WakefulnessState.STARTING_TO_WAKE,
             lastWakeReason = WakeSleepReason.fromPowerManagerWakeReason(reason),
             powerButtonLaunchGestureTriggered = powerButtonLaunchGestureTriggered,
+            // A wake not caused by the launch gesture is the first tap of a double-press from
+            // already being asleep. Stop treating this sleep as "entered" so a camera launch
+            // that arrives before onFinishedWakingUp cannot dismiss keyguard.
+            asleepOrWakingFromPreviouslyEnteredDevice =
+                SceneContainerFlag.isEnabled &&
+                    powerButtonLaunchGestureTriggered &&
+                    repository.wakefulness.value.asleepOrWakingFromPreviouslyEnteredDevice(),
         )
     }
 
@@ -281,15 +288,14 @@ constructor(
      * If we're asleep, the sequence is as follows:
      * - First power button tap triggers onStartedWakingUp(gestureTriggered=false). The first tap of
      *   a double-tap definitionally cannot trigger the double tap gesture because 1 < 2.
-     * - onFinishedWakingUp() is called. This method does not have a gestureTriggered param since
-     *   it's not possible to double tap the button fast enough to trigger the gesture between
-     *   onStarted/onFinishedWakingUp. asleepOrWakingFromPreviouslyEnteredDevice is cleared at this
-     *   point since we're fully awake, not 'asleep or waking'.
-     * - The second tap triggers onCameraLaunchGestureDetected() and we emit a
-     *   PowerButtonLaunchEvent.
+     *   onStartedWakingUp(false) clears asleepOrWakingFromPreviouslyEnteredDevice, because this wake
+     *   is not canceling an in-progress lock from an entered device.
+     * - The second tap triggers onCameraLaunchGestureDetected() and we emit
+     *   LAUNCH_FROM_NOT_ENTERED. This can easily arrive before onFinishedWakingUp(): DisplayPower
+     *   often blocks screen-on until contents are drawn, which is a wider window than the 300ms
+     *   double-tap timeout.
      *
-     * Launches started while asleep will always be LAUNCH_FROM_NOT_ENTERED, and the value of
-     * asleepOrWakingFromPreviouslyEnteredDevice is not read in this sequence.
+     * Launches started while asleep will always be LAUNCH_FROM_NOT_ENTERED.
      *
      * If we're awake, the sequence is as follows:
      * - First power button tap triggers onStartedGoingToSleep().
@@ -306,16 +312,25 @@ constructor(
      * asleepOrWakingFromPreviouslyEnteredDevice in onFinishedWakingUp.
      *
      * The tricky part here is that if we go to sleep from an entered device without triggering the
-     * power gesture, asleepOrWakingFromPreviouslyEnteredDevice will remain true the entire time we
-     * are asleep (until cleared in onFinishedWakingUp). This obviates the need to set a timeout for
-     * the double-tap duration and clear the value when that elapses (which would introduce all
-     * kinds of race conditions). It may seem like this would result in us going back to Gone if the
-     * power gesture is triggered we're asleep and this value remains true. However, a gesture
-     * started while asleep will always follow the "if we're asleep" path above, which does not use
-     * (and then clears) asleepOrWakingFromPreviouslyEnteredDevice.
+     * power gesture, asleepOrWakingFromPreviouslyEnteredDevice remains true while we are asleep.
+     * This obviates the need to set a timeout for the double-tap duration and clear the value when
+     * that elapses (which would introduce all kinds of race conditions).
+     *
+     * A later double-press from that asleep state must not read the stale entered bit. The first
+     * tap of that later gesture starts a non-gesture wake (onStartedWakingUp(false)), which clears
+     * the bit. emitPowerButtonLaunchEvent also treats an already-in-progress non-gesture wake as
+     * LAUNCH_FROM_NOT_ENTERED, covering the case where onFinishedWakingUp has not run yet.
      */
-    private fun emitPowerButtonLaunchEvent() {
-        if (repository.wakefulness.value.asleepOrWakingFromPreviouslyEnteredDevice() == true) {
+    private fun emitPowerButtonLaunchEvent(wakefulnessBeforeGesture: WakefulnessModel) {
+        // STARTING_TO_WAKE / AWAKE with no prior launch gesture means the first tap already woke
+        // an asleep device. That is never "cancel the lock we just started from Gone".
+        val alreadyWakingWithoutGesture =
+            wakefulnessBeforeGesture.isAwake() &&
+                !wakefulnessBeforeGesture.powerButtonLaunchGestureTriggered
+        if (
+            !alreadyWakingWithoutGesture &&
+                wakefulnessBeforeGesture.asleepOrWakingFromPreviouslyEnteredDevice()
+        ) {
             repository.onPowerButtonLaunchEvent(PowerButtonLaunchEvent.LAUNCH_FROM_ENTERED)
         } else {
             repository.onPowerButtonLaunchEvent(PowerButtonLaunchEvent.LAUNCH_FROM_NOT_ENTERED)
@@ -328,6 +343,7 @@ constructor(
 
     fun onCameraLaunchGestureDetected() {
         if (!isPowerButtonGestureSuppressed()) {
+            val wakefulnessBeforeGesture = repository.wakefulness.value
             repository.updateWakefulness(
                 powerButtonLaunchGestureTriggered = true,
                 lastSleepReason = WakeSleepReason.POWER_BUTTON,
@@ -339,7 +355,7 @@ constructor(
                 // onFinishedGoingToSleep(gestureTriggered=true) or
                 // onStartedWakingUp(gestureTriggered=true), but that's not always true. In any
                 // case, this is reliably the earliest signal, so emit the launch event here.
-                emitPowerButtonLaunchEvent()
+                emitPowerButtonLaunchEvent(wakefulnessBeforeGesture)
             }
         }
     }
