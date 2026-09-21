@@ -344,6 +344,7 @@ constructor(
                             } else {
                                 isMainEnabled && kgEnabled &&
                                     e !is IslandEvent.Notification &&
+                                    e !is IslandEvent.Clipboard &&
                                     (e !is IslandEvent.Charging || batteryChipMode > 0) &&
                                     e !is IslandEvent.AppSwitch
                             }
