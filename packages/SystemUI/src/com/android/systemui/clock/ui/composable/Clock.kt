@@ -26,6 +26,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import com.android.systemui.clock.ui.viewmodel.ClockViewModel
 
 /** Composable for the clock UI that is shown on the top left of the status bar and the shade. */
@@ -46,6 +47,11 @@ fun Clock(
             } else {
                 textStyle
             },
+        // A tight width (shared-element interpolation, a wide last glyph) must not wrap or clip
+        // the final digit. Visible lets the glyph paint into the padding beside the text.
+        softWrap = false,
+        maxLines = 1,
+        overflow = TextOverflow.Visible,
         modifier = modifier.semantics { contentDescription = clockViewModel.contentDescriptionText },
     )
 }

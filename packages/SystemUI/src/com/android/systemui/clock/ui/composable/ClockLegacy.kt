@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.viewinterop.AndroidView
 import com.android.compose.modifiers.thenIf
 import com.android.systemui.res.R
+import kotlin.math.roundToInt
 
 /**
  * Composable wrapper around the legacy [com.android.systemui.statusbar.policy.Clock] view. Will be
@@ -95,8 +96,17 @@ fun ClockLegacy(
                     ContextThemeWrapper(context, R.style.Theme_SystemUI_DesktopStatusBar),
                     null,
                 )
-            // Desktop status bar handles its own padding.
+            // Callers position the clock themselves. Status-bar padding would be magnified by
+            // the quick settings header scale.
             clock.setShouldApplyPadding(false)
+            // Single line, no ellipsize: a width that is a hair short must not drop the last
+            // digit onto a clipped second line. The end padding keeps variable-font side
+            // bearings inside the view, which the QS header then scales up.
+            clock.isSingleLine = true
+            clock.ellipsize = null
+            val endPad =
+                (2f * context.resources.displayMetrics.density).roundToInt().coerceAtLeast(1)
+            clock.setPaddingRelative(0, 0, endPad, 0)
             clock
         },
         update = { view ->
