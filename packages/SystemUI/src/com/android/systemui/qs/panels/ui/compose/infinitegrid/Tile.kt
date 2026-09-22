@@ -204,12 +204,12 @@ fun ContentScope.Tile(
                 tileHapticsViewModelFactory.create(tile)
             }
 
-        if (tile.spec.spec == "sound" && !iconOnly) {
+        val classicStyle = rememberQSPanelStyle()
+
+        if (tile.spec.spec == "sound" && !iconOnly && !classicStyle) {
             QSTileRingerSlider()
             return@trace
         }
-
-        val classicStyle = rememberQSPanelStyle()
         val iconShapeKey = rememberQSTileIconShapeKey()
         val labelHide = classicStyle && rememberQSTileLabelHide()
         val tileAnimationStyle = rememberQSTileAnimationStyle()
