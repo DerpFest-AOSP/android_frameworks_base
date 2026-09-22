@@ -1721,6 +1721,9 @@ public class NotificationChildrenContainer extends ViewGroup
                     /* animate = */ false
             );
         }
+        final boolean roundChildrenAsCards = mContainingNotification != null
+                && (mContainingNotification.isGroupExpanded()
+                    || mContainingNotification.isGroupExpansionChanging());
         for (int i = mAttachedChildren.size() - 1; i >= 0; i--) {
             ExpandableNotificationRow child = mAttachedChildren.get(i);
             if (child.getVisibility() == View.GONE) {
@@ -1730,11 +1733,20 @@ public class NotificationChildrenContainer extends ViewGroup
                 child.requestRoundnessReset(
                         NotificationSectionsManager.Companion.getGROUPING_DISABLED_SECTION());
             }
-            child.requestRoundness(
-                    /* top = */ 0f,
-                    /* bottom = */ last ? getBottomRoundness() : 0f,
-                    /* sourceType = */ FROM_PARENT,
-                    /* animate = */ false);
+            if (roundChildrenAsCards) {
+                // Expanded children draw their own backgrounds, so each one needs a full card.
+                child.requestRoundness(
+                        /* top = */ 1f,
+                        /* bottom = */ 1f,
+                        /* sourceType = */ FROM_PARENT,
+                        /* animate = */ false);
+            } else {
+                child.requestRoundness(
+                        /* top = */ 0f,
+                        /* bottom = */ last ? getBottomRoundness() : 0f,
+                        /* sourceType = */ FROM_PARENT,
+                        /* animate = */ false);
+            }
             last = false;
         }
         Roundable.super.applyRoundnessAndInvalidate();
