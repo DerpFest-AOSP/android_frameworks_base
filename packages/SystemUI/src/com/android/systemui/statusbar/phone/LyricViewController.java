@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Project Kaleidoscope
+ * Copyright (C) 2026 The uwuAOSP Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,17 +16,22 @@
 
 package com.android.systemui.statusbar.phone;
 
-import android.app.Notification;
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
+import android.database.ContentObserver;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Drawable.ConstantState;
-import android.graphics.drawable.Icon;
+import android.media.MediaMetadata;
+import android.media.session.MediaController;
+import android.media.session.MediaSessionManager;
+import android.media.session.PlaybackState;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.SystemClock;
 import android.provider.Settings;
-import android.service.notification.NotificationListenerService;
-import android.service.notification.NotificationListenerService.RankingMap;
-import android.service.notification.StatusBarNotification;
 import android.text.TextUtils;
 import android.view.MotionEvent;
 import android.view.View;
@@ -37,84 +42,155 @@ import android.widget.ImageView;
 import android.widget.TextSwitcher;
 import android.widget.TextView;
 
-import com.android.internal.statusbar.StatusBarIcon;
 import com.android.internal.util.ContrastColorUtil;
 import com.android.systemui.Dependency;
-import com.android.systemui.res.R;
 import com.android.systemui.plugins.DarkIconDispatcher;
+import com.android.systemui.res.R;
+import com.android.systemui.settings.UserTracker;
 import com.android.systemui.statusbar.NotificationListener;
-import com.android.systemui.statusbar.StatusBarIconView;
 
 import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
-public abstract class LyricViewController implements
-    DarkIconDispatcher.DarkReceiver,
-    NotificationListener.NotificationHandler {
+/** Displays lyrics for the currently playing MediaSession. */
+public abstract class LyricViewController implements DarkIconDispatcher.DarkReceiver {
     public static final int LYRIC_POSITION_OVERLAY = 0;
     public static final int LYRIC_POSITION_CLOCK_RIGHT = 1;
 
-    private static final String EXTRA_TICKER_ICON = "ticker_icon";
-    private static final String EXTRA_TICKER_ICON_PACKAGE = "ticker_icon_package";
-    private static final String EXTRA_TICKER_SMALL_ICON = "ticker_small_icon";
-    private static final String EXTRA_TICKER_ICON_SWITCH = "ticker_icon_switch";
-    private static final String EXTRA_TICKER_TRANSLATION = "ticker_translation";
-    private static final String LYRIC_FETCH_PACKAGE = "cn.binbin323.statuslyricext";
-
     private static final int HIDE_LYRIC_DELAY = 1200;
+    private static final long POSITION_UPDATE_INTERVAL_MS = 250;
+    private static final long FETCH_RETRY_DELAY_MS = 15_000;
+    private static final int MAX_FETCH_RETRIES = 2;
 
     private final Context mContext;
     private final LyricViewHolder mOverlayLyricViewHolder;
     private final LyricViewHolder mInlineLyricViewHolder;
     private final View mTintReferenceView;
-    private final NotificationListener mNotificationListener;
-
+    private final Handler mHandler = new Handler(Looper.getMainLooper());
+    private final ExecutorService mLyricExecutor = Executors.newCachedThreadPool();
+    private final MediaSessionManager mMediaSessionManager;
+    private final ComponentName mNotificationListenerComponent;
     private final ContrastColorUtil mNotificationColorUtil;
+    private final UserTracker mUserTracker;
 
+    private MediaController mCurrentMediaController;
     private boolean mEnabled;
+
+    private final MediaSessionManager.OnActiveSessionsChangedListener mSessionsChangedListener =
+            this::onActiveSessionsChanged;
+    private final MediaController.Callback mMediaCallback = new MediaController.Callback() {
+        @Override
+        public void onMetadataChanged(MediaMetadata metadata) {
+            updateCurrentSession();
+        }
+
+        @Override
+        public void onPlaybackStateChanged(PlaybackState state) {
+            refreshActiveSessions();
+        }
+
+        @Override
+        public void onSessionDestroyed() {
+            cancelPendingFetch();
+            detachCurrentController();
+            mCurrentLyrics = null;
+            mCurrentTrackKey = null;
+            stopLyric();
+            refreshActiveSessions();
+        }
+    };
+    private final Runnable mPositionUpdateRunnable = new Runnable() {
+        @Override
+        public void run() {
+            updateDisplayedLyric();
+            if (mEnabled && mCurrentMediaController != null
+                    && isPlaybackActive(mCurrentMediaController.getPlaybackState())) {
+                mHandler.postDelayed(this, POSITION_UPDATE_INTERVAL_MS);
+            }
+        }
+    };
+    private final Runnable mRetryFetchRunnable = () -> {
+        if (!mEnabled || mCurrentMediaController == null) {
+            return;
+        }
+        mCurrentTrackKey = null;
+        updateCurrentSession();
+    };
+    private final Runnable mRestoreLyricRunnable = () -> {
+        mTemporarilyHidden = false;
+        showLyricView(true);
+    };
+    private final ContentObserver mLyricSourcesObserver = new ContentObserver(mHandler) {
+        @Override
+        public void onChange(boolean selfChange) {
+            if (mEnabled) {
+                cancelPendingFetch();
+                mCurrentTrackKey = null;
+                updateCurrentSession();
+            }
+        }
+    };
+    private final UserTracker.Callback mUserChangedCallback = new UserTracker.Callback() {
+        @Override
+        public void onUserChanged(int newUser, Context userContext) {
+            if (mDestroyed) {
+                return;
+            }
+            cancelPendingFetch();
+            detachCurrentController();
+            mCurrentLyrics = null;
+            mCurrentTrackKey = null;
+            mRetryTrackKey = null;
+            mFetchRetryCount = 0;
+            stopLyric();
+            registerLyricSourcesObserver();
+            registerSessionListener();
+            refreshActiveSessions();
+        }
+    };
+
+    private LyricSource.Lyrics mCurrentLyrics;
+    private String mCurrentTrackKey;
+    private String mRetryTrackKey;
+    private Future<?> mPendingFetch;
+    private long mFetchGeneration;
+    private int mFetchRetryCount;
     private boolean mStarted;
     private boolean mShowOnClockRight;
     private boolean mShowTranslation;
     private boolean mHideIconOnClockRight;
     private boolean mTemporarilyHidden;
-
-    private final Runnable mRestoreLyricRunnable = () -> {
-        mTemporarilyHidden = false;
-        showLyricView(true);
-    };
-
-    private String mCurrentNotificationPackage = null;
-    private CharSequence mCurrentLyricText;
-    private CharSequence mCurrentTranslatedText;
-    private int mCurrentNotificationId;
+    private boolean mSessionListenerRegistered;
+    private boolean mSourcesObserverRegistered;
+    private boolean mDestroyed;
 
     private int mOverlayTintColor = DarkIconDispatcher.DEFAULT_ICON_TINT;
     private int mInlineTintColor = DarkIconDispatcher.DEFAULT_ICON_TINT;
+    private CharSequence mCurrentLyricText;
+    private CharSequence mCurrentTranslatedText;
 
     public LyricViewController(Context context, View statusBar, View tintReferenceView) {
         mContext = context;
         mTintReferenceView = tintReferenceView;
         mOverlayLyricViewHolder = createLyricViewHolder(
-                statusBar,
-                R.id.lyric_container,
-                R.id.lyric_icon,
-                R.id.lyric_text,
-                R.id.lyric_translation,
-                true);
+                statusBar, R.id.lyric_container, R.id.lyric_icon, R.id.lyric_text,
+                R.id.lyric_translation, true);
         mInlineLyricViewHolder = createLyricViewHolder(
-                statusBar,
-                R.id.lyric_inline_container,
-                R.id.lyric_inline_icon,
-                R.id.lyric_inline_text,
-                R.id.lyric_inline_translation,
-                false);
+                statusBar, R.id.lyric_inline_container, R.id.lyric_inline_icon,
+                R.id.lyric_inline_text, R.id.lyric_inline_translation, false);
 
         mNotificationColorUtil = ContrastColorUtil.getInstance(mContext);
+        mMediaSessionManager = mContext.getSystemService(MediaSessionManager.class);
+        mNotificationListenerComponent = new ComponentName(mContext, NotificationListener.class);
+        mUserTracker = Dependency.get(UserTracker.class);
 
         Animation animationIn = AnimationUtils.loadAnimation(mContext,
                 com.android.internal.R.anim.push_up_in);
         Animation animationOut = AnimationUtils.loadAnimation(mContext,
                 com.android.internal.R.anim.push_up_out);
-
         setUpAnimations(mOverlayLyricViewHolder, animationIn, animationOut);
         if (mInlineLyricViewHolder != null) {
             setUpAnimations(mInlineLyricViewHolder, animationIn, animationOut);
@@ -136,36 +212,42 @@ public abstract class LyricViewController implements
         }
 
         hideInactiveLyricViewsImmediately();
-
         Dependency.get(DarkIconDispatcher.class).addDarkReceiver(this);
-        mNotificationListener = Dependency.get(NotificationListener.class);
-        mNotificationListener.addNotificationHandler(this);
+        mUserTracker.addCallback(mUserChangedCallback, command -> mHandler.post(command));
+        registerSessionListener();
+        registerLyricSourcesObserver();
     }
 
     public void destroy() {
+        mDestroyed = true;
         mOverlayLyricViewHolder.mLyricContainer.removeCallbacks(mRestoreLyricRunnable);
+        mHandler.removeCallbacks(mPositionUpdateRunnable);
+        mHandler.removeCallbacks(mRetryFetchRunnable);
+        mUserTracker.removeCallback(mUserChangedCallback);
+        unregisterSessionListener();
+        if (mSourcesObserverRegistered) {
+            mContext.getContentResolver().unregisterContentObserver(mLyricSourcesObserver);
+            mSourcesObserverRegistered = false;
+        }
+        cancelPendingFetch();
+        detachCurrentController();
+        mLyricExecutor.shutdownNow();
         Dependency.get(DarkIconDispatcher.class).removeDarkReceiver(this);
-        mNotificationListener.removeNotificationHandler(this);
     }
 
     public void setEnabled(boolean enabled) {
         boolean wasEnabled = mEnabled;
         mEnabled = enabled;
-        if (!mEnabled && mStarted) {
+        if (!mEnabled) {
+            cancelPendingFetch();
+            detachCurrentController();
+            mCurrentLyrics = null;
+            mCurrentTrackKey = null;
+            mRetryTrackKey = null;
+            mFetchRetryCount = 0;
             stopLyric();
-        } else if (mEnabled && !wasEnabled) {
-            replayActiveNotifications();
-        }
-    }
-
-    private void replayActiveNotifications() {
-        StatusBarNotification[] activeNotifications = mNotificationListener.getActiveNotifications();
-        RankingMap rankingMap = mNotificationListener.getCurrentRanking();
-        if (activeNotifications == null) {
-            return;
-        }
-        for (StatusBarNotification notification : activeNotifications) {
-            onNotificationPosted(notification, rankingMap);
+        } else if (!wasEnabled) {
+            refreshActiveSessions();
         }
     }
 
@@ -223,81 +305,267 @@ public abstract class LyricViewController implements
         return mStarted && !mTemporarilyHidden;
     }
 
-    @Override
-    public void onNotificationPosted(StatusBarNotification sbn, RankingMap rankingMap) {
-        if (!mEnabled) return;
-
-        Notification notification = sbn.getNotification();
-        boolean isLyric = ((notification.flags & Notification.FLAG_ALWAYS_SHOW_TICKER) != 0)
-                && ((notification.flags & Notification.FLAG_ONLY_UPDATE_TICKER) != 0)
-                && isPackageAllowed(getLyricSourcePackage(sbn, notification));
-
-        boolean isCurrentNotification = mCurrentNotificationId == sbn.getId() &&
-                TextUtils.equals(sbn.getPackageName(), mCurrentNotificationPackage);
-        if (!isLyric) {
-            if (isCurrentNotification) {
-                stopLyric();
-            }
-        } else {
-            mCurrentNotificationPackage = sbn.getPackageName();
-            mCurrentNotificationId = sbn.getId();
-
-            if (notification.tickerText == null) {
-                stopLyric();
-                return;
-            }
-            if (!isCurrentNotification || !mStarted ||
-                    notification.extras.getBoolean(EXTRA_TICKER_ICON_SWITCH, false)) {
-                setIconForAllHolders(resolveLyricIcon(sbn, notification));
-            }
-            startLyric();
-            setTextForAllHolders(
-                    notification.tickerText,
-                    notification.extras.getString(EXTRA_TICKER_TRANSLATION));
-        }
+    private void onActiveSessionsChanged(List<MediaController> controllers) {
+        selectActiveSession(controllers);
     }
 
-    private String getLyricSourcePackage(StatusBarNotification sbn, Notification notification) {
-        String notificationPackage = sbn.getPackageName();
-        if (!LYRIC_FETCH_PACKAGE.equals(notificationPackage)) {
-            return notificationPackage;
+    private void refreshActiveSessions() {
+        if (mDestroyed || !mEnabled || mMediaSessionManager == null) {
+            return;
         }
-        return notification.extras.getString(EXTRA_TICKER_ICON_PACKAGE, notificationPackage);
-    }
-
-    private boolean isPackageAllowed(String packageName) {
-        String value = Settings.Secure.getString(
-                mContext.getContentResolver(), Settings.Secure.STATUS_BAR_LYRIC_ALLOWED_PACKAGES);
-        if (TextUtils.isEmpty(value)) {
-            return false;
-        }
-        for (String allowedPackage : value.split(";")) {
-            if (TextUtils.equals(packageName, allowedPackage.trim())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public void onNotificationRemoved(StatusBarNotification sbn, RankingMap rankingMap) {
-        boolean isCurrentNotification = mCurrentNotificationId == sbn.getId() &&
-                TextUtils.equals(sbn.getPackageName(), mCurrentNotificationPackage);
-        if (isCurrentNotification) {
+        try {
+            selectActiveSession(mMediaSessionManager.getActiveSessionsForUser(
+                    mNotificationListenerComponent, mUserTracker.getUserHandle()));
+        } catch (SecurityException e) {
             stopLyric();
         }
     }
 
-    @Override
-    public void onNotificationRemoved(StatusBarNotification sbn, RankingMap rankingMap, int reason) {
-        onNotificationRemoved(sbn, rankingMap);
+    private void selectActiveSession(List<MediaController> controllers) {
+        if (!mEnabled) {
+            return;
+        }
+        MediaController activeController = null;
+        MediaController currentController = null;
+        MediaController fallbackController = null;
+        if (controllers != null) {
+            for (MediaController controller : controllers) {
+                if (isSameSession(controller, mCurrentMediaController)) {
+                    currentController = controller;
+                }
+                if (fallbackController == null) {
+                    fallbackController = controller;
+                }
+                if (isPlaybackActive(controller.getPlaybackState())) {
+                    activeController = controller;
+                    break;
+                }
+            }
+        }
+        if (activeController == null) {
+            activeController = currentController != null ? currentController : fallbackController;
+        }
+        if (isSameSession(activeController, mCurrentMediaController)) {
+            updateCurrentSession();
+            return;
+        }
+
+        cancelPendingFetch();
+        detachCurrentController();
+        mCurrentMediaController = activeController;
+        mCurrentLyrics = null;
+        mCurrentTrackKey = null;
+        if (mCurrentMediaController == null) {
+            stopLyric();
+            return;
+        }
+
+        mCurrentMediaController.registerCallback(mMediaCallback, mHandler);
+        updateCurrentSession();
     }
 
-    @Override
-    public void onNotificationRankingUpdate(RankingMap rankingMap) {
+    private boolean isPlaybackActive(PlaybackState state) {
+        if (state == null) {
+            return false;
+        }
+        switch (state.getState()) {
+            case PlaybackState.STATE_PLAYING:
+            case PlaybackState.STATE_BUFFERING:
+            case PlaybackState.STATE_FAST_FORWARDING:
+            case PlaybackState.STATE_REWINDING:
+            case PlaybackState.STATE_CONNECTING:
+                return true;
+            default:
+                return false;
+        }
     }
 
-    @Override
-    public void onNotificationsInitialized() {
+    private boolean isSameSession(MediaController first, MediaController second) {
+        return first != null && second != null && (first == second
+                || first.getSessionToken().equals(second.getSessionToken()));
+    }
+
+    private void updateCurrentSession() {
+        if (!mEnabled || mCurrentMediaController == null) {
+            return;
+        }
+        PlaybackState state = mCurrentMediaController.getPlaybackState();
+        if (!isPlaybackActive(state)) {
+            mHandler.removeCallbacks(mPositionUpdateRunnable);
+            stopLyric();
+            return;
+        }
+        mHandler.removeCallbacks(mPositionUpdateRunnable);
+        mHandler.post(mPositionUpdateRunnable);
+        MediaMetadata metadata = mCurrentMediaController.getMetadata();
+        String title = metadata == null ? null : metadata.getString(MediaMetadata.METADATA_KEY_TITLE);
+        if (TextUtils.isEmpty(title) && metadata != null) {
+            title = metadata.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE);
+        }
+        if (TextUtils.isEmpty(title)) {
+            cancelPendingFetch();
+            mCurrentLyrics = null;
+            mCurrentTrackKey = null;
+            stopLyric();
+            return;
+        }
+        String artist = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST);
+        if (TextUtils.isEmpty(artist)) {
+            artist = metadata.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST);
+        }
+        long durationMs = metadata.containsKey(MediaMetadata.METADATA_KEY_DURATION)
+                ? metadata.getLong(MediaMetadata.METADATA_KEY_DURATION) : 0;
+        String sourceSetting = Settings.Secure.getStringForUser(mContext.getContentResolver(),
+                Settings.Secure.STATUS_BAR_LYRIC_SOURCES, mUserTracker.getUserId());
+        String trackKey = title + "\u0000" + artist + "\u0000" + durationMs
+                + "\u0000" + sourceSetting;
+        if (TextUtils.equals(mCurrentTrackKey, trackKey)) {
+            updateDisplayedLyric();
+            return;
+        }
+
+        cancelPendingFetch();
+        mHandler.removeCallbacks(mRetryFetchRunnable);
+        if (!TextUtils.equals(trackKey, mRetryTrackKey)) {
+            mRetryTrackKey = null;
+            mFetchRetryCount = 0;
+        }
+        mCurrentTrackKey = trackKey;
+        mCurrentLyrics = null;
+        stopLyric();
+        final MediaController requestedController = mCurrentMediaController;
+        final String requestedTitle = title;
+        final String requestedArtist = artist;
+        final long requestedDurationMs = durationMs;
+        final String requestedSourceSetting = sourceSetting;
+        final long fetchGeneration = mFetchGeneration;
+        mPendingFetch = mLyricExecutor.submit(() -> {
+            LyricSource.Lyrics lyrics = null;
+            for (LyricSource source : LyricSourceFactory.create(requestedSourceSetting)) {
+                if (Thread.currentThread().isInterrupted()) {
+                    return;
+                }
+                lyrics = source.fetch(requestedTitle, requestedArtist, requestedDurationMs);
+                if (lyrics != null) {
+                    break;
+                }
+            }
+            final LyricSource.Lyrics fetchedLyrics = lyrics;
+            mHandler.post(() -> {
+                if (fetchGeneration != mFetchGeneration
+                        || requestedController != mCurrentMediaController
+                        || !TextUtils.equals(trackKey, mCurrentTrackKey)) {
+                    return;
+                }
+                mPendingFetch = null;
+                mCurrentLyrics = fetchedLyrics;
+                if (mCurrentLyrics == null) {
+                    scheduleFetchRetry(trackKey);
+                    return;
+                }
+                mRetryTrackKey = null;
+                mFetchRetryCount = 0;
+                setIconForAllHolders(resolveSessionIcon(requestedController));
+                updateDisplayedLyric();
+            });
+        });
+    }
+
+    private void updateDisplayedLyric() {
+        if (mCurrentLyrics == null || mCurrentMediaController == null) {
+            return;
+        }
+        PlaybackState state = mCurrentMediaController.getPlaybackState();
+        if (!isPlaybackActive(state)) {
+            return;
+        }
+        LyricSource.Cue cue = mCurrentLyrics.getCueAt(getPlaybackPosition(state));
+        if (cue == null) {
+            setTextForAllHolders("", null);
+            if (mStarted) {
+                stopLyric();
+            }
+            return;
+        }
+        setTextForAllHolders(cue.text, cue.translatedText);
+        if (!mStarted) {
+            startLyric();
+        }
+    }
+
+    private long getPlaybackPosition(PlaybackState state) {
+        long position = state.getPosition();
+        if (state.getState() == PlaybackState.STATE_PLAYING) {
+            long elapsed = SystemClock.elapsedRealtime() - state.getLastPositionUpdateTime();
+            position += (long) (elapsed * state.getPlaybackSpeed());
+        }
+        return Math.max(0, position);
+    }
+
+    private Drawable resolveSessionIcon(MediaController controller) {
+        try {
+            return mContext.getPackageManager().getApplicationIcon(controller.getPackageName());
+        } catch (PackageManager.NameNotFoundException e) {
+            return null;
+        }
+    }
+
+    private void detachCurrentController() {
+        if (mCurrentMediaController != null) {
+            mCurrentMediaController.unregisterCallback(mMediaCallback);
+            mCurrentMediaController = null;
+        }
+        mHandler.removeCallbacks(mPositionUpdateRunnable);
+    }
+
+    private void cancelPendingFetch() {
+        mFetchGeneration++;
+        if (mPendingFetch != null) {
+            mPendingFetch.cancel(true);
+            mPendingFetch = null;
+        }
+        mHandler.removeCallbacks(mRetryFetchRunnable);
+    }
+
+    private void scheduleFetchRetry(String trackKey) {
+        if (mFetchRetryCount >= MAX_FETCH_RETRIES) {
+            return;
+        }
+        mRetryTrackKey = trackKey;
+        mFetchRetryCount++;
+        mHandler.removeCallbacks(mRetryFetchRunnable);
+        mHandler.postDelayed(mRetryFetchRunnable, FETCH_RETRY_DELAY_MS);
+    }
+
+    private void registerSessionListener() {
+        unregisterSessionListener();
+        if (mDestroyed || mMediaSessionManager == null) {
+            return;
+        }
+        mMediaSessionManager.addOnActiveSessionsChangedListener(
+                mNotificationListenerComponent, mUserTracker.getUserHandle(),
+                command -> mHandler.post(command), mSessionsChangedListener);
+        mSessionListenerRegistered = true;
+    }
+
+    private void unregisterSessionListener() {
+        if (mMediaSessionManager != null && mSessionListenerRegistered) {
+            mMediaSessionManager.removeOnActiveSessionsChangedListener(mSessionsChangedListener);
+            mSessionListenerRegistered = false;
+        }
+    }
+
+    private void registerLyricSourcesObserver() {
+        if (mDestroyed) {
+            return;
+        }
+        if (mSourcesObserverRegistered) {
+            mContext.getContentResolver().unregisterContentObserver(mLyricSourcesObserver);
+        }
+        mContext.getContentResolver().registerContentObserverAsUser(
+                Settings.Secure.getUriFor(Settings.Secure.STATUS_BAR_LYRIC_SOURCES), false,
+                mLyricSourcesObserver, mUserTracker.getUserHandle());
+        mSourcesObserverRegistered = true;
     }
 
     public void startLyric() {
@@ -314,9 +582,10 @@ public abstract class LyricViewController implements
             mTemporarilyHidden = false;
             mOverlayLyricViewHolder.mLyricContainer.removeCallbacks(mRestoreLyricRunnable);
             hideLyricView(true);
-            mCurrentNotificationPackage = null;
-            mCurrentNotificationId = 0;
         }
+        mCurrentLyricText = null;
+        mCurrentTranslatedText = null;
+        setTextForAllHolders(null, null);
     }
 
     public abstract void showLyricView(boolean animate);
@@ -339,30 +608,17 @@ public abstract class LyricViewController implements
         return mInlineLyricViewHolder == null ? null : mInlineLyricViewHolder.mLyricContainer;
     }
 
-    private void updateIconTint() {
-        updateIconTint(mOverlayLyricViewHolder, mOverlayTintColor);
-        if (mInlineLyricViewHolder != null) {
-            updateIconTint(mInlineLyricViewHolder, mInlineTintColor);
-        }
-    }
-
     @Override
     public void onDarkChanged(ArrayList<Rect> area, float darkIntensity, int tint) {
         int textTint = mTintReferenceView != null
-                ? DarkIconDispatcher.getTint(area, mTintReferenceView, tint)
-                : tint;
+                ? DarkIconDispatcher.getTint(area, mTintReferenceView, tint) : tint;
         mOverlayTintColor = textTint;
         mInlineTintColor = textTint;
         applyTextTint();
     }
 
-    private LyricViewHolder createLyricViewHolder(
-            View statusBar,
-            int containerId,
-            int iconId,
-            int textId,
-            int subtitleTextId,
-            boolean required) {
+    private LyricViewHolder createLyricViewHolder(View statusBar, int containerId, int iconId,
+            int textId, int subtitleTextId, boolean required) {
         View lyricContainer = statusBar.findViewById(containerId);
         if (lyricContainer == null) {
             if (required) {
@@ -370,24 +626,20 @@ public abstract class LyricViewController implements
             }
             return null;
         }
-        TextSwitcher subtitleTextSwitcher =
-                subtitleTextId != View.NO_ID ? lyricContainer.findViewById(subtitleTextId) : null;
-        return new LyricViewHolder(
-                lyricContainer,
-                lyricContainer.requireViewById(iconId),
-                lyricContainer.requireViewById(textId),
-                subtitleTextSwitcher);
+        TextSwitcher subtitleTextSwitcher = lyricContainer.findViewById(subtitleTextId);
+        return new LyricViewHolder(lyricContainer, lyricContainer.requireViewById(iconId),
+                lyricContainer.requireViewById(textId), subtitleTextSwitcher);
     }
 
-    private void setUpAnimations(
-            LyricViewHolder lyricViewHolder, Animation animationIn, Animation animationOut) {
-        lyricViewHolder.mTextSwitcher.setInAnimation(animationIn);
-        lyricViewHolder.mTextSwitcher.setOutAnimation(animationOut);
-        lyricViewHolder.mIconSwitcher.setInAnimation(animationIn);
-        lyricViewHolder.mIconSwitcher.setOutAnimation(animationOut);
-        if (lyricViewHolder.mSubtitleTextSwitcher != null) {
-            lyricViewHolder.mSubtitleTextSwitcher.setInAnimation(null);
-            lyricViewHolder.mSubtitleTextSwitcher.setOutAnimation(null);
+    private void setUpAnimations(LyricViewHolder holder, Animation animationIn,
+            Animation animationOut) {
+        holder.mTextSwitcher.setInAnimation(animationIn);
+        holder.mTextSwitcher.setOutAnimation(animationOut);
+        holder.mIconSwitcher.setInAnimation(animationIn);
+        holder.mIconSwitcher.setOutAnimation(animationOut);
+        if (holder.mSubtitleTextSwitcher != null) {
+            holder.mSubtitleTextSwitcher.setInAnimation(null);
+            holder.mSubtitleTextSwitcher.setOutAnimation(null);
         }
     }
 
@@ -414,7 +666,6 @@ public abstract class LyricViewController implements
         if (from == null || to == null || from == to) {
             return;
         }
-
         Drawable currentDrawable = ((ImageView) from.mIconSwitcher.getCurrentView()).getDrawable();
         if (currentDrawable != null) {
             to.mIconSwitcher.setImageDrawable(copyDrawable(currentDrawable));
@@ -431,6 +682,9 @@ public abstract class LyricViewController implements
     }
 
     private void setIconForAllHolders(Drawable icon) {
+        if (icon == null) {
+            return;
+        }
         mOverlayLyricViewHolder.mIconSwitcher.setImageDrawable(copyDrawable(icon));
         if (mInlineLyricViewHolder != null) {
             mInlineLyricViewHolder.mIconSwitcher.setImageDrawable(copyDrawable(icon));
@@ -446,44 +700,17 @@ public abstract class LyricViewController implements
         mCurrentTranslatedText = translatedText;
         if (lyricChanged) {
             mOverlayLyricViewHolder.mTextSwitcher.setText(text);
+            if (mInlineLyricViewHolder != null) {
+                mInlineLyricViewHolder.mTextSwitcher.setText(text);
+            }
         }
         if (translationChanged) {
             setSubtitle(mOverlayLyricViewHolder, getVisibleTranslatedText());
-        }
-        if (mInlineLyricViewHolder != null) {
-            if (lyricChanged) {
-                mInlineLyricViewHolder.mTextSwitcher.setText(text);
-            }
-            if (translationChanged) {
+            if (mInlineLyricViewHolder != null) {
                 setSubtitle(mInlineLyricViewHolder, getVisibleTranslatedText());
             }
         }
         postApplyTextTint();
-    }
-
-    private Drawable resolveLyricIcon(StatusBarNotification sbn, Notification notification) {
-        Icon mediaSmallIcon = notification.extras.getParcelable(
-                EXTRA_TICKER_SMALL_ICON, Icon.class);
-        if (mediaSmallIcon != null) {
-            Drawable drawable = mediaSmallIcon.loadDrawable(mContext);
-            if (drawable != null) {
-                return drawable;
-            }
-        }
-
-        String iconPackage = notification.extras.getString(EXTRA_TICKER_ICON_PACKAGE);
-        if (!TextUtils.isEmpty(iconPackage)) {
-            try {
-                return mContext.getPackageManager().getApplicationIcon(iconPackage);
-            } catch (Exception ignored) {
-            }
-        }
-        int iconId = notification.extras.getInt(EXTRA_TICKER_ICON, -1);
-        return iconId == -1 ? notification.getSmallIcon().loadDrawable(mContext) :
-                StatusBarIconView.getIcon(mContext, sbn.getPackageContext(mContext),
-                        new StatusBarIcon(sbn.getPackageName(), sbn.getUser(),
-                            iconId, notification.iconLevel, 0, null,
-                            StatusBarIcon.Type.NotifSmallIcon));
     }
 
     private CharSequence getVisibleTranslatedText() {
@@ -502,55 +729,56 @@ public abstract class LyricViewController implements
         return constantState != null ? constantState.newDrawable().mutate() : drawable;
     }
 
-    private void updateIconTint(LyricViewHolder lyricViewHolder, int tintColor) {
-        Drawable drawable = ((ImageView) lyricViewHolder.mIconSwitcher.getCurrentView()).getDrawable();
+    private void updateIconTint() {
+        updateIconTint(mOverlayLyricViewHolder, mOverlayTintColor);
+        if (mInlineLyricViewHolder != null) {
+            updateIconTint(mInlineLyricViewHolder, mInlineTintColor);
+        }
+    }
+
+    private void updateIconTint(LyricViewHolder holder, int tintColor) {
+        Drawable drawable = ((ImageView) holder.mIconSwitcher.getCurrentView()).getDrawable();
         if (drawable == null) {
             return;
         }
         boolean isGrayscale = mNotificationColorUtil.isGrayscaleIcon(drawable);
-        ImageView currentView = (ImageView) lyricViewHolder.mIconSwitcher.getCurrentView();
-        ImageView nextView = (ImageView) lyricViewHolder.mIconSwitcher.getNextView();
         ColorStateList tintList = ColorStateList.valueOf(tintColor);
-        if (isGrayscale) {
-            currentView.setImageTintList(tintList);
-            nextView.setImageTintList(tintList);
-        } else {
-            currentView.setImageTintList(null);
-            nextView.setImageTintList(null);
+        ImageView currentView = (ImageView) holder.mIconSwitcher.getCurrentView();
+        ImageView nextView = (ImageView) holder.mIconSwitcher.getNextView();
+        currentView.setImageTintList(isGrayscale ? tintList : null);
+        nextView.setImageTintList(isGrayscale ? tintList : null);
+    }
+
+    private void updateTextTint(LyricViewHolder holder, int tintColor) {
+        ((TextView) holder.mTextSwitcher.getCurrentView()).setTextColor(tintColor);
+        ((TextView) holder.mTextSwitcher.getNextView()).setTextColor(tintColor);
+        if (holder.mSubtitleTextSwitcher != null) {
+            ((TextView) holder.mSubtitleTextSwitcher.getCurrentView()).setTextColor(tintColor);
+            ((TextView) holder.mSubtitleTextSwitcher.getNextView()).setTextColor(tintColor);
         }
     }
 
-    private void updateTextTint(LyricViewHolder lyricViewHolder, int tintColor) {
-        ((TextView) lyricViewHolder.mTextSwitcher.getCurrentView()).setTextColor(tintColor);
-        ((TextView) lyricViewHolder.mTextSwitcher.getNextView()).setTextColor(tintColor);
-        if (lyricViewHolder.mSubtitleTextSwitcher != null) {
-            ((TextView) lyricViewHolder.mSubtitleTextSwitcher.getCurrentView()).setTextColor(tintColor);
-            ((TextView) lyricViewHolder.mSubtitleTextSwitcher.getNextView()).setTextColor(tintColor);
-        }
-    }
-
-    private void setSubtitle(LyricViewHolder lyricViewHolder, CharSequence translatedText) {
-        if (lyricViewHolder.mSubtitleTextSwitcher == null) {
+    private void setSubtitle(LyricViewHolder holder, CharSequence translatedText) {
+        if (holder.mSubtitleTextSwitcher == null) {
             return;
         }
         if (TextUtils.isEmpty(translatedText)) {
-            lyricViewHolder.mSubtitleTextSwitcher.setCurrentText("");
-            lyricViewHolder.mSubtitleTextSwitcher.setVisibility(View.GONE);
+            holder.mSubtitleTextSwitcher.setCurrentText("");
+            holder.mSubtitleTextSwitcher.setVisibility(View.GONE);
             return;
         }
-        int tintColor = getTintColorForHolder(lyricViewHolder);
-        ((TextView) lyricViewHolder.mSubtitleTextSwitcher.getCurrentView()).setTextColor(tintColor);
-        ((TextView) lyricViewHolder.mSubtitleTextSwitcher.getNextView()).setTextColor(tintColor);
-        lyricViewHolder.mSubtitleTextSwitcher.setVisibility(View.VISIBLE);
-        lyricViewHolder.mSubtitleTextSwitcher.setText(translatedText);
+        int tintColor = getTintColorForHolder(holder);
+        ((TextView) holder.mSubtitleTextSwitcher.getCurrentView()).setTextColor(tintColor);
+        ((TextView) holder.mSubtitleTextSwitcher.getNextView()).setTextColor(tintColor);
+        holder.mSubtitleTextSwitcher.setVisibility(View.VISIBLE);
+        holder.mSubtitleTextSwitcher.setText(translatedText);
     }
 
     private void syncSubtitle(LyricViewHolder from, LyricViewHolder to) {
         if (from.mSubtitleTextSwitcher == null || to.mSubtitleTextSwitcher == null) {
             return;
         }
-        CharSequence currentText =
-                ((TextView) from.mSubtitleTextSwitcher.getCurrentView()).getText();
+        CharSequence currentText = ((TextView) from.mSubtitleTextSwitcher.getCurrentView()).getText();
         if (TextUtils.isEmpty(currentText)) {
             to.mSubtitleTextSwitcher.setCurrentText("");
             to.mSubtitleTextSwitcher.setVisibility(View.GONE);
@@ -568,8 +796,8 @@ public abstract class LyricViewController implements
         updateIconTint();
     }
 
-    private int getTintColorForHolder(LyricViewHolder lyricViewHolder) {
-        return lyricViewHolder == mInlineLyricViewHolder ? mInlineTintColor : mOverlayTintColor;
+    private int getTintColorForHolder(LyricViewHolder holder) {
+        return holder == mInlineLyricViewHolder ? mInlineTintColor : mOverlayTintColor;
     }
 
     private void postApplyTextTint() {
@@ -582,11 +810,8 @@ public abstract class LyricViewController implements
         final TextSwitcher mTextSwitcher;
         final TextSwitcher mSubtitleTextSwitcher;
 
-        LyricViewHolder(
-                View lyricContainer,
-                ImageSwitcher iconSwitcher,
-                TextSwitcher textSwitcher,
-                TextSwitcher subtitleTextSwitcher) {
+        LyricViewHolder(View lyricContainer, ImageSwitcher iconSwitcher,
+                TextSwitcher textSwitcher, TextSwitcher subtitleTextSwitcher) {
             mLyricContainer = lyricContainer;
             mIconSwitcher = iconSwitcher;
             mTextSwitcher = textSwitcher;
