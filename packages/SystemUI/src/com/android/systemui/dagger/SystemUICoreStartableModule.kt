@@ -53,6 +53,7 @@ import com.android.systemui.media.taptotransfer.sender.MediaTttSenderCoordinator
 import com.android.systemui.mediaprojection.taskswitcher.MediaProjectionTaskSwitcherCoreStartable
 import com.android.systemui.shortcut.ShortcutKeyDispatcher
 import com.android.systemui.statusbar.ImmersiveModeConfirmation
+import com.android.systemui.statusbar.phone.LyricDebugStartable
 import com.android.systemui.statusbar.chips.ui.viewmodel.OngoingActivityChipsRefiner
 import com.android.systemui.statusbar.gesture.GesturePointerEventListener
 import com.android.systemui.statusbar.notification.InstantAppNotifier
@@ -99,6 +100,12 @@ abstract class SystemUICoreStartableModule {
     @IntoMap
     @ClassKey(GlobalActionsComponent::class)
     abstract fun bindGlobalActionsComponent(sysui: GlobalActionsComponent): CoreStartable
+
+    /** Inject into the manual status bar lyric debug command. */
+    @Binds
+    @IntoMap
+    @ClassKey(LyricDebugStartable::class)
+    abstract fun bindLyricDebugStartable(startable: LyricDebugStartable): CoreStartable
 
     /** Inject into InstantAppNotifier. */
     @Binds

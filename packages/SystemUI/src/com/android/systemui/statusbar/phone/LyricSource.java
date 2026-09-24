@@ -17,8 +17,12 @@
 package com.android.systemui.statusbar.phone;
 
 /** A source that resolves a media track to timestamped lyrics. */
-interface LyricSource {
+public interface LyricSource {
     Lyrics fetch(Track track);
+
+    default Lyrics fetchEnhanced(Track track) {
+        return null;
+    }
 
     final class Track {
         final String packageName;
@@ -56,17 +60,48 @@ interface LyricSource {
             java.util.Map.Entry<Long, Cue> entry = mCues.floorEntry(Math.max(0, positionMs));
             return entry == null ? null : entry.getValue();
         }
+
+        boolean hasWordTiming() {
+            for (Cue cue : mCues.values()) {
+                if (cue.hasWordTiming()) {
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 
     final class Cue {
         final long timestampMs;
         final String text;
         final String translatedText;
+        final java.util.List<Word> words;
 
         Cue(long timestampMs, String text, String translatedText) {
+            this(timestampMs, text, translatedText, null);
+        }
+
+        Cue(long timestampMs, String text, String translatedText, java.util.List<Word> words) {
             this.timestampMs = timestampMs;
             this.text = text;
             this.translatedText = translatedText;
+            this.words = words;
+        }
+
+        boolean hasWordTiming() {
+            return words != null && !words.isEmpty();
+        }
+    }
+
+    public final class Word {
+        public final long beginMs;
+        public final long endMs;
+        public final String text;
+
+        public Word(long beginMs, long endMs, String text) {
+            this.beginMs = beginMs;
+            this.endMs = Math.max(beginMs, endMs);
+            this.text = text;
         }
     }
 }
