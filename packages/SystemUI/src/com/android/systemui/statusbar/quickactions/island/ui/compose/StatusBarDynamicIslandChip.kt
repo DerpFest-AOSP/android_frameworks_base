@@ -63,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import com.android.systemui.common.ui.compose.Icon
 import com.android.systemui.statusbar.quickactions.island.shared.DynamicIslandFeatureSettings
 import com.android.systemui.statusbar.quickactions.island.shared.DynamicIslandFeatureSettings.observeDynamicIslandScale
+import com.android.systemui.statusbar.quickactions.island.shared.DynamicIslandFeatureSettings.observeDynamicIslandVerticalOffset
 import com.android.systemui.statusbar.quickactions.island.shared.DynamicIslandFeatureSettings.observeDynamicIslandWidth
 import com.android.systemui.statusbar.quickactions.island.ui.model.PopupChipModel
 import com.android.systemui.statusbar.quickactions.island.ui.model.PopupContentModel
@@ -402,12 +403,14 @@ private val DynamicIslandEmbeddedGapSidePadding = 10.dp
 data class DynamicIslandCutoutSpec(
     val embeddedGapWidth: Dp,
     val horizontalOffset: Dp,
+    val verticalOffset: Dp,
 )
 
 @Composable
 fun rememberDynamicIslandCutoutSpec(): DynamicIslandCutoutSpec {
     val density = LocalDensity.current
     val view = LocalView.current
+    val verticalOffsetPx = rememberDynamicIslandVerticalOffsetPx()
     val displayCutout = view.rootWindowInsets?.displayCutout ?: view.display?.cutout
     val topCutout = displayCutout?.topBoundingRectOrNull()
     val rootWidthPx =
@@ -418,10 +421,13 @@ fun rememberDynamicIslandCutoutSpec(): DynamicIslandCutoutSpec {
         }
 
     return with(density) {
+        // Stored in pixels so the slider moves the chip one physical pixel per step.
+        val verticalOffsetDp = verticalOffsetPx.toDp()
         if (topCutout == null || rootWidthPx <= 0) {
             DynamicIslandCutoutSpec(
                 embeddedGapWidth = DynamicIslandEmbeddedGapFallbackWidth,
                 horizontalOffset = 0.dp,
+                verticalOffset = verticalOffsetDp,
             )
         } else {
             val embeddedGapWidthDp =
@@ -434,6 +440,7 @@ fun rememberDynamicIslandCutoutSpec(): DynamicIslandCutoutSpec {
             DynamicIslandCutoutSpec(
                 embeddedGapWidth = embeddedGapWidthDp,
                 horizontalOffset = horizontalOffsetDp,
+                verticalOffset = verticalOffsetDp,
             )
         }
     }
@@ -473,6 +480,15 @@ private fun rememberDynamicIslandHeightScale(): Float {
         remember { observeDynamicIslandScale(context, DynamicIslandFeatureSettings.HEIGHT_SCALE) }
             .collectAsState(initial = 1f)
     return heightScale
+}
+
+@Composable
+private fun rememberDynamicIslandVerticalOffsetPx(): Int {
+    val context = LocalContext.current
+    val verticalOffsetPx by
+        remember { observeDynamicIslandVerticalOffset(context) }
+            .collectAsState(initial = 0)
+    return verticalOffsetPx
 }
 
 private data class DynamicIslandCollapseState(val scale: Float, val contentAlpha: Float)

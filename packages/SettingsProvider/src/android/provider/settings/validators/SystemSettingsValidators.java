@@ -314,5 +314,7 @@ public class SystemSettingsValidators {
                 new InclusiveIntegerRangeValidator(80, 200));
         VALIDATORS.put(System.STATUS_BAR_DYNAMIC_ISLAND_HEIGHT_SCALE,
                 new InclusiveIntegerRangeValidator(70, 140));
+        VALIDATORS.put(System.STATUS_BAR_DYNAMIC_ISLAND_VERTICAL_OFFSET,
+                new InclusiveIntegerRangeValidator(-30, 30));
     }
 }
