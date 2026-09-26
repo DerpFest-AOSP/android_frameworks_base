@@ -16,6 +16,8 @@
 
 package com.android.systemui.statusbar.quickactions.island.ui.compose
 
+import android.graphics.Rect
+import android.graphics.RectF
 import android.view.DisplayCutout
 import android.view.HapticFeedbackConstants
 import androidx.compose.animation.core.Animatable
@@ -67,6 +69,7 @@ import com.android.systemui.statusbar.quickactions.island.shared.DynamicIslandFe
 import com.android.systemui.statusbar.quickactions.island.ui.model.PopupChipModel
 import com.android.systemui.statusbar.quickactions.island.ui.model.PopupContentModel
 import com.android.systemui.statusbar.quickactions.island.screenrecord.shared.model.ScreenRecordPopupModel
+import kotlin.math.ceil
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
 
@@ -382,6 +385,8 @@ private val DynamicIslandEmbeddedGapSidePadding = 10.dp
 data class DynamicIslandCutoutSpec(
     val embeddedGapWidth: Dp,
     val horizontalOffset: Dp,
+    /** The camera's centre in window pixels, or null with no top cutout. */
+    val cutoutCenterX: Float? = null,
 )
 
 @Composable
@@ -414,13 +419,30 @@ fun rememberDynamicIslandCutoutSpec(): DynamicIslandCutoutSpec {
             DynamicIslandCutoutSpec(
                 embeddedGapWidth = embeddedGapWidthDp,
                 horizontalOffset = horizontalOffsetDp,
+                cutoutCenterX = topCutout.exactCenterX(),
             )
         }
     }
 }
 
-private fun DisplayCutout.topBoundingRectOrNull() =
-    getBoundingRectTop().takeUnless { it.isEmpty }
+/**
+ * The top cutout's extent, from its path when there is one. Some devices' bounding rects do not
+ * match their cutout (phone2 reports 454-540 for a camera drawn at 511-569), and the island has
+ * to sit on the camera itself.
+ */
+private fun DisplayCutout.topBoundingRectOrNull(): Rect? {
+    val top = getBoundingRectTop().takeUnless { it.isEmpty } ?: return null
+    val path = cutoutPath ?: return top
+    val bounds = RectF()
+    path.computeBounds(bounds, true)
+    if (bounds.isEmpty || bounds.top > top.bottom) return top
+    return Rect(
+        bounds.left.toInt(),
+        bounds.top.toInt(),
+        ceil(bounds.right).toInt(),
+        ceil(bounds.bottom).toInt(),
+    )
+}
 
 private fun PopupContentModel.isUtilityStatusContent(): Boolean {
     return this is PopupContentModel.ScreenRecord ||

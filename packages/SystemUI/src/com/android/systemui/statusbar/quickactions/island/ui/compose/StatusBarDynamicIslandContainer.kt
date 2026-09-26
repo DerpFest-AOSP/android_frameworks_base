@@ -37,9 +37,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
@@ -59,6 +61,7 @@ fun StatusBarDynamicIslandContainer(
     modifier: Modifier = Modifier,
 ) {
     val cutoutSpec = rememberDynamicIslandCutoutSpec()
+    var naturalCenterX by remember { mutableFloatStateOf(Float.NaN) }
     var selectedChipId by remember { mutableStateOf<PopupChipId?>(null) }
     var popupAnchorChip by remember { mutableStateOf<PopupChipModel.Shown?>(null) }
     var popupVisible by remember { mutableStateOf(false) }
@@ -115,11 +118,27 @@ fun StatusBarDynamicIslandContainer(
         }
     }
 
+    val cutoutCenterX = cutoutSpec.cutoutCenterX
     Box(
         modifier =
             modifier
                 .padding(horizontal = 8.dp)
-                .offset(x = cutoutSpec.horizontalOffset)
+                .then(
+                    if (cutoutCenterX != null) {
+                        // The status bar's centred area has uneven side paddings, so its centre is
+                        // not the screen's. Line the island up with the camera from where it
+                        // actually lands instead of offsetting from the screen centre.
+                        Modifier.onPlaced { naturalCenterX = it.boundsInWindow().center.x }
+                            .graphicsLayer {
+                                val natural = naturalCenterX
+                                translationX =
+                                    if (natural.isNaN() || natural == 0f) 0f
+                                    else cutoutCenterX - natural
+                            }
+                    } else {
+                        Modifier.offset(x = cutoutSpec.horizontalOffset)
+                    }
+                )
                 .onGloballyPositioned { coordinates ->
                     if (selectedChip == null) {
                         onIslandBoundsChanged(android.graphics.Rect())
