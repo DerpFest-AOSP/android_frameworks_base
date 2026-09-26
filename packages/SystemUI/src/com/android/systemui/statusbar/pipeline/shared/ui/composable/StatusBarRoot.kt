@@ -603,9 +603,12 @@ private fun addStartSideComposable(
 
                 val axEnabled by axDynamicBarChipViewModel.interactor.settings.isEnabled.collectAsState()
                 if (axEnabled) {
+                    // chipsMaxWidth is 0 until the clock and start-side bounds are measured, and
+                    // also when that measurement is missed. A max of 0 collapses the chip.
+                    val dynamicBarMaxWidth = chipsMaxWidth.coerceAtLeast(25.dp)
                     AxDynamicBarChip(
                         viewModel = axDynamicBarChipViewModel,
-                        modifier = Modifier.widthIn(max = chipsMaxWidth),
+                        modifier = Modifier.widthIn(max = dynamicBarMaxWidth),
                     )
                 }
                 val chipsVisibilityModel = statusBarViewModel.ongoingActivityChips

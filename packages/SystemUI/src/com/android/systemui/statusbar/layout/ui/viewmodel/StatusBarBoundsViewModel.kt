@@ -49,6 +49,9 @@ constructor(
                 trySend(startSideContainerView.boundsOnScreen)
             }
         startSideContainerView.addOnLayoutChangeListener(layoutListener)
+        // The status bar is usually already laid out when this starts collecting. A layout-change
+        // listener alone never emits that current frame, which leaves chipsMaxWidth at 0.
+        trySend(startSideContainerView.boundsOnScreen)
         awaitClose { startSideContainerView.removeOnLayoutChangeListener(layoutListener) }
     }
 
@@ -81,6 +84,8 @@ constructor(
                 trySend(clockView.boundsOnScreen)
             }
         clockView.addOnLayoutChangeListener(layoutListener)
+        // Same as the start-side container: publish the bounds that are already on screen.
+        trySend(clockView.boundsOnScreen)
         awaitClose { clockView.removeOnLayoutChangeListener(layoutListener) }
     }
 
