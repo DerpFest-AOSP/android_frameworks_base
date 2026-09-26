@@ -224,3 +224,18 @@ class AxDynamicBarSettings @Inject constructor(
         _isEnabled.value && _isKeyguardEnabled.value &&
             "biometric_unlock" !in _disabledEventTypes.value
 }
+
+/**
+ * Stock lockscreen media stays up only when the dynamic bar is not the lockscreen player.
+ * The bar setting is the Secure int written by DerpFest customizations.
+ */
+fun SecureSettings.allowsStockLockscreenMediaPlayer(): Boolean {
+    val dynamicBarMedia =
+        getIntForUser(
+            AxDynamicBarSettings.KEY_LOCKSCREEN_MEDIA_ENABLED,
+            0,
+            UserHandle.USER_CURRENT,
+        ) == 1
+    return !dynamicBarMedia &&
+        getBoolForUser(Settings.Secure.MEDIA_CONTROLS_LOCK_SCREEN, true, UserHandle.USER_CURRENT)
+}

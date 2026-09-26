@@ -68,6 +68,8 @@ import com.android.systemui.statusbar.policy.KeyguardStateController
 import com.android.systemui.statusbar.policy.SplitShadeStateController
 import com.android.systemui.util.animation.UniqueObjectHostView
 import com.android.systemui.util.kotlin.mapDirect
+import com.android.systemui.axdynamicbar.domain.AxDynamicBarSettings
+import com.android.systemui.axdynamicbar.domain.allowsStockLockscreenMediaPlayer
 import com.android.systemui.util.settings.SecureSettings
 import java.io.PrintWriter
 import javax.inject.Inject
@@ -130,9 +132,12 @@ constructor(
 ) : Dumpable {
 
     /** Track the media player setting status on lock screen. */
-    private var allowMediaPlayerOnLockScreen: Boolean = true
+    private var allowMediaPlayerOnLockScreen: Boolean =
+        secureSettings.allowsStockLockscreenMediaPlayer()
     private val lockScreenMediaPlayerUri =
         secureSettings.getUriFor(Settings.Secure.MEDIA_CONTROLS_LOCK_SCREEN)
+    private val lockScreenDynamicBarMediaUri =
+        secureSettings.getUriFor(AxDynamicBarSettings.KEY_LOCKSCREEN_MEDIA_ENABLED)
 
     /**
      * Whether we "skip" QQS during panel expansion.
@@ -661,18 +666,22 @@ constructor(
         val settingsObserver: ContentObserver =
             object : ContentObserver(handler) {
                 override fun onChange(selfChange: Boolean, uri: Uri?) {
-                    if (uri == lockScreenMediaPlayerUri) {
-                        allowMediaPlayerOnLockScreen =
-                            secureSettings.getBoolForUser(
-                                Settings.Secure.MEDIA_CONTROLS_LOCK_SCREEN,
-                                true,
-                                UserHandle.USER_CURRENT,
-                            )
+                    if (uri == lockScreenMediaPlayerUri || uri == lockScreenDynamicBarMediaUri) {
+                        allowMediaPlayerOnLockScreen = secureSettings.allowsStockLockscreenMediaPlayer()
+                        context.mainExecutor.execute {
+                            updateDesiredLocation(forceNoAnimation = true, forceStateUpdate = true)
+                            updateUserVisibility()
+                        }
                     }
                 }
             }
         secureSettings.registerContentObserverForUserAsync(
             Settings.Secure.MEDIA_CONTROLS_LOCK_SCREEN,
+            settingsObserver,
+            UserHandle.USER_ALL,
+        )
+        secureSettings.registerContentObserverForUserAsync(
+            AxDynamicBarSettings.KEY_LOCKSCREEN_MEDIA_ENABLED,
             settingsObserver,
             UserHandle.USER_ALL,
         )

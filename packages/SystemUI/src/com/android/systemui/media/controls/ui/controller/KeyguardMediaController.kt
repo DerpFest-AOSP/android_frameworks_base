@@ -68,6 +68,8 @@ import com.android.systemui.util.asIndenting
 import com.android.systemui.util.boundsOnScreen
 import com.android.systemui.util.println
 import com.android.systemui.util.settings.SecureSettings
+import com.android.systemui.axdynamicbar.domain.AxDynamicBarSettings
+import com.android.systemui.axdynamicbar.domain.allowsStockLockscreenMediaPlayer
 import com.android.systemui.util.settings.SettingsProxyExt.observerFlow
 import com.android.systemui.util.withIncreasedIndent
 import java.io.PrintWriter
@@ -221,10 +223,14 @@ constructor(
     @VisibleForTesting
     fun listenForLockscreenSettingChanges(scope: CoroutineScope): Job {
         return scope.launch {
-            secureSettings
-                .observerFlow(UserHandle.USER_ALL, Settings.Secure.MEDIA_CONTROLS_LOCK_SCREEN)
-                // query to get initial value
-                .onStart { emit(Unit) }
+            combine(
+                secureSettings
+                    .observerFlow(UserHandle.USER_ALL, Settings.Secure.MEDIA_CONTROLS_LOCK_SCREEN)
+                    .onStart { emit(Unit) },
+                secureSettings
+                    .observerFlow(UserHandle.USER_ALL, AxDynamicBarSettings.KEY_LOCKSCREEN_MEDIA_ENABLED)
+                    .onStart { emit(Unit) },
+            ) { _, _ -> }
                 .map { getMediaLockScreenSetting() }
                 .distinctUntilChanged()
                 .flowOn(backgroundDispatcher)
@@ -237,11 +243,7 @@ constructor(
 
     private suspend fun getMediaLockScreenSetting(): Boolean {
         return withContext(backgroundDispatcher) {
-            secureSettings.getBoolForUser(
-                Settings.Secure.MEDIA_CONTROLS_LOCK_SCREEN,
-                true,
-                UserHandle.USER_CURRENT,
-            )
+            secureSettings.allowsStockLockscreenMediaPlayer()
         }
     }
 

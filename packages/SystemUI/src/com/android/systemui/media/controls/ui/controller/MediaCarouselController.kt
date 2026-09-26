@@ -79,6 +79,8 @@ import com.android.systemui.util.boundsOnScreen
 import com.android.systemui.util.concurrency.DelayableExecutor
 import com.android.systemui.util.settings.GlobalSettings
 import com.android.systemui.util.settings.SecureSettings
+import com.android.systemui.axdynamicbar.domain.AxDynamicBarSettings
+import com.android.systemui.axdynamicbar.domain.allowsStockLockscreenMediaPlayer
 import com.android.systemui.util.settings.SettingsProxyExt.observerFlow
 import com.android.systemui.util.time.SystemClock
 import dagger.Lazy
@@ -97,6 +99,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -541,10 +544,14 @@ constructor(
     @VisibleForTesting
     internal fun listenForLockscreenSettingChanges(scope: CoroutineScope): Job {
         return scope.launch {
-            secureSettings
-                .observerFlow(UserHandle.USER_ALL, Settings.Secure.MEDIA_CONTROLS_LOCK_SCREEN)
-                // query to get initial value
-                .onStart { emit(Unit) }
+            combine(
+                secureSettings
+                    .observerFlow(UserHandle.USER_ALL, Settings.Secure.MEDIA_CONTROLS_LOCK_SCREEN)
+                    .onStart { emit(Unit) },
+                secureSettings
+                    .observerFlow(UserHandle.USER_ALL, AxDynamicBarSettings.KEY_LOCKSCREEN_MEDIA_ENABLED)
+                    .onStart { emit(Unit) },
+            ) { _, _ -> }
                 .map { getMediaLockScreenSetting() }
                 .distinctUntilChanged()
                 .flowOn(backgroundDispatcher)
@@ -568,11 +575,7 @@ constructor(
 
     private suspend fun getMediaLockScreenSetting(): Boolean {
         return withContext(backgroundDispatcher) {
-            secureSettings.getBoolForUser(
-                Settings.Secure.MEDIA_CONTROLS_LOCK_SCREEN,
-                true,
-                UserHandle.USER_CURRENT,
-            )
+            secureSettings.allowsStockLockscreenMediaPlayer()
         }
     }
 

@@ -26,6 +26,8 @@ import com.android.systemui.media.controls.data.model.MediaSortKeyModel
 import com.android.systemui.media.controls.shared.areIconsEqual
 import com.android.systemui.media.controls.shared.model.MediaData
 import com.android.systemui.media.remedia.data.model.UpdateArtInfoModel
+import com.android.systemui.axdynamicbar.domain.AxDynamicBarSettings
+import com.android.systemui.axdynamicbar.domain.allowsStockLockscreenMediaPlayer
 import com.android.systemui.util.settings.SecureSettings
 import com.android.systemui.util.settings.SettingsProxyExt.observerFlow
 import kotlinx.coroutines.CoroutineDispatcher
@@ -35,6 +37,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -149,9 +152,14 @@ abstract class MediaPipelineRepository(
 
     private fun listenForLockscreenSettingChanges(scope: CoroutineScope): Job {
         return scope.launch {
-            secureSettings
-                .observerFlow(UserHandle.USER_ALL, Settings.Secure.MEDIA_CONTROLS_LOCK_SCREEN)
-                .onStart { emit(Unit) }
+            combine(
+                secureSettings
+                    .observerFlow(UserHandle.USER_ALL, Settings.Secure.MEDIA_CONTROLS_LOCK_SCREEN)
+                    .onStart { emit(Unit) },
+                secureSettings
+                    .observerFlow(UserHandle.USER_ALL, AxDynamicBarSettings.KEY_LOCKSCREEN_MEDIA_ENABLED)
+                    .onStart { emit(Unit) },
+            ) { _, _ -> }
                 .map { getMediaLockScreenSetting() }
                 .distinctUntilChanged()
                 .flowOn(backgroundDispatcher)
@@ -161,11 +169,7 @@ abstract class MediaPipelineRepository(
 
     private suspend fun getMediaLockScreenSetting(): Boolean {
         return withContext(backgroundDispatcher) {
-            secureSettings.getBoolForUser(
-                Settings.Secure.MEDIA_CONTROLS_LOCK_SCREEN,
-                true,
-                UserHandle.USER_CURRENT,
-            )
+            secureSettings.allowsStockLockscreenMediaPlayer()
         }
     }
 }

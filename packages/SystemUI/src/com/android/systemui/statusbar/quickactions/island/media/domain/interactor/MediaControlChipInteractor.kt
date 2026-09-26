@@ -29,6 +29,7 @@ import android.os.SystemClock
 import android.os.UserHandle
 import androidx.compose.runtime.snapshotFlow
 import com.android.systemui.ActivityIntentHelper
+import com.android.systemui.axdynamicbar.domain.AxDynamicBarSettings
 import com.android.systemui.common.shared.model.ContentDescription
 import com.android.systemui.common.shared.model.Icon as UiIcon
 import com.android.systemui.dagger.SysUISingleton
@@ -87,6 +88,7 @@ constructor(
     private val activityIntentHelper: ActivityIntentHelper,
     private val lockscreenUserManager: NotificationLockscreenUserManager,
     private val keyguardStateController: KeyguardStateController,
+    private val axDynamicBarSettings: AxDynamicBarSettings,
 ) {
     private val isEnabled = MutableStateFlow(false)
     private val isDynamicIslandEnabled = MutableStateFlow(false)
@@ -141,21 +143,33 @@ constructor(
             .flatMapLatest { state -> state.token.playbackInfoFlow(context) }
             .distinctUntilChanged()
 
-    /** The currently active [MediaControlChipModel] */
-    val mediaControlChipModel: StateFlow<MediaControlChipModel?> =
+    private val axMediaActive: Flow<Boolean> =
         combine(
-            mediaControlState,
-            livePlaybackInfo,
-            isEnabled,
+            axDynamicBarSettings.isEnabled,
+            axDynamicBarSettings.disabledEventTypes,
+            axDynamicBarSettings.isLockscreenMediaEnabled,
+            axDynamicBarSettings.isLockscreenMediaLyricsEnabled,
+        ) { barEnabled, disabledEvents, lockscreenMedia, lockscreenLyrics ->
+            (barEnabled && "media" !in disabledEvents) || lockscreenMedia || lockscreenLyrics
+        }
+
+    private val showMediaControls: Flow<Boolean> =
+        combine(
             isDynamicIslandEnabled,
             observeDynamicIslandFeatureEnabled(context, MEDIA_CONTROLS),
-        ) {
+            axMediaActive,
+        ) { islandEnabled, mediaControlsEnabled, axMediaActive ->
+            (islandEnabled && mediaControlsEnabled) || axMediaActive
+        }
+
+    /** The currently active [MediaControlChipModel] */
+    val mediaControlChipModel: StateFlow<MediaControlChipModel?> =
+        combine(mediaControlState, livePlaybackInfo, isEnabled, showMediaControls) {
             mediaControlState,
             playbackInfo,
             isEnabled,
-            isDynamicIslandEnabled,
-            mediaControlsEnabled ->
-                if (isEnabled && isDynamicIslandEnabled && mediaControlsEnabled) {
+            showMediaControls ->
+                if (isEnabled && showMediaControls) {
                     mediaControlState.model?.withPlaybackInfo(playbackInfo)
                 } else {
                     null

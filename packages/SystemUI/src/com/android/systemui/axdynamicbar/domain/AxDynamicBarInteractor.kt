@@ -287,6 +287,7 @@ constructor(
                 settings.isLockscreenMediaLyricsEnabled,
                 settings.isDynamicIslandOngoingActive,
                 settings.isDynamicIslandCallsActive,
+                settings.keyguardBatteryChipMode,
             ) { args ->
                 @Suppress("UNCHECKED_CAST")
                 val raw = args[0] as List<IslandEvent>
@@ -297,6 +298,7 @@ constructor(
                 val lockscreenMediaLyricsEnabled = args[6] as Boolean
                 val isDynamicIslandOngoingActive = args[7] as Boolean
                 val isDynamicIslandCallsActive = args[8] as Boolean
+                val batteryChipMode = args[9] as Int
 
                 val filteredRaw = raw.filter { event ->
                     if (event is IslandEvent.Media) {
@@ -318,6 +320,7 @@ constructor(
                     lockscreenMediaLyricsEnabled = lockscreenMediaLyricsEnabled,
                     isDynamicIslandOngoingActive = isDynamicIslandOngoingActive,
                     isDynamicIslandCallsActive = isDynamicIslandCallsActive,
+                    batteryChipMode = batteryChipMode,
                 )
             }.collect { result ->
                 val rawEvents = result.rawEvents
@@ -328,6 +331,7 @@ constructor(
                 val lockscreenMediaLyricsEnabled = result.lockscreenMediaLyricsEnabled
                 val isDynamicIslandOngoingActive = result.isDynamicIslandOngoingActive
                 val isDynamicIslandCallsActive = result.isDynamicIslandCallsActive
+                val batteryChipMode = result.batteryChipMode
 
                 if (!isMainEnabled && !lockscreenMediaEnabled && !lockscreenMediaLyricsEnabled && !isDynamicIslandOngoingActive && !isDynamicIslandCallsActive) return@collect
 
@@ -340,7 +344,7 @@ constructor(
                             } else {
                                 isMainEnabled && kgEnabled &&
                                     e !is IslandEvent.Notification &&
-                                    (e !is IslandEvent.Charging || settings.keyguardBatteryChipMode.value > 0) &&
+                                    (e !is IslandEvent.Charging || batteryChipMode > 0) &&
                                     e !is IslandEvent.AppSwitch
                             }
                         } else {
@@ -697,4 +701,5 @@ private data class FilteredEventsResult(
     val lockscreenMediaLyricsEnabled: Boolean,
     val isDynamicIslandOngoingActive: Boolean,
     val isDynamicIslandCallsActive: Boolean,
+    val batteryChipMode: Int,
 )

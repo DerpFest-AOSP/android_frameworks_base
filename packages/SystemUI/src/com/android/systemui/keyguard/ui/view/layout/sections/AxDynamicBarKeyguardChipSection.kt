@@ -9,7 +9,10 @@ import androidx.constraintlayout.widget.ConstraintSet
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.android.compose.theme.PlatformTheme
+import com.android.systemui.axdynamicbar.model.IslandEvent
+import com.android.systemui.axdynamicbar.ui.AxDynamicBarChipState
 import com.android.systemui.axdynamicbar.ui.AxDynamicBarChipViewModel
+import com.android.systemui.axdynamicbar.ui.KeyguardBatteryInfo
 import com.android.systemui.axdynamicbar.ui.compose.AxDynamicBarKeyguardChip
 import com.android.systemui.keyguard.shared.model.KeyguardSection
 import com.android.systemui.lifecycle.repeatWhenAttached
@@ -45,7 +48,7 @@ constructor(
     override fun bindData(constraintLayout: ConstraintLayout) {
         val composeView: ComposeView = constraintLayout.requireViewById(chipViewId)
 
-        if (viewModel.isEnabled.value && viewModel.isKeyguardEnabled.value && viewModel.isOnKeyguard.value) {
+        if (shouldSuppressIndication()) {
             indicationController.setSuppressIndication(true)
         }
 
@@ -57,11 +60,38 @@ constructor(
 
         bindHandle = composeView.repeatWhenAttached {
             repeatOnLifecycle(Lifecycle.State.CREATED) {
-                combine(viewModel.isOnKeyguard, viewModel.isEnabled, viewModel.isKeyguardEnabled) { onKeyguard, enabled, kgEnabled ->
-                    onKeyguard && enabled && kgEnabled
-                }.collect { suppress ->
-                    indicationController.setSuppressIndication(suppress)
-                }
+                combine(
+                    viewModel.isOnKeyguard,
+                    viewModel.isEnabled,
+                    viewModel.isKeyguardEnabled,
+                    viewModel.isLockscreenMediaEnabled,
+                    viewModel.isLockscreenMediaLyricsEnabled,
+                    viewModel.chipState,
+                    viewModel.keyguardBatteryChipMode,
+                    viewModel.keyguardBatteryInfo,
+                    viewModel.isDozing,
+                ) { args ->
+                    val onKeyguard = args[0] as Boolean
+                    val enabled = args[1] as Boolean
+                    val keyguardEnabled = args[2] as Boolean
+                    val mediaEnabled = args[3] as Boolean
+                    val lyricsEnabled = args[4] as Boolean
+                    val state = args[5] as AxDynamicBarChipState?
+                    val batteryChipMode = args[6] as Int
+                    val batteryInfo = args[7] as KeyguardBatteryInfo
+                    val isDozing = args[8] as Boolean
+                    suppressesKeyguardIndication(
+                        onKeyguard = onKeyguard,
+                        enabled = enabled,
+                        keyguardEnabled = keyguardEnabled,
+                        mediaEnabled = mediaEnabled,
+                        lyricsEnabled = lyricsEnabled,
+                        state = state,
+                        batteryChipMode = batteryChipMode,
+                        batteryInfo = batteryInfo,
+                        isDozing = isDozing,
+                    )
+                }.collect { indicationController.setSuppressIndication(it) }
             }
         }
 
@@ -173,6 +203,42 @@ constructor(
         indicationController.setSuppressIndication(false)
         constraintLayout.removeView(chipViewId)
     }
+
+    private fun suppressesKeyguardIndication(
+        onKeyguard: Boolean,
+        enabled: Boolean,
+        keyguardEnabled: Boolean,
+        mediaEnabled: Boolean,
+        lyricsEnabled: Boolean,
+        state: AxDynamicBarChipState?,
+        batteryChipMode: Int,
+        batteryInfo: KeyguardBatteryInfo,
+        isDozing: Boolean,
+    ): Boolean {
+        val showNormalDynamicBar = enabled && keyguardEnabled && state != null
+        val showLockscreenMedia = mediaEnabled && state != null && state.event is IslandEvent.Media
+        val showLockscreenLyrics = lyricsEnabled && state != null && state.event is IslandEvent.Media
+        val batteryChipVisible =
+            batteryChipMode > 0 &&
+                (batteryChipMode == 2 || (batteryChipMode == 1 && batteryInfo.isCharging))
+        val showBatteryChip =
+            state == null && batteryChipVisible && enabled && keyguardEnabled && !isDozing
+        return onKeyguard &&
+            (showNormalDynamicBar || showLockscreenMedia || showLockscreenLyrics || showBatteryChip)
+    }
+
+    private fun shouldSuppressIndication(): Boolean =
+        suppressesKeyguardIndication(
+            onKeyguard = viewModel.isOnKeyguard.value,
+            enabled = viewModel.isEnabled.value,
+            keyguardEnabled = viewModel.isKeyguardEnabled.value,
+            mediaEnabled = viewModel.isLockscreenMediaEnabled.value,
+            lyricsEnabled = viewModel.isLockscreenMediaLyricsEnabled.value,
+            state = viewModel.chipState.value,
+            batteryChipMode = viewModel.keyguardBatteryChipMode.value,
+            batteryInfo = viewModel.keyguardBatteryInfo.value,
+            isDozing = viewModel.isDozing.value,
+        )
 
     companion object {
         private const val CHIP_ABOVE_LOCK_MARGIN_DP = 12f
