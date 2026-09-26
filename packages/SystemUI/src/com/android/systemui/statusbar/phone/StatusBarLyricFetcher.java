@@ -1,17 +1,7 @@
 /*
- * Copyright (C) 2026 The uwuAOSP Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: The uwuAOSP Project
+ * SPDX-FileCopyrightText: DerpFest AOSP
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package com.android.systemui.statusbar.phone;
@@ -22,6 +12,8 @@ import android.text.TextUtils;
 
 import androidx.annotation.Nullable;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -30,13 +22,43 @@ import java.util.Locale;
  * lyric view.
  */
 public final class StatusBarLyricFetcher {
+    public static final class TimedWord {
+        public final long beginMs;
+        public final long endMs;
+        public final String text;
+
+        public TimedWord(long beginMs, long endMs, String text) {
+            this.beginMs = beginMs;
+            this.endMs = endMs;
+            this.text = text;
+        }
+    }
+
+    public static final class TimedLine {
+        public final long timestampMs;
+        public final String text;
+        public final List<TimedWord> words;
+
+        public TimedLine(long timestampMs, String text, List<TimedWord> words) {
+            this.timestampMs = timestampMs;
+            this.text = text;
+            this.words = words == null ? Collections.emptyList() : words;
+        }
+    }
+
     public static final class Result {
         public final String plainLyrics;
         public final String syncedLyrics;
+        public final List<TimedLine> lines;
 
         public Result(String plainLyrics, String syncedLyrics) {
+            this(plainLyrics, syncedLyrics, Collections.emptyList());
+        }
+
+        public Result(String plainLyrics, String syncedLyrics, List<TimedLine> lines) {
             this.plainLyrics = plainLyrics;
             this.syncedLyrics = syncedLyrics;
+            this.lines = lines == null ? Collections.emptyList() : lines;
         }
     }
 
@@ -110,6 +132,7 @@ public final class StatusBarLyricFetcher {
         }
         StringBuilder plain = new StringBuilder();
         StringBuilder synced = new StringBuilder();
+        List<TimedLine> lines = new ArrayList<>();
         for (LyricSource.Cue cue : lyrics.getCues()) {
             if (cue == null || TextUtils.isEmpty(cue.text)) {
                 continue;
@@ -122,11 +145,26 @@ public final class StatusBarLyricFetcher {
                 synced.append('\n');
             }
             synced.append(formatLrcTimestamp(cue.timestampMs)).append(cue.text);
+            lines.add(new TimedLine(cue.timestampMs, cue.text, timedWords(cue)));
         }
         if (plain.length() == 0) {
             return null;
         }
-        return new Result(plain.toString(), synced.toString());
+        return new Result(plain.toString(), synced.toString(), lines);
+    }
+
+    private static List<TimedWord> timedWords(LyricSource.Cue cue) {
+        if (cue.words == null || cue.words.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<TimedWord> words = new ArrayList<>();
+        for (LyricSource.Word word : cue.words) {
+            if (word == null || TextUtils.isEmpty(word.text)) {
+                continue;
+            }
+            words.add(new TimedWord(word.beginMs, word.endMs, word.text));
+        }
+        return words;
     }
 
     private static String formatLrcTimestamp(long timestampMs) {

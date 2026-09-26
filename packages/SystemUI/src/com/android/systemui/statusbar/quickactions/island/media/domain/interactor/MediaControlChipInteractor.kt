@@ -45,6 +45,8 @@ import com.android.systemui.media.remedia.shared.model.MediaSessionState
 import com.android.systemui.plugins.ActivityStarter
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.phone.StatusBarLyricFetcher
+import com.android.systemui.statusbar.quickactions.island.media.shared.model.LyricLine
+import com.android.systemui.statusbar.quickactions.island.media.shared.model.LyricWord
 import com.android.systemui.statusbar.quickactions.island.media.shared.model.MediaControlChipModel
 import com.android.systemui.statusbar.quickactions.island.shared.DynamicIslandFeatureSettings.LYRICS
 import com.android.systemui.statusbar.quickactions.island.shared.DynamicIslandFeatureSettings.MEDIA_CONTROLS
@@ -170,6 +172,7 @@ constructor(
 
     private val currentLyrics = MutableStateFlow<String?>(null)
     private val currentSyncedLyrics = MutableStateFlow<String?>(null)
+    private val currentTimedLyrics = MutableStateFlow<List<LyricLine>>(emptyList())
     private val islandLyricsEnabled =
         observeDynamicIslandFeatureEnabled(context, LYRICS, defaultValue = false)
     private var lyricsFetchJob: Job? = null
@@ -197,11 +200,13 @@ constructor(
             baseMediaControlChipModel,
             currentLyrics,
             currentSyncedLyrics,
+            currentTimedLyrics,
             islandLyricsEnabled,
-        ) { baseModel, lyrics, syncedLyrics, isIslandLyricsEnabled ->
+        ) { baseModel, lyrics, syncedLyrics, timedLyrics, isIslandLyricsEnabled ->
             baseModel?.copy(
                 lyrics = lyrics,
                 syncedLyrics = syncedLyrics,
+                timedLyrics = timedLyrics,
                 isDynamicIslandLyricsEnabled = isIslandLyricsEnabled,
             )
         }
@@ -295,6 +300,7 @@ constructor(
                     lastFetchedKey = key
                     currentLyrics.value = null
                     currentSyncedLyrics.value = null
+                    currentTimedLyrics.value = emptyList()
                     lyricsFetchJob =
                         backgroundScope.launch {
                             var result: StatusBarLyricFetcher.Result? = null
@@ -324,6 +330,7 @@ constructor(
                             }
                             currentLyrics.value = result?.plainLyrics
                             currentSyncedLyrics.value = result?.syncedLyrics
+                            currentTimedLyrics.value = result?.toTimedLines().orEmpty()
                         }
                 }
         }
@@ -338,6 +345,24 @@ constructor(
         cachedTrack = null
         currentLyrics.value = null
         currentSyncedLyrics.value = null
+        currentTimedLyrics.value = emptyList()
+    }
+
+    private fun StatusBarLyricFetcher.Result.toTimedLines(): List<LyricLine> {
+        return lines.map { line ->
+            LyricLine(
+                timestampMs = line.timestampMs,
+                text = line.text,
+                words =
+                    line.words.map { word ->
+                        LyricWord(
+                            beginMs = word.beginMs,
+                            endMs = word.endMs,
+                            text = word.text,
+                        )
+                    },
+            )
+        }
     }
 
     private fun lyricSourceChanges(): Flow<Unit> = callbackFlow {

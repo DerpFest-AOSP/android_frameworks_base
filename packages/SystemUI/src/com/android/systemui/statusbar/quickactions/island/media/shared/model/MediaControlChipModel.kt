@@ -19,6 +19,20 @@ package com.android.systemui.statusbar.quickactions.island.media.shared.model
 import com.android.systemui.common.shared.model.Icon
 import com.android.systemui.media.controls.shared.model.MediaAction
 
+/** One word inside a lyric line, timed against playback. */
+data class LyricWord(
+    val beginMs: Long,
+    val endMs: Long,
+    val text: String,
+)
+
+/** A lyric line. [words] is empty when only the line start time is known. */
+data class LyricLine(
+    val timestampMs: Long,
+    val text: String,
+    val words: List<LyricWord> = emptyList(),
+)
+
 /** Model used to display and control media from the status bar island. */
 data class MediaControlChipModel(
     val appIcon: Icon?,
@@ -38,6 +52,7 @@ data class MediaControlChipModel(
     val packageName: String? = null,
     val lyrics: String? = null,
     val syncedLyrics: String? = null,
+    val timedLyrics: List<LyricLine> = emptyList(),
     val isDynamicIslandLyricsEnabled: Boolean = false,
     val customAction0: MediaAction? = null,
     val customAction1: MediaAction? = null,
