@@ -218,7 +218,9 @@ private fun MediaProgressSection(
         val startWallClockMs = System.currentTimeMillis()
         val startPositionMs = displayedPositionMs
         while (!isScrubbing) {
-            delay(16L)
+            // About a pixel of thumb travel for a typical song; every frame recomposed the whole
+            // row sixty times a second while the popup was open.
+            delay(250L)
             val elapsedMs = System.currentTimeMillis() - startWallClockMs
             displayedPositionMs = (startPositionMs + elapsedMs).coerceAtMost(durationMs)
             if (displayedPositionMs >= durationMs) {
