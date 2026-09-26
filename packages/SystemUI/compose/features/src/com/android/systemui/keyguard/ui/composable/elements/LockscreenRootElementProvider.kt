@@ -208,7 +208,7 @@ private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
     axDynamicBarChipViewModel: AxDynamicBarChipViewModel,
     modifier: Modifier = Modifier,
 ) {
-    val chipAboveLockMarginPx = with(LocalDensity.current) { 12.dp.roundToPx() }
+    val chipBelowLockMarginPx = with(LocalDensity.current) { 12.dp.roundToPx() }
     Layout(
         content = {
             LockscreenElement(StatusBar)
@@ -218,7 +218,7 @@ private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
             LockscreenElement(Region.Lower)
             LockscreenElement(SettingsMenu)
             // Scene container does not bind the legacy keyguard blueprint, so the dynamic bar
-            // has to be composed here. It sits just above the lock icon.
+            // has to be composed here. It sits just below the lock icon.
             Box(
                 modifier = Modifier.fillMaxWidth().wrapContentHeight(Alignment.Bottom),
                 contentAlignment = Alignment.BottomCenter,
@@ -297,9 +297,9 @@ private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
             )
 
         val settingsMenuPlaceable = settingsMenuMeasurable.measure(constraints)
+        val dynamicBarTop = lockIconBounds.bottom + chipBelowLockMarginPx
         val dynamicBarMaxHeight =
-            (lockIconBounds.top - statusBarPlaceable.measuredHeight - chipAboveLockMarginPx)
-                .coerceAtLeast(0)
+            (constraints.maxHeight - dynamicBarTop).coerceAtLeast(0)
         val dynamicBarPlaceable =
             dynamicBarMeasurable.measure(
                 Constraints(
@@ -335,8 +335,9 @@ private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
             )
             dynamicBarPlaceable.place(
                 (constraints.maxWidth - dynamicBarPlaceable.measuredWidth) / 2,
-                (lockIconBounds.top - chipAboveLockMarginPx - dynamicBarPlaceable.measuredHeight)
-                    .coerceAtLeast(statusBarPlaceable.measuredHeight),
+                dynamicBarTop.coerceAtMost(
+                    (constraints.maxHeight - dynamicBarPlaceable.measuredHeight).coerceAtLeast(0)
+                ),
             )
 
             settingsMenuPlaceable.placeRelative(
