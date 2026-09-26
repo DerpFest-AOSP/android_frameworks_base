@@ -28,9 +28,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.delay
@@ -38,14 +37,14 @@ import kotlinx.coroutines.isActive
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
@@ -119,6 +118,7 @@ fun LyricsCard(
                         fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
                         color = LocalContentColor.current,
                         words = if (isActive) line.words else emptyList(),
+                        lineStartMs = line.timestampMs,
                         positionMs = currentPosition,
                         maxLines = Int.MAX_VALUE,
                         overflow = TextOverflow.Clip,
@@ -204,6 +204,7 @@ fun LockscreenLyricsView(
             scale = 1.05f,
             fontWeight = FontWeight.SemiBold,
             words = currentLine?.words.orEmpty(),
+            lineStartMs = currentLine?.timestampMs ?: 0L,
             positionMs = currentPosition,
         )
 
@@ -249,6 +250,7 @@ private fun AnimatedLyricsLine(
     fontWeight: FontWeight,
     color: Color = Color.White,
     words: List<LyricWord> = emptyList(),
+    lineStartMs: Long = 0L,
     positionMs: Long = 0L,
     maxLines: Int = 1,
     overflow: TextOverflow = TextOverflow.Ellipsis,
@@ -286,19 +288,14 @@ private fun AnimatedLyricsLine(
         return
     }
 
-    val density = LocalDensity.current
-    val measurer = rememberTextMeasurer()
     val textStyle = LocalTextStyle.current.merge(
         TextStyle(fontSize = fontSize, fontWeight = fontWeight, textAlign = TextAlign.Center)
     )
-    val spans = remember(text, words, textStyle, density) {
-        measureWords(text, words, textStyle, measurer)
-    }
-    val highlighted = highlightedWidth(spans, positionMs)
+    val alignedWords = remember(words, lineStartMs) { alignWordTimes(words, lineStartMs) }
+    val spans = remember(text, alignedWords) { wordSpans(text, alignedWords) }
+    val cursor = highlightCursor(spans, positionMs)
     val rtl = remember(text) { Bidi.getBaseDirection(text) == Bidi.RTL }
-    var lineLeft by remember(text) { mutableFloatStateOf(0f) }
-    var lineRight by remember(text) { mutableFloatStateOf(0f) }
-    var lineCount by remember(text) { mutableIntStateOf(0) }
+    var textLayout by remember(text) { mutableStateOf<TextLayoutResult?>(null) }
     Box(lineModifier) {
         Text(
             text = text,
@@ -306,16 +303,10 @@ private fun AnimatedLyricsLine(
             style = textStyle,
             maxLines = maxLines,
             overflow = overflow,
-            onTextLayout = { layout ->
-                lineCount = layout.lineCount
-                if (layout.lineCount > 0) {
-                    lineLeft = layout.getLineLeft(0)
-                    lineRight = layout.getLineRight(0)
-                }
-            },
+            onTextLayout = { textLayout = it },
             modifier = Modifier.fillMaxWidth(),
         )
-        if (highlighted > 0f && (lineCount > 1 || lineRight > lineLeft)) {
+        if (cursor.exclusiveEnd > 0 || cursor.partialFraction > 0f) {
             Text(
                 text = text,
                 color = color,
@@ -325,24 +316,10 @@ private fun AnimatedLyricsLine(
                 modifier = Modifier
                     .fillMaxWidth()
                     .drawWithContent {
-                        if (lineCount > 1) {
-                            drawContent()
-                            return@drawWithContent
-                        }
-                        val leftEdge = if (rtl) {
-                            (lineRight - highlighted).coerceAtLeast(lineLeft)
-                        } else {
-                            lineLeft
-                        }
-                        val rightEdge = if (rtl) {
-                            lineRight
-                        } else {
-                            (lineLeft + highlighted).coerceAtMost(lineRight)
-                        }
-                        if (rightEdge > leftEdge) {
-                            clipRect(leftEdge, 0f, rightEdge, size.height) {
-                                this@drawWithContent.drawContent()
-                            }
+                        val layout = textLayout ?: return@drawWithContent
+                        val path = highlightPath(layout, cursor, rtl)
+                        if (!path.isEmpty) {
+                            clipPath(path) { this@drawWithContent.drawContent() }
                         }
                     },
             )
@@ -350,45 +327,80 @@ private fun AnimatedLyricsLine(
     }
 }
 
-private data class MeasuredWord(val width: Float, val beginMs: Long, val endMs: Long)
+private data class WordSpan(val start: Int, val end: Int, val beginMs: Long, val endMs: Long)
 
-private fun measureWords(
-    text: String,
-    words: List<LyricWord>,
-    style: TextStyle,
-    measurer: TextMeasurer,
-): List<MeasuredWord> {
-    val measured = ArrayList<MeasuredWord>(words.size)
+private data class HighlightCursor(val exclusiveEnd: Int, val partialFraction: Float)
+
+/**
+ * Word times that already begin with the line are song times. Times that start well before the
+ * line are offsets from that line: the opening line begins at 0, so the mistake only shows up
+ * afterwards.
+ */
+private fun alignWordTimes(words: List<LyricWord>, lineStartMs: Long): List<LyricWord> {
+    if (words.isEmpty() || lineStartMs <= 0L) return words
+    val firstBegin = words.minOf { it.beginMs }
+    if (firstBegin + 1_000L >= lineStartMs) return words
+    return words.map { word ->
+        word.copy(beginMs = word.beginMs + lineStartMs, endMs = word.endMs + lineStartMs)
+    }
+}
+
+private fun wordSpans(text: String, words: List<LyricWord>): List<WordSpan> {
+    val spans = ArrayList<WordSpan>(words.size)
     var textOffset = 0
     for (word in words) {
         if (word.text.isEmpty()) continue
         val wordEnd = minOf(text.length, textOffset + word.text.length)
         if (wordEnd <= textOffset) continue
-        val wordText = text.substring(textOffset, wordEnd)
-        val width = measurer.measure(wordText, style, softWrap = false).size.width.toFloat()
-        measured.add(MeasuredWord(width, word.beginMs, word.endMs))
+        spans.add(WordSpan(textOffset, wordEnd, word.beginMs, word.endMs))
         textOffset = wordEnd
         if (textOffset >= text.length) break
     }
-    return measured
+    return spans
 }
 
-private fun highlightedWidth(words: List<MeasuredWord>, positionMs: Long): Float {
-    var highlighted = 0f
+private fun highlightCursor(words: List<WordSpan>, positionMs: Long): HighlightCursor {
+    var exclusiveEnd = 0
     for (word in words) {
-        if (positionMs >= word.endMs ||
-            (word.endMs <= word.beginMs && positionMs >= word.beginMs)
-        ) {
-            highlighted += word.width
+        val length = word.end - word.start
+        if (length <= 0) continue
+        if (positionMs >= word.endMs || (word.endMs <= word.beginMs && positionMs >= word.beginMs)) {
+            exclusiveEnd = word.end
         } else if (positionMs > word.beginMs && word.endMs > word.beginMs) {
-            val progress = (positionMs - word.beginMs).toFloat() / (word.endMs - word.beginMs).toFloat()
-            highlighted += word.width * progress.coerceIn(0f, 1f)
-            break
+            val progress =
+                ((positionMs - word.beginMs).toFloat() / (word.endMs - word.beginMs)).coerceIn(0f, 1f)
+            val exact = word.start + progress * length
+            val full = exact.toInt().coerceIn(word.start, word.end)
+            val fraction = (exact - full).coerceIn(0f, 1f)
+            return HighlightCursor(full, if (full < word.end) fraction else 0f)
         } else {
             break
         }
     }
-    return highlighted
+    return HighlightCursor(exclusiveEnd, 0f)
+}
+
+private fun highlightPath(layout: TextLayoutResult, cursor: HighlightCursor, rtl: Boolean): Path {
+    val path = Path()
+    val length = layout.layoutInput.text.length
+    val end = cursor.exclusiveEnd.coerceIn(0, length)
+    if (end > 0) {
+        path.addPath(layout.getPathForRange(0, end))
+    }
+    if (cursor.partialFraction > 0f && end < length) {
+        val box = layout.getBoundingBox(end)
+        val slice = box.width * cursor.partialFraction
+        if (slice > 0f) {
+            path.addRect(
+                if (rtl) {
+                    Rect(box.right - slice, box.top, box.right, box.bottom)
+                } else {
+                    Rect(box.left, box.top, box.left + slice, box.bottom)
+                }
+            )
+        }
+    }
+    return path
 }
 
 private fun parseLrc(lrcText: String): List<LyricLine> {

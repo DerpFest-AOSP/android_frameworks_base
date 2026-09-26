@@ -354,6 +354,7 @@ final class NetEaseLyricProvider implements LyricSource {
             }
             if (!words.isEmpty() && !TextUtils.isEmpty(text)) {
                 words.sort((first, second) -> Long.compare(first.beginMs, second.beginMs));
+                words = placeWordsOnSongClock(words, beginMs);
                 StringBuilder sortedText = new StringBuilder();
                 for (LyricSource.Word word : words) {
                     sortedText.append(word.text);
@@ -362,6 +363,29 @@ final class NetEaseLyricProvider implements LyricSource {
             }
         }
         return lines;
+    }
+
+    /**
+     * Some YRC stores each word as an offset from its line. The first line starts at 0, so those
+     * offsets match the song clock and the sweep looks right. Later lines are still numbered from
+     * 0, which makes every word look finished. Word times that already begin with the line are left
+     * alone.
+     */
+    private static ArrayList<LyricSource.Word> placeWordsOnSongClock(
+            ArrayList<LyricSource.Word> words, long lineBeginMs) {
+        long firstBeginMs = Long.MAX_VALUE;
+        for (LyricSource.Word word : words) {
+            firstBeginMs = Math.min(firstBeginMs, word.beginMs);
+        }
+        if (lineBeginMs <= 0 || firstBeginMs + 1000 >= lineBeginMs) {
+            return words;
+        }
+        ArrayList<LyricSource.Word> shifted = new ArrayList<>(words.size());
+        for (LyricSource.Word word : words) {
+            shifted.add(new LyricSource.Word(
+                    word.beginMs + lineBeginMs, word.endMs + lineBeginMs, word.text));
+        }
+        return shifted;
     }
 
     private static String findClosestLine(TreeMap<Long, String> lines, long timestampMs) {
