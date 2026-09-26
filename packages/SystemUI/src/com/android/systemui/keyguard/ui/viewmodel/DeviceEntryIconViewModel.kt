@@ -20,6 +20,7 @@ import android.animation.FloatEvaluator
 import android.animation.IntEvaluator
 import com.android.keyguard.KeyguardViewController
 import com.android.systemui.accessibility.domain.interactor.AccessibilityInteractor
+import com.android.systemui.axdynamicbar.domain.AxDynamicBarSettings
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.deviceentry.domain.interactor.DeviceEntryInteractor
@@ -73,7 +74,10 @@ constructor(
     accessibilityInteractor: AccessibilityInteractor,
     @Application private val scope: CoroutineScope,
     private val sceneInteractor: Lazy<SceneInteractor>,
+    axDynamicBarSettings: AxDynamicBarSettings,
 ) {
+    val areLyricsShowingOnLockscreen: StateFlow<Boolean> =
+        axDynamicBarSettings.areLyricsShowingOnLockscreen
     val isUdfpsSupported: StateFlow<Boolean> = deviceEntryUdfpsInteractor.isUdfpsSupported
     val udfpsLocation: StateFlow<SensorLocation?> =
         deviceEntryUdfpsInteractor.udfpsLocation.stateIn(

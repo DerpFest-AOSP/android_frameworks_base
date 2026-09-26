@@ -63,6 +63,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 
 object DeviceEntryIconViewBinder {
@@ -302,6 +303,18 @@ object DeviceEntryIconViewBinder {
                     // Start with an empty state
                     Log.d(TAG, "Initializing device entry fgIconView")
                     fgIconView.setImageState(StateSet.NOTHING, /* merge */ false)
+                    launch("$TAG#viewModel.areLyricsShowingOnLockscreen") {
+                        combine(
+                            viewModel.areLyricsShowingOnLockscreen,
+                            fgViewModel.viewModel,
+                        ) { areLyricsShowing, fgIconVm ->
+                            val isLockOrUnlock =
+                                fgIconVm.type == DeviceEntryIconView.IconType.LOCK ||
+                                    fgIconVm.type == DeviceEntryIconView.IconType.UNLOCK
+                            if (areLyricsShowing && isLockOrUnlock) 0f else 1f
+                        }
+                            .collect { alpha -> fgIconView.alpha = alpha }
+                    }
                     launch("$TAG#fpIconView.viewModel") {
                         fgViewModel.viewModel.collect { viewModel ->
                             Log.d(TAG, "Updating device entry icon image state $viewModel")

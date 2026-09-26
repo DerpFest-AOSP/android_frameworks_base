@@ -69,6 +69,10 @@ public interface LyricSource {
             }
             return false;
         }
+
+        java.util.Collection<Cue> getCues() {
+            return mCues.values();
+        }
     }
 
     final class Cue {

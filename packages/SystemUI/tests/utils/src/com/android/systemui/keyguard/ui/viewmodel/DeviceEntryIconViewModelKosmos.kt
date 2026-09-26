@@ -29,6 +29,7 @@ import com.android.systemui.kosmos.Kosmos.Fixture
 import com.android.systemui.kosmos.testScope
 import com.android.systemui.scene.domain.interactor.sceneInteractor
 import com.android.systemui.shade.domain.interactor.shadeInteractor
+import com.android.systemui.axdynamicbar.domain.axDynamicBarSettings
 import com.android.systemui.statusbar.phone.statusBarKeyguardViewManager
 
 val Kosmos.fakeDeviceEntryIconViewModelTransition by Fixture { FakeDeviceEntryIconTransition() }
@@ -51,5 +52,6 @@ val Kosmos.deviceEntryIconViewModel by Fixture {
         accessibilityInteractor = accessibilityInteractor,
         scope = testScope.backgroundScope,
         sceneInteractor = { sceneInteractor },
+        axDynamicBarSettings = axDynamicBarSettings,
     )
 }
