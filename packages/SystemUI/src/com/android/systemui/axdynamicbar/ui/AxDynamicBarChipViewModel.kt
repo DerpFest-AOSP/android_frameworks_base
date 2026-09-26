@@ -172,6 +172,10 @@ constructor(
         _keyguardCarrierText.value = text
     }
 
+    fun setKeyguardIndicationSuppressed(suppressed: Boolean) {
+        keyguardIndicationController.setSuppressIndication(suppressed)
+    }
+
     private val _chipCenterXFraction = MutableStateFlow(0.5f)
     val chipCenterXFraction: StateFlow<Float> = _chipCenterXFraction.asStateFlow()
 

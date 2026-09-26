@@ -190,6 +190,13 @@ fun AxDynamicBarKeyguardChip(
         } else {
             isBatteryChipVisible && isEnabled && isKeyguardEnabled && !isDozing
         }
+        val suppressKeyguardIndication = isOnKeyguard && canShowChipOnKeyguard
+        LaunchedEffect(suppressKeyguardIndication) {
+            viewModel.setKeyguardIndicationSuppressed(suppressKeyguardIndication)
+        }
+        DisposableEffect(Unit) {
+            onDispose { viewModel.setKeyguardIndicationSuppressed(false) }
+        }
 
         val mediaControlModel by viewModel.interactor.mediaControlChipModel.collectAsStateWithLifecycle()
         val hasScrollableLyrics = isLockscreenMediaLyricsEnabled && 
