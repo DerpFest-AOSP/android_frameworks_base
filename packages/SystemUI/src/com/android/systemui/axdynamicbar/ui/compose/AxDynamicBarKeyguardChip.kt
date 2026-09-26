@@ -649,11 +649,12 @@ private fun KeyguardBatteryChip(
 
     Box(contentAlignment = Alignment.Center) {
         Row(
-            modifier = modifier
+            modifier = Modifier
+                .widthIn(min = 48.dp, max = 260.dp)
+                .then(modifier)
                 .height(dynamicHeight)
                 .clip(ChipShape)
                 .background(accent)
-                .widthIn(min = 48.dp, max = 260.dp)
                 .padding(horizontal = SpaceMd)
                 .animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec()),
             verticalAlignment = Alignment.CenterVertically,

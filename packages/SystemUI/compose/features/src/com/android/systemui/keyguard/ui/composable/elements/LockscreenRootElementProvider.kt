@@ -18,8 +18,9 @@ package com.android.systemui.keyguard.ui.composable.elements
 
 import android.content.Context
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
@@ -209,6 +210,7 @@ private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
     modifier: Modifier = Modifier,
 ) {
     val chipBelowLockMarginPx = with(LocalDensity.current) { 12.dp.roundToPx() }
+    val chipMaxWidthPx = with(LocalDensity.current) { 260.dp.roundToPx() }
     Layout(
         content = {
             LockscreenElement(StatusBar)
@@ -220,13 +222,13 @@ private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
             // Scene container does not bind the legacy keyguard blueprint, so the dynamic bar
             // has to be composed here. It sits just below the lock icon.
             Box(
-                modifier = Modifier.fillMaxWidth().wrapContentHeight(Alignment.Bottom),
-                contentAlignment = Alignment.BottomCenter,
+                modifier = Modifier.wrapContentWidth().wrapContentHeight(),
+                contentAlignment = Alignment.Center,
             ) {
                 PlatformTheme {
                     AxDynamicBarKeyguardChip(
                         viewModel = axDynamicBarChipViewModel,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.widthIn(max = 260.dp),
                     )
                 }
             }
@@ -304,7 +306,7 @@ private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
             dynamicBarMeasurable.measure(
                 Constraints(
                     minWidth = 0,
-                    maxWidth = constraints.maxWidth.coerceAtLeast(0),
+                    maxWidth = constraints.maxWidth.coerceAtMost(chipMaxWidthPx).coerceAtLeast(0),
                     minHeight = 0,
                     maxHeight = dynamicBarMaxHeight,
                 )
