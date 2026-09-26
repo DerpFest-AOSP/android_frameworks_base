@@ -45,6 +45,7 @@ import android.text.TextUtils
 import android.util.Log
 import androidx.media.utils.MediaConstants
 import com.android.app.tracing.coroutines.asyncTraced as async
+import com.android.app.tracing.coroutines.launchTraced as launch
 import com.android.app.tracing.coroutines.traceCoroutine
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Application
@@ -68,12 +69,15 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.coroutineContext
+import kotlin.coroutines.resume
+import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 /** Loads media information from media style [StatusBarNotification] classes. */
 @SysUISingleton
@@ -90,7 +94,7 @@ constructor(
     private val media3ActionFactory: Media3ActionFactory,
     private val mediaLogger: MediaLogger,
 ) {
-    private val mediaProcessingJobs = ConcurrentHashMap<String, Job>()
+    private val pendingLoads = ConcurrentHashMap<String, PendingMediaLoad>()
 
     private val artworkWidth: Int =
         context.resources.getDimensionPixelSize(
@@ -113,35 +117,106 @@ constructor(
      * Returns a [MediaDataLoaderResult] if loaded data or `null` if loading failed. The method
      * suspends until loading has completed or failed.
      *
-     * If a new [loadMediaData] is issued while existing load is in progress, the existing (old)
-     * load will be cancelled.
+     * Repeated updates for the same key share one load. Cancelling the in-flight load on every
+     * update drops them all when notifications arrive faster than the debounce, which leaves
+     * playback with no media controls. The shared load keeps the newest notification and still
+     * finishes.
      */
     suspend fun loadMediaData(
         key: String,
         sbn: StatusBarNotification,
         isConvertingToActive: Boolean = false,
     ): MediaDataLoaderResult? {
-        val loadMediaJob =
-            backgroundScope.async { loadMediaDataInBackground(key, sbn, isConvertingToActive) }
-        loadMediaJob.invokeOnCompletion {
-            // We need to make sure we're removing THIS job after cancellation, not
-            // a job that we created later.
-            mediaProcessingJobs.remove(key, loadMediaJob)
+        // Resume-to-active conversion must not wait behind, or be replaced by, a debounced load.
+        if (isConvertingToActive) {
+            return loadMediaDataInBackground(key, sbn, isConvertingToActive = true)
         }
-        var existingJob: Job? = null
-        // Do not cancel loading jobs that convert resume players to active.
-        if (!isConvertingToActive) {
-            existingJob = mediaProcessingJobs.put(key, loadMediaJob)
-            existingJob?.cancel("New processing job incoming.")
+        val pending = pendingLoads.computeIfAbsent(key) { PendingMediaLoad(key) }
+        logD(TAG) { "Loading media data for $key..." }
+        return suspendCancellableCoroutine { continuation ->
+            synchronized(pending) {
+                pending.latestNotification = sbn
+                pending.waiters.add(continuation)
+                if (pending.job?.isActive != true) {
+                    pending.job = backgroundScope.launch { drainPendingLoad(pending) }
+                }
+            }
+            continuation.invokeOnCancellation {
+                synchronized(pending) { pending.waiters.remove(continuation) }
+            }
         }
-        logD(TAG) { "Loading media data for $key... / existing job: $existingJob" }
+    }
 
-        return try {
-            loadMediaJob.await()
-        } catch (exception: CancellationException) {
-            mediaLogger.logLoadingMediaDataCanceled(key)
-            null
+    /**
+     * Loads the newest notification queued for [pending], then schedules another pass when more
+     * updates arrived while that load was running.
+     */
+    private suspend fun drainPendingLoad(pending: PendingMediaLoad) {
+        var delivered = false
+        val waiters = ArrayList<CancellableContinuation<MediaDataLoaderResult?>>()
+        try {
+            delay(DEBOUNCE_DELAY_MS)
+            val notification =
+                synchronized(pending) {
+                    val latest = pending.latestNotification
+                    pending.latestNotification = null
+                    waiters.addAll(pending.waiters)
+                    pending.waiters.clear()
+                    latest
+                }
+            val result =
+                if (notification == null) {
+                    null
+                } else {
+                    loadMediaDataInBackground(
+                        pending.key,
+                        notification,
+                        isConvertingToActive = true,
+                    )
+                }
+            waiters.completeWith(result)
+            delivered = true
+        } catch (cancelled: CancellationException) {
+            mediaLogger.logLoadingMediaDataCanceled(pending.key)
+            if (!delivered) {
+                val abandoned =
+                    synchronized(pending) {
+                        val current = (waiters + pending.waiters).distinct()
+                        pending.waiters.clear()
+                        current
+                    }
+                abandoned.completeWith(null)
+            }
+            throw cancelled
+        } finally {
+            synchronized(pending) {
+                val thisJob = coroutineContext[Job]
+                if (pending.job != null && pending.job != thisJob) {
+                    return@synchronized
+                }
+                if (pending.latestNotification != null && pending.waiters.isNotEmpty()) {
+                    pending.job = backgroundScope.launch { drainPendingLoad(pending) }
+                } else {
+                    pending.job = null
+                }
+            }
         }
+    }
+
+    private fun List<CancellableContinuation<MediaDataLoaderResult?>>.completeWith(
+        result: MediaDataLoaderResult?
+    ) {
+        for (waiter in this) {
+            if (waiter.isActive) {
+                waiter.resume(result) { _ -> }
+            }
+        }
+    }
+
+    private class PendingMediaLoad(val key: String) {
+        var latestNotification: StatusBarNotification? = null
+        var job: Job? = null
+        val waiters = ArrayList<CancellableContinuation<MediaDataLoaderResult?>>()
     }
 
     /** Loads media data, should be called from [backgroundScope]. */

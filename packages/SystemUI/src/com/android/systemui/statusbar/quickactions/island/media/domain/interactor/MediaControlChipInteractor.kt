@@ -109,7 +109,14 @@ constructor(
         }
 
     private val mediaControlChipModelForScene: Flow<MediaControlState> = snapshotFlow {
-        mediaRepository.currentMedia.firstOrNull { it.isActive }?.toMediaControlState(
+        val currentMedia = mediaRepository.currentMedia
+        // Playback can be running before the pipeline marks the entry active. Prefer that
+        // session so the island does not wait out a cancelled notification reload.
+        val playing =
+            currentMedia.firstOrNull {
+                it.state is MediaSessionState.Playing || it.state is MediaSessionState.Buffering
+            }
+        (playing ?: currentMedia.firstOrNull { it.isActive })?.toMediaControlState(
             context = context,
             activityStarter = activityStarter,
             activityIntentHelper = activityIntentHelper,
