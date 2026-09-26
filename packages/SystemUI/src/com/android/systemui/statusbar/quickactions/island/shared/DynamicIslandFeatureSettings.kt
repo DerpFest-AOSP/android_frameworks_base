@@ -40,10 +40,18 @@ object DynamicIslandFeatureSettings {
     const val CALLS = Settings.System.STATUS_BAR_DYNAMIC_ISLAND_CALLS
     const val WIDTH = Settings.System.STATUS_BAR_DYNAMIC_ISLAND_WIDTH
     const val HEIGHT_SCALE = Settings.System.STATUS_BAR_DYNAMIC_ISLAND_HEIGHT_SCALE
+    const val VERTICAL_OFFSET = Settings.System.STATUS_BAR_DYNAMIC_ISLAND_VERTICAL_OFFSET
 
     const val SCALE_MIN = 0.7f
     const val SCALE_MAX = 1.4f
     private const val SCALE_PERCENT_DEFAULT = 100
+
+    /** Inclusive pixel bounds of the user vertical offset; must match the SettingsProvider validator. */
+    const val VERTICAL_OFFSET_MIN = -30
+    const val VERTICAL_OFFSET_MAX = 30
+
+    /** Zero leaves the island at its unmodified position. */
+    private const val VERTICAL_OFFSET_DEFAULT = 0
 
     fun ContentResolver.readDynamicIslandFeatureEnabled(
         key: String,
@@ -131,6 +139,33 @@ object DynamicIslandFeatureSettings {
                 UserHandle.USER_ALL,
             )
             trySend(context.contentResolver.readDynamicIslandScale(key))
+            awaitClose { context.contentResolver.unregisterContentObserver(observer) }
+        }
+
+    /** User vertical offset of the island, in raw pixels. */
+    fun ContentResolver.readDynamicIslandVerticalOffset(): Int =
+        Settings.System.getIntForUser(
+            this,
+            VERTICAL_OFFSET,
+            VERTICAL_OFFSET_DEFAULT,
+            UserHandle.USER_CURRENT,
+        ).coerceIn(VERTICAL_OFFSET_MIN, VERTICAL_OFFSET_MAX)
+
+    fun observeDynamicIslandVerticalOffset(context: Context): Flow<Int> =
+        callbackFlow {
+            val observer =
+                object : ContentObserver(Handler(Looper.getMainLooper())) {
+                    override fun onChange(selfChange: Boolean) {
+                        trySend(context.contentResolver.readDynamicIslandVerticalOffset())
+                    }
+                }
+            context.contentResolver.registerContentObserver(
+                Settings.System.getUriFor(VERTICAL_OFFSET),
+                false,
+                observer,
+                UserHandle.USER_ALL,
+            )
+            trySend(context.contentResolver.readDynamicIslandVerticalOffset())
             awaitClose { context.contentResolver.unregisterContentObserver(observer) }
         }
 }

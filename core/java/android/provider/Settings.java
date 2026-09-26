@@ -7413,6 +7413,14 @@ public final class Settings {
                 "status_bar_dynamic_island_height_scale";
 
         /**
+         * User vertical offset of the dynamic island pill, in pixels. {@code 0} leaves the pill
+         * unmoved; negative values move the pill up.
+         * @hide
+         */
+        public static final String STATUS_BAR_DYNAMIC_ISLAND_VERTICAL_OFFSET =
+                "status_bar_dynamic_island_vertical_offset";
+
+        /**
          * Defines the screen-off animation to display
          * @hide
          */
