@@ -104,13 +104,11 @@ class LargeTilesUpgradePathsTest : SysuiTestCase() {
         }
 
     /**
-     * This test corresponds to a user that already went through the old in-place upgrade, which
-     * marked every current tile as large.
-     *
-     * The resulting large tiles are migrated back to the default mixed set.
+     * Expanding every current tile to dual-target in edit mode stores that whole set. The settings
+     * reload that runs on each SystemUI start, including after a system update, must keep it.
      */
     @Test
-    fun upgradeInPlace_allCurrentTilesAlreadyLarge_migratesToDefault() =
+    fun readFromSettings_allCurrentTilesLarge_keepsUserSizes() =
         kosmos.runTest {
             val largeTiles by collectLastValue(underTest.largeTilesSpecs)
             val tiles = setOf("a", "b", "c").toTileSpecs()
@@ -121,16 +119,15 @@ class LargeTilesUpgradePathsTest : SysuiTestCase() {
                 userId,
             )
 
-            assertThat(largeTiles).isEqualTo(defaultLargeTilesRepository.defaultLargeTiles)
+            assertThat(largeTiles).isEqualTo(tiles)
         }
 
     /**
-     * Devices that went through the old all-large upgrade and later added tiles no longer match
-     * "every current tile is large". The oversized stored set is still reset to the default mixed
-     * sizes on the first prefs read.
+     * A stored set larger than the default large tiles is a choice from edit mode. Reading prefs
+     * must not collapse those tiles back to the default mixed sizes.
      */
     @Test
-    fun oversizedStoredLargeTiles_onRead_migratesToDefault() =
+    fun oversizedStoredLargeTiles_onRead_keepsStoredSet() =
         kosmos.runTest {
             val defaults = defaultLargeTilesRepository.defaultLargeTiles
             val oversized = defaults.map { it.spec }.toSet() + setOf("a", "b", "c", "d", "e")
@@ -138,7 +135,7 @@ class LargeTilesUpgradePathsTest : SysuiTestCase() {
 
             val largeTiles by collectLastValue(underTest.largeTilesSpecs)
 
-            assertThat(largeTiles).isEqualTo(defaults)
+            assertThat(largeTiles).isEqualTo(oversized.toTileSpecs())
         }
 
     /**
