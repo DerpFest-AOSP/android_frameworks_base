@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -179,7 +180,12 @@ fun ExpandedIslandContent(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 MediaCard(event, interactor)
-                                LyricsCard(model = model)
+                                AccordMediaSurface(
+                                    event,
+                                    Modifier.widthIn(min = 320.dp, max = 400.dp).height(200.dp),
+                                ) {
+                                    LyricsCard(model = model)
+                                }
                             }
                         } else {
                             MediaCard(event, interactor)

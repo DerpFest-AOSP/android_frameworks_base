@@ -12,19 +12,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,7 +51,6 @@ import com.android.systemui.statusbar.quickactions.island.media.shared.model.Lyr
 import com.android.systemui.statusbar.quickactions.island.media.shared.model.LyricWord
 import com.android.systemui.statusbar.quickactions.island.media.shared.model.MediaControlChipModel
 
-private val PopupShape = RoundedCornerShape(34.dp)
 private val timestampRegex = Regex("\\[(\\d+):(\\d+)(?:[.:](\\d+))?\\]")
 private const val WORD_SWEEP_FRAME_MS = 16L
 private const val UNSUNG_ALPHA = 0.45f
@@ -75,13 +71,8 @@ fun LyricsCard(
         }
     }
 
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        shape = PopupShape,
-        shadowElevation = 12.dp,
-        modifier = modifier.widthIn(min = 320.dp, max = 400.dp).height(200.dp),
-    ) {
+    CompositionLocalProvider(LocalContentColor provides Color.White) {
+        Box(modifier.fillMaxSize()) {
         if (lyricLines.isNotEmpty()) {
             val hasWordTiming = remember(lyricLines) { lyricLines.any { it.words.isNotEmpty() } }
             val currentPosition = rememberLyricPositionMs(
@@ -143,6 +134,7 @@ fun LyricsCard(
                     )
                 }
             }
+        }
         }
     }
 }

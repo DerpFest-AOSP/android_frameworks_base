@@ -29,6 +29,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
@@ -60,6 +61,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import com.android.systemui.axdynamicbar.model.IslandEvent
 import com.android.systemui.axdynamicbar.shared.IslandActions
+import com.android.systemui.axdynamicbar.ui.compose.AccordMediaSurface
 import com.android.systemui.axdynamicbar.ui.compose.CallExpanded
 import com.android.systemui.axdynamicbar.ui.compose.MediaCard
 import com.android.systemui.axdynamicbar.ui.compose.PrimaryCard
@@ -377,7 +379,13 @@ fun StatusBarPopup(
                                 Box(modifier = Modifier.widthIn(min = 320.dp, max = 400.dp)) {
                                     MediaCard(event = eventMedia, interactor = popupActions)
                                 }
-                                LyricsCard(model = model)
+                                AccordMediaSurface(
+                                    event = eventMedia,
+                                    modifier =
+                                        Modifier.widthIn(min = 320.dp, max = 400.dp).height(200.dp),
+                                ) {
+                                    LyricsCard(model = model)
+                                }
                             }
                         } else {
                             Box(modifier = Modifier.widthIn(min = 320.dp, max = 400.dp)) {

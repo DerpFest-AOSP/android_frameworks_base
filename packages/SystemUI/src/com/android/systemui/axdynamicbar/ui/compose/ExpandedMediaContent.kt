@@ -305,14 +305,16 @@ private fun rememberMediaGlassBackgroundLayers(accent: Color, hasArt: Boolean): 
 }
 
 @Composable
-internal fun MediaCard(event: IslandEvent.Media, interactor: IslandActions) {
+internal fun AccordMediaSurface(
+    event: IslandEvent.Media,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
     val colors = rememberMediaColors(event)
     val accent = colors.accent
     val hasArt = event.albumArt != null
     val opaqueCardBase =
         remember(accent) { lerp(CinematicCardBase, darkenColor(accent, 0.18f), 0.40f) }
-    val onCard = Color.White
-    val onCardSub = onCard.copy(alpha = 0.55f)
     val glassBrushes = rememberMediaGlassBackgroundLayers(accent, hasArt)
     val useAlbumBlendBackdrop =
         hasArt && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
@@ -320,8 +322,7 @@ internal fun MediaCard(event: IslandEvent.Media, interactor: IslandActions) {
 
     Box(
         modifier =
-            Modifier.fillMaxWidth()
-                .wrapContentHeight()
+            modifier
                 .shadow(20.dp, MediaPopupCardShape)
                 .clip(MediaPopupCardShape)
                 .background(opaqueCardBase),
@@ -345,7 +346,6 @@ internal fun MediaCard(event: IslandEvent.Media, interactor: IslandActions) {
                             if (composeBackdropEffect != null) {
                                 renderEffect = composeBackdropEffect
                             }
-                            // Smaller draw + stronger blur: keep scale modest so detail stays diffuse.
                             scaleX = 1.08f
                             scaleY = 1.08f
                         },
@@ -358,7 +358,18 @@ internal fun MediaCard(event: IslandEvent.Media, interactor: IslandActions) {
         Box(Modifier.matchParentSize().background(glassBrushes.vignette))
         Box(Modifier.matchParentSize().background(glassBrushes.vignetteSides))
         Box(Modifier.matchParentSize().background(glassBrushes.frostSheen))
+        content()
+    }
+}
 
+@Composable
+internal fun MediaCard(event: IslandEvent.Media, interactor: IslandActions) {
+    val colors = rememberMediaColors(event)
+    val accent = colors.accent
+    val onCard = Color.White
+    val onCardSub = onCard.copy(alpha = 0.55f)
+
+    AccordMediaSurface(event, Modifier.fillMaxWidth().wrapContentHeight()) {
         Column(
             modifier =
                 Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 16.dp),
