@@ -52,6 +52,7 @@ import com.android.systemui.util.leak.RotationUtils;
 
 import java.util.Objects;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 
 public class PhoneStatusBarView extends FrameLayout {
     private static final String TAG = "PhoneStatusBarView";
@@ -77,6 +78,8 @@ public class PhoneStatusBarView extends FrameLayout {
     private int mDensity;
     private float mFontScale;
     private StatusBarLongPressGestureDetector mStatusBarLongPressGestureDetector;
+    @Nullable
+    private Consumer<MotionEvent> mDoubleTapTouchListener;
     private final Region mTouchableRegion = Region.obtain();
 
     /**
@@ -91,6 +94,14 @@ public class PhoneStatusBarView extends FrameLayout {
     void setLongPressGestureDetector(
             StatusBarLongPressGestureDetector statusBarLongPressGestureDetector) {
         mStatusBarLongPressGestureDetector = statusBarLongPressGestureDetector;
+    }
+
+    /**
+     * Observes every touch dispatched to the status bar, including touches children consume.
+     * Used for double-tap-to-sleep, which must see taps on the clock and status icons.
+     */
+    void setDoubleTapTouchListener(@Nullable Consumer<MotionEvent> listener) {
+        mDoubleTapTouchListener = listener;
     }
 
     void setTouchEventHandler(Gefingerpoken handler) {
@@ -256,6 +267,9 @@ public class PhoneStatusBarView extends FrameLayout {
             // components, essentially making the status bar and its children completely
             // non-interactive.
             return true;
+        }
+        if (mDoubleTapTouchListener != null) {
+            mDoubleTapTouchListener.accept(event);
         }
         return super.dispatchTouchEvent(event);
     }

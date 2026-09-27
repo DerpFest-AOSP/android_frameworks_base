@@ -128,6 +128,30 @@ class PhoneStatusBarViewTest : SysuiTestCase() {
     }
 
     @Test
+    fun dispatchTouchEvent_notifiesDoubleTapListener() {
+        val events = mutableListOf<MotionEvent>()
+        view.setDoubleTapTouchListener { events.add(MotionEvent.obtain(it)) }
+
+        val event = MotionEvent.obtain(0L, 0L, MotionEvent.ACTION_DOWN, 0f, 0f, 0)
+        view.dispatchTouchEvent(event)
+
+        assertThat(events).hasSize(1)
+        assertThat(events[0].action).isEqualTo(MotionEvent.ACTION_DOWN)
+    }
+
+    @Test
+    fun dispatchTouchEvent_shouldNotAllowInteractions_doesNotNotifyDoubleTapListener() {
+        val events = mutableListOf<MotionEvent>()
+        viewForSecondaryDisplay.setDoubleTapTouchListener { events.add(it) }
+        viewForSecondaryDisplay.setIsStatusBarInteractiveSupplier { false }
+
+        val event = MotionEvent.obtain(0L, 0L, MotionEvent.ACTION_DOWN, 0f, 0f, 0)
+        viewForSecondaryDisplay.dispatchTouchEvent(event)
+
+        assertThat(events).isEmpty()
+    }
+
+    @Test
     fun dispatchTouchEvent_shouldNotAllowInteractions_consumesEventAndListenersNotNotified() {
         val handler = TestTouchEventHandler()
         viewForSecondaryDisplay.setTouchEventHandler(handler)

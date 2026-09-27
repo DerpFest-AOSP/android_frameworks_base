@@ -28,7 +28,6 @@ import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -59,6 +58,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
@@ -200,20 +200,46 @@ object ShadeHeader {
 /**
  * Observes double-taps on shade headers without consuming the gesture, so clock/chip clicks still
  * work. Used for both single-shade and dual-shade compose headers.
+ *
+ * Child clickables consume the pointer on the Main pass. Treating that as cancellation drops taps
+ * on dual-shade chips, so this tracks the pointer on the Initial pass and ignores consumption.
  */
 private fun Modifier.shadeHeaderDoubleTapToSleep(viewModel: ShadeHeaderViewModel): Modifier {
     return pointerInput(viewModel) {
         var lastUpUptime = 0L
+        var lastUpPosition = Offset.Zero
+        val touchSlop = viewConfiguration.touchSlop
+        val doubleTapTimeout = viewConfiguration.doubleTapTimeoutMillis
+        val doubleTapMinTime = viewConfiguration.doubleTapMinTimeMillis
+        // ViewConfiguration uses 100dp between the two taps.
+        val doubleTapSlop = 100.dp.toPx()
         awaitEachGesture {
-            awaitFirstDown(pass = PointerEventPass.Initial)
-            val up = waitForUpOrCancellation(pass = PointerEventPass.Initial)
-            if (up != null) {
-                val now = up.uptimeMillis
-                if (now - lastUpUptime <= viewConfiguration.doubleTapTimeoutMillis) {
-                    viewModel.onHeaderDoubleTapped()
-                    lastUpUptime = 0L
-                } else {
-                    lastUpUptime = now
+            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            val pointerId = down.id
+            val downPosition = down.position
+            val sinceLastUp = down.uptimeMillis - lastUpUptime
+            val isSecondTap =
+                lastUpUptime != 0L &&
+                    sinceLastUp in doubleTapMinTime..doubleTapTimeout &&
+                    (downPosition - lastUpPosition).getDistance() <= doubleTapSlop
+            var exceededSlop = false
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                val change = event.changes.firstOrNull { it.id == pointerId } ?: break
+                if (!exceededSlop && (change.position - downPosition).getDistance() > touchSlop) {
+                    exceededSlop = true
+                }
+                if (!change.pressed) {
+                    if (!exceededSlop && isSecondTap) {
+                        viewModel.onHeaderDoubleTapped()
+                        lastUpUptime = 0L
+                    } else if (!exceededSlop) {
+                        lastUpUptime = change.uptimeMillis
+                        lastUpPosition = change.position
+                    } else {
+                        lastUpUptime = 0L
+                    }
+                    break
                 }
             }
         }

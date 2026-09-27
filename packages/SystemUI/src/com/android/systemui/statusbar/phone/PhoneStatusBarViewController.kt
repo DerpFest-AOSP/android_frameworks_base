@@ -17,6 +17,10 @@ package com.android.systemui.statusbar.phone
 
 import android.app.StatusBarManager.WINDOW_STATUS_BAR
 import android.content.res.Resources
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
+import android.os.PowerManager
 import android.util.Log
 import android.view.Display.DEFAULT_DISPLAY
 import android.view.GestureDetector
@@ -60,6 +64,7 @@ import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Provider
 import kotlin.math.abs
+import lineageos.providers.LineageSettings
 
 private const val TAG = "PhoneStatusBarViewController"
 
@@ -95,6 +100,28 @@ private constructor(
     private lateinit var clockRight: Clock
     private lateinit var startSideContainer: View
     private lateinit var endSideContainer: View
+
+    private val powerManager: PowerManager? =
+        view.context.getSystemService(PowerManager::class.java)
+    private val doubleTapTimeout = ViewConfiguration.getDoubleTapTimeout().toLong()
+    private val doubleTapSlop = ViewConfiguration.get(view.context).scaledDoubleTapSlop
+    private val touchSlop = ViewConfiguration.get(view.context).scaledTouchSlop
+    private var doubleTapToSleepEnabled = false
+    private var lastTapUpTime = 0L
+    private var lastTapUpX = 0f
+    private var lastTapUpY = 0f
+    private var gestureDownX = 0f
+    private var gestureDownY = 0f
+    private var gestureMoved = false
+    private var pendingDoubleTap = false
+    private var doubleTapObserverRegistered = false
+
+    private val doubleTapToSleepObserver =
+        object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                refreshDoubleTapToSleepEnabled()
+            }
+        }
 
     private val shadeInvocationSplitRatio: Float =
         resources.getFloat(R.dimen.config_invocationGestureSplitRatio)
@@ -213,6 +240,21 @@ private constructor(
         if (!StatusBarEventForwardingModernization.isEnabled) {
             mView.setLongPressGestureDetector(statusBarLongPressGestureDetector.get())
         }
+        // Scene container forwards status-bar touches into the shade and never reaches the legacy
+        // panel double-tap detector. Watch every dispatched touch, including ones the clock and
+        // status icons consume, so double-tap-to-sleep still works on the status bar.
+        try {
+            refreshDoubleTapToSleepEnabled()
+            context.contentResolver.registerContentObserver(
+                LineageSettings.System.getUriFor(LineageSettings.System.DOUBLE_TAP_SLEEP_GESTURE),
+                false,
+                doubleTapToSleepObserver,
+            )
+            doubleTapObserverRegistered = true
+            mView.setDoubleTapTouchListener { event -> onStatusBarTouchForDoubleTapToSleep(event) }
+        } catch (t: RuntimeException) {
+            Log.e(TAG, "Failed to set up status bar double-tap to sleep", t)
+        }
         progressProvider?.setReadyToHandleTransition(true)
         configurationController.addCallback(configurationListener)
     }
@@ -274,6 +316,74 @@ private constructor(
         endSideContainer.setOnHoverListener(null)
         progressProvider?.setReadyToHandleTransition(false)
         configurationController.removeCallback(configurationListener)
+        if (doubleTapObserverRegistered) {
+            context.contentResolver.unregisterContentObserver(doubleTapToSleepObserver)
+            doubleTapObserverRegistered = false
+        }
+        mView.setDoubleTapTouchListener(null)
+    }
+
+    private fun refreshDoubleTapToSleepEnabled() {
+        val defaultEnabled =
+            context.resources.getBoolean(
+                org.lineageos.platform.internal.R.bool.config_dt2sGestureEnabledByDefault
+            )
+        doubleTapToSleepEnabled =
+            LineageSettings.System.getInt(
+                context.contentResolver,
+                LineageSettings.System.DOUBLE_TAP_SLEEP_GESTURE,
+                if (defaultEnabled) 1 else 0,
+            ) != 0
+    }
+
+    /**
+     * Counts taps on the status bar itself. A swipe past touch slop is not a tap, and the second
+     * tap has to land near the first. Sleep runs on the second finger-up so a drag that starts
+     * from that tap can still expand the shade.
+     */
+    private fun onStatusBarTouchForDoubleTapToSleep(event: MotionEvent) {
+        if (!doubleTapToSleepEnabled) {
+            return
+        }
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                gestureDownX = event.x
+                gestureDownY = event.y
+                gestureMoved = false
+                pendingDoubleTap =
+                    lastTapUpTime != 0L &&
+                        event.eventTime - lastTapUpTime <= doubleTapTimeout &&
+                        abs(event.x - lastTapUpX) <= doubleTapSlop &&
+                        abs(event.y - lastTapUpY) <= doubleTapSlop
+            }
+            MotionEvent.ACTION_MOVE -> {
+                if (
+                    abs(event.x - gestureDownX) > touchSlop ||
+                        abs(event.y - gestureDownY) > touchSlop
+                ) {
+                    gestureMoved = true
+                }
+            }
+            MotionEvent.ACTION_UP -> {
+                if (!gestureMoved && pendingDoubleTap) {
+                    lastTapUpTime = 0L
+                    pendingDoubleTap = false
+                    powerManager?.goToSleep(event.eventTime)
+                } else if (!gestureMoved) {
+                    lastTapUpTime = event.eventTime
+                    lastTapUpX = event.x
+                    lastTapUpY = event.y
+                } else {
+                    lastTapUpTime = 0L
+                    pendingDoubleTap = false
+                }
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                lastTapUpTime = 0L
+                pendingDoubleTap = false
+                gestureMoved = true
+            }
+        }
     }
 
     init {
