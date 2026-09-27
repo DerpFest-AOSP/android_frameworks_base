@@ -87,7 +87,7 @@
 
     <Button
         android:id="@+id/setup_button"
-        style="@style/Widget.Material3.Button.OutlinedButton"
+        style="@style/Widget.Dialog.Button.BorderButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal"
