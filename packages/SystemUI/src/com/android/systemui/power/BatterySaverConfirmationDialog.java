@@ -91,7 +91,10 @@ public class BatterySaverConfirmationDialog {
         }
         final SystemUIDialog d = mSystemUIDialogFactory.create();
         d.setTitle(R.string.saver_confirmation_dialog_title);
-        d.setMessage(R.string.saver_confirmation_dialog_subtitle);
+        View titleView =
+                LayoutInflater.from(d.getContext())
+                        .inflate(R.layout.battery_saver_confirmation_dialog_title, null);
+        d.setCustomTitle(titleView);
 
         final View content = LayoutInflater.from(d.getContext()).inflate(
                 R.layout.battery_saver_confirmation_content, null);
