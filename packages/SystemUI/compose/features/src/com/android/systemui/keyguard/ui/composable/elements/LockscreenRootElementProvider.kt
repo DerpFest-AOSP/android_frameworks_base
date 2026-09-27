@@ -17,20 +17,10 @@
 package com.android.systemui.keyguard.ui.composable.elements
 
 import android.content.Context
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.dp
-import com.android.compose.theme.PlatformTheme
-import com.android.systemui.axdynamicbar.ui.AxDynamicBarChipViewModel
-import com.android.systemui.axdynamicbar.ui.compose.AxDynamicBarKeyguardChip
 import androidx.compose.ui.layout.HorizontalAlignmentLine
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.VerticalAlignmentLine
@@ -77,7 +67,6 @@ constructor(
     private val viewModelFactory: LockscreenRootViewModel.Factory,
     private val aodBurnInViewModel: AodBurnInViewModel,
     private val keyguardClockViewModel: KeyguardClockViewModel,
-    private val axDynamicBarChipViewModel: AxDynamicBarChipViewModel,
 ) : LockscreenElementProvider {
     override val elements: List<LockscreenElement> by lazy { listOf(RootElement()) }
 
@@ -121,10 +110,7 @@ constructor(
                     )
 
                 with(scopeFactory.create(contentScope, innerContext)) {
-                    LockscreenSceneLayout(
-                        isUdfpsSupported = viewModel.isUdfpsSupported,
-                        axDynamicBarChipViewModel = axDynamicBarChipViewModel,
-                    )
+                    LockscreenSceneLayout(viewModel.isUdfpsSupported)
                 }
             }
         }
@@ -206,11 +192,8 @@ object LockIconAlignmentLines {
 @Composable
 private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
     isUdfpsSupported: Boolean,
-    axDynamicBarChipViewModel: AxDynamicBarChipViewModel,
     modifier: Modifier = Modifier,
 ) {
-    val chipBelowLockMarginPx = with(LocalDensity.current) { 12.dp.roundToPx() }
-    val chipMaxWidthPx = with(LocalDensity.current) { 260.dp.roundToPx() }
     Layout(
         content = {
             LockscreenElement(StatusBar)
@@ -219,19 +202,6 @@ private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
             LockscreenElement(AmbientIndicationArea)
             LockscreenElement(Region.Lower)
             LockscreenElement(SettingsMenu)
-            // Scene container does not bind the legacy keyguard blueprint, so the dynamic bar
-            // has to be composed here. It sits just below the lock icon.
-            Box(
-                modifier = Modifier.wrapContentWidth().wrapContentHeight(),
-                contentAlignment = Alignment.Center,
-            ) {
-                PlatformTheme {
-                    AxDynamicBarKeyguardChip(
-                        viewModel = axDynamicBarChipViewModel,
-                        modifier = Modifier.widthIn(max = 260.dp),
-                    )
-                }
-            }
         },
         // Hide the lock screen elements when an overlay is shown above.
         modifier =
@@ -239,14 +209,13 @@ private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
                 Modifier.graphicsLayer { alpha = 0f }
             },
     ) { measurables, constraints ->
-        check(measurables.size == 7)
+        check(measurables.size == 6)
         val statusBarMeasurable = measurables[0]
         val upperRegionMeasurable = measurables[1]
         val lockIconMeasurable = measurables[2]
         val ambientIndicationMeasurable = measurables[3]
         val lowerRegionMeasurable = measurables[4]
         val settingsMenuMeasurable = measurables[5]
-        val dynamicBarMeasurable = measurables[6]
 
         val statusBarPlaceable =
             statusBarMeasurable.measure(constraints = Constraints.fixedWidth(constraints.maxWidth))
@@ -299,18 +268,6 @@ private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
             )
 
         val settingsMenuPlaceable = settingsMenuMeasurable.measure(constraints)
-        val dynamicBarTop = lockIconBounds.bottom + chipBelowLockMarginPx
-        val dynamicBarMaxHeight =
-            (constraints.maxHeight - dynamicBarTop).coerceAtLeast(0)
-        val dynamicBarPlaceable =
-            dynamicBarMeasurable.measure(
-                Constraints(
-                    minWidth = 0,
-                    maxWidth = constraints.maxWidth.coerceAtMost(chipMaxWidthPx).coerceAtLeast(0),
-                    minHeight = 0,
-                    maxHeight = dynamicBarMaxHeight,
-                )
-            )
 
         layout(constraints.maxWidth, constraints.maxHeight) {
             statusBarPlaceable.place(0, 0)
@@ -334,12 +291,6 @@ private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
             lowerRegionPlaceable.place(
                 0,
                 constraints.maxHeight - lowerRegionPlaceable.measuredHeight,
-            )
-            dynamicBarPlaceable.place(
-                (constraints.maxWidth - dynamicBarPlaceable.measuredWidth) / 2,
-                dynamicBarTop.coerceAtMost(
-                    (constraints.maxHeight - dynamicBarPlaceable.measuredHeight).coerceAtLeast(0)
-                ),
             )
 
             settingsMenuPlaceable.placeRelative(
