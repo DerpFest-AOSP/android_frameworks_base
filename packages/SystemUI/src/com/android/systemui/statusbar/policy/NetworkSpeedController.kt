@@ -189,7 +189,7 @@ class NetworkSpeedController @Inject constructor(
         }
 
         val iconState = NetworkSpeedIconState().apply {
-            setVisible(isConnected && isSwitchOn)
+            setVisible(isConnected && isSwitchOn && speed > AUTOHIDE_THRESHOLD)
             setSpeedText(speed)
             setSlot(SLOT_NETWORK_SPEED)
         }
@@ -241,6 +241,7 @@ class NetworkSpeedController @Inject constructor(
         const val SLOT_NETWORK_SPEED = "network_speed"
         const val ICON_HIDE_LIST = "icon_blacklist"
         const val REFRESH_INTERVAL_MS = 1000L
+        const val AUTOHIDE_THRESHOLD = 1024L // 1KB
         private const val PREFS_NAME = "network_speed"
         private const val MIGRATION_PREF = "unhidden"
     }
