@@ -162,9 +162,8 @@ constructor(
     public fun getStartCameraIntent(): Intent {
         val userId = selectedUserInteractor.getSelectedUserId()
         val isLockScreenDismissible = keyguardStateController.canDismissLockScreen()
-        val isShowing = keyguardStateController.isShowing()
         val isSecure = keyguardStateController.isMethodSecure
-        return if (isShowing && isSecure && !isLockScreenDismissible) {
+        return if (isSecure && !isLockScreenDismissible) {
             cameraIntents.getSecureCameraIntent(userId)
         } else {
             cameraIntents.getInsecureCameraIntent(userId)

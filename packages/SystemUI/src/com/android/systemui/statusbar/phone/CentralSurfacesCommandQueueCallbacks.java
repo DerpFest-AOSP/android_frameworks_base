@@ -390,7 +390,7 @@ public class CentralSurfacesCommandQueueCallbacks implements CommandQueue.Callba
             mKeyguardUpdateMonitor.onCameraLaunched();
         }
 
-        if (!mKeyguardStateController.isShowing()) {
+        if (!mKeyguardStateController.isShowing() && mKeyguardStateController.canDismissLockScreen()) {
             if (com.android.internal.camera.flags.Flags.cameraWarmUp()) {
                 mCameraNotifyWarmUpInteractor.notifyCameraWarmUp();
             }
