@@ -7413,8 +7413,10 @@ public final class Settings {
                 "status_bar_dynamic_island_height_scale";
 
         /**
-         * User vertical offset of the dynamic island pill, in pixels. {@code 0} leaves the pill
-         * unmoved; negative values move the pill up.
+         * User vertical offset of the dynamic island pill, as a percent of the status bar
+         * height ({@code -100} to {@code 100}). {@code 0} leaves the pill unmoved; negative
+         * values move the pill up. The pixel distance is derived from the current status bar
+         * height so the same value tracks across density and resolution.
          * @hide
          */
         public static final String STATUS_BAR_DYNAMIC_ISLAND_VERTICAL_OFFSET =

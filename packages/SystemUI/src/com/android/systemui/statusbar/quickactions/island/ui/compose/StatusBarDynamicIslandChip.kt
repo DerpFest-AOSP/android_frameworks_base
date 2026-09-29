@@ -58,11 +58,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.android.systemui.common.ui.compose.Icon
+import com.android.systemui.res.R
 import com.android.systemui.statusbar.quickactions.island.shared.DynamicIslandFeatureSettings
 import com.android.systemui.statusbar.quickactions.island.shared.DynamicIslandFeatureSettings.observeDynamicIslandScale
 import com.android.systemui.statusbar.quickactions.island.shared.DynamicIslandFeatureSettings.observeDynamicIslandVerticalOffset
@@ -395,7 +397,8 @@ data class DynamicIslandCutoutSpec(
 fun rememberDynamicIslandCutoutSpec(): DynamicIslandCutoutSpec {
     val density = LocalDensity.current
     val view = LocalView.current
-    val verticalOffsetPx = rememberDynamicIslandVerticalOffsetPx()
+    val verticalOffsetPercent = rememberDynamicIslandVerticalOffsetPercent()
+    val statusBarHeight = dimensionResource(R.dimen.status_bar_height)
     val displayCutout = view.rootWindowInsets?.displayCutout ?: view.display?.cutout
     val topCutout = displayCutout?.topBoundingRectOrNull()
     val rootWidthPx =
@@ -406,8 +409,9 @@ fun rememberDynamicIslandCutoutSpec(): DynamicIslandCutoutSpec {
         }
 
     return with(density) {
-        // Stored in pixels so the slider moves the chip one physical pixel per step.
-        val verticalOffsetDp = verticalOffsetPx.toDp()
+        // Percent of the status bar, so the same setting is the same fraction of the bar at
+        // every density and resolution.
+        val verticalOffsetDp = statusBarHeight * (verticalOffsetPercent / 100f)
         if (topCutout == null || rootWidthPx <= 0) {
             DynamicIslandCutoutSpec(
                 embeddedGapWidth = DynamicIslandEmbeddedGapFallbackWidth,
@@ -476,12 +480,12 @@ private fun rememberDynamicIslandHeightScale(): Float {
 }
 
 @Composable
-private fun rememberDynamicIslandVerticalOffsetPx(): Int {
+private fun rememberDynamicIslandVerticalOffsetPercent(): Int {
     val context = LocalContext.current
-    val verticalOffsetPx by
+    val verticalOffsetPercent by
         remember { observeDynamicIslandVerticalOffset(context) }
             .collectAsState(initial = 0)
-    return verticalOffsetPx
+    return verticalOffsetPercent
 }
 
 private data class DynamicIslandCollapseState(val scale: Float, val contentAlpha: Float)

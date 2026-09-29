@@ -46,9 +46,12 @@ object DynamicIslandFeatureSettings {
     const val SCALE_MAX = 1.4f
     private const val SCALE_PERCENT_DEFAULT = 100
 
-    /** Inclusive pixel bounds of the user vertical offset; must match the SettingsProvider validator. */
-    const val VERTICAL_OFFSET_MIN = -30
-    const val VERTICAL_OFFSET_MAX = 30
+    /**
+     * Inclusive percent-of-status-bar bounds of the user vertical offset. Must match the
+     * SettingsProvider validator.
+     */
+    const val VERTICAL_OFFSET_MIN = -100
+    const val VERTICAL_OFFSET_MAX = 100
 
     /** Zero leaves the island at its unmodified position. */
     private const val VERTICAL_OFFSET_DEFAULT = 0
@@ -142,7 +145,7 @@ object DynamicIslandFeatureSettings {
             awaitClose { context.contentResolver.unregisterContentObserver(observer) }
         }
 
-    /** User vertical offset of the island, in raw pixels. */
+    /** User vertical offset of the island, as a percent of the status bar height. */
     fun ContentResolver.readDynamicIslandVerticalOffset(): Int =
         Settings.System.getIntForUser(
             this,
