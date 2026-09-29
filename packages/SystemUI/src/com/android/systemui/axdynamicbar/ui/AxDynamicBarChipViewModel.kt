@@ -121,13 +121,20 @@ constructor(
 
     init {
         applicationScope.launch {
-            interactor.uiState
-                .map { state ->
+            combine(
+                interactor.uiState,
+                interactor.settings.isEnabled,
+                interactor.settings.disabledEventTypes,
+            ) { state, _, _ ->
+                if (!interactor.settings.isNotificationEventsActive()) {
+                    null
+                } else {
                     state.events
                         .filterIsInstance<IslandEvent.Call>()
                         .firstOrNull { it.callType == "Phone:incoming" }
                         ?.id
                 }
+            }
                 .distinctUntilChanged()
                 .collect { incomingCallId ->
                     if (incomingCallId != null) {
