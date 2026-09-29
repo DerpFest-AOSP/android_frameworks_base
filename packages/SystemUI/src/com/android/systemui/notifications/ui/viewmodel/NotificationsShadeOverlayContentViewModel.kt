@@ -84,6 +84,9 @@ constructor(
     shadeStatusBarComponentsInteractor: ShadeStatusBarComponentsInteractor,
 ) : HydratedActivatable() {
 
+    val isDualShade: Boolean
+        get() = shadeModeInteractor.isDualShade
+
     /**
      * The Shade header can only be shown if usingDesktopStatusBar is disabled. This is because the
      * desktop status bar is always visible when usingDesktopStatusBar is enabled.
