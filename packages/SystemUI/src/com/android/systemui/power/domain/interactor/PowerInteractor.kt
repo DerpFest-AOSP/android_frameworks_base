@@ -278,6 +278,10 @@ constructor(
         repository.updateWakefulness(
             rawState = WakefulnessState.ASLEEP,
             powerButtonLaunchGestureTriggered = powerButtonLaunchGestureTriggered,
+            asleepOrWakingFromPreviouslyEnteredDevice =
+                SceneContainerFlag.isEnabled &&
+                    powerButtonLaunchGestureTriggered &&
+                    repository.wakefulness.value.asleepOrWakingFromPreviouslyEnteredDevice(),
         )
     }
 
@@ -327,8 +331,14 @@ constructor(
         val alreadyWakingWithoutGesture =
             wakefulnessBeforeGesture.isAwake() &&
                 !wakefulnessBeforeGesture.powerButtonLaunchGestureTriggered
+        // ASLEEP with no prior launch gesture means the device was already asleep.
+        val alreadyAsleepWithoutGesture =
+            wakefulnessBeforeGesture.isAsleep() &&
+                !wakefulnessBeforeGesture.powerButtonLaunchGestureTriggered &&
+                wakefulnessBeforeGesture.internalWakefulnessState != WakefulnessState.STARTING_TO_SLEEP
         if (
             !alreadyWakingWithoutGesture &&
+                !alreadyAsleepWithoutGesture &&
                 wakefulnessBeforeGesture.asleepOrWakingFromPreviouslyEnteredDevice()
         ) {
             repository.onPowerButtonLaunchEvent(PowerButtonLaunchEvent.LAUNCH_FROM_ENTERED)
