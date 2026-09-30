@@ -16,7 +16,6 @@
   -->
 
 <resources>
-    <!-- The Dual Shade setting only applies to compact devices. -->
-    <bool name="config_useDualShadeSetting">false</bool>
+    <!-- Allow large-screen users to choose between combined and separate panels too. -->
+    <bool name="config_useDualShadeSetting">true</bool>
 </resources>
-
