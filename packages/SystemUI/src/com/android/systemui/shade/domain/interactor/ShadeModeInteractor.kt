@@ -33,7 +33,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
@@ -117,17 +116,9 @@ constructor(
 
     override val isFullWidthShade: StateFlow<Boolean> =
         if (DualShadeFlag.isEnabled) {
-                isDualShadeEnabled.flatMapLatest { isDualShadeEnabled ->
-                    if (isDualShadeEnabled) {
-                        // Dual Shade should be shown
-                        Log.d(TAG, "Shade layout is derived from the Dual Shade config")
-                        shadeConfigRepository.isFullWidthShade
-                    } else {
-                        // Single shade should be shown
-                        Log.d(TAG, "Single shade is always full-width")
-                        flowOf(true)
-                    }
-                }
+                // The setting controls independent panels, not large-screen adaptation.
+                // Wide screens retain the combined two-column shade and lockscreen when off.
+                shadeConfigRepository.isFullWidthShade
             } else {
                 Log.d(TAG, "Shade layout is derived from the legacy config")
                 shadeConfigRepository.legacyUseSplitShade.map { !it }
@@ -159,10 +150,10 @@ constructor(
         isDualShadeEnabled: Boolean,
         isFullWidthShade: Boolean,
     ): ShadeMode {
-        return if (DualShadeFlag.isEnabled) {
-            if (isDualShadeEnabled) ShadeMode.Dual else ShadeMode.Single
-        } else {
-            if (isFullWidthShade) ShadeMode.Single else ShadeMode.Split
+        return when {
+            DualShadeFlag.isEnabled && isDualShadeEnabled -> ShadeMode.Dual
+            isFullWidthShade -> ShadeMode.Single
+            else -> ShadeMode.Split
         }
     }
 
