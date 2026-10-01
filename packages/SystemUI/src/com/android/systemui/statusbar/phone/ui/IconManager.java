@@ -442,11 +442,18 @@ public class IconManager implements DemoModeCommandReceiver {
     /** Updates the layout params for an icon view. */
     public void reloadIconLayoutParams(int viewIndex, StatusBarIconHolder holder) {
         reloadDimens();
+        View view = mGroup.getChildAt(viewIndex);
+        if (view == null) {
+            return;
+        }
+        // Bluetooth holders carry BluetoothIconState and leave StatusBarIcon null, but the combo
+        // still uses the status-bar icon size.
+        if (holder.getType() == TYPE_BLUETOOTH) {
+            view.setLayoutParams(onCreateLayoutParams(Shape.WRAP_CONTENT));
+            return;
+        }
         if (holder.getIcon() != null) {
-            View view = mGroup.getChildAt(viewIndex);
-            if (view != null) {
-                view.setLayoutParams(onCreateLayoutParams(holder.getIcon().shape));
-            }
+            view.setLayoutParams(onCreateLayoutParams(holder.getIcon().shape));
         }
     }
 }

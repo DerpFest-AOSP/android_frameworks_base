@@ -80,7 +80,12 @@ public class BluetoothControllerImpl implements BluetoothController, BluetoothCa
     private int mConnectionState = BluetoothAdapter.STATE_DISCONNECTED;
     private boolean mAudioProfileOnly;
     private boolean mIsActive;
-    private int mBatteryLevel;
+    /** Last published status-bar battery level. Unknown until a background read completes. */
+    @GuardedBy("mConnectedDevices")
+    private int mBatteryLevel = BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
+    /** Bumps on every {@link #updateBattery()} so a stale background read cannot publish. */
+    @GuardedBy("mConnectedDevices")
+    private int mBatteryUpdateGeneration;
 
     private final H mHandler;
     private int mState;
@@ -136,7 +141,7 @@ public class BluetoothControllerImpl implements BluetoothController, BluetoothCa
         pw.print("  mEnabled="); pw.println(mEnabled);
         pw.print("  mConnectionState="); pw.println(connectionStateToString(mConnectionState));
         pw.print("  mAudioProfileOnly="); pw.println(mAudioProfileOnly);
-        pw.print("  mBatteryLevel="); pw.println(mBatteryLevel);
+        pw.print("  mBatteryLevel="); pw.println(getBatteryLevel());
         pw.print("  mIsActive="); pw.println(mIsActive);
         pw.print("  mConnectedDevices="); pw.println(getConnectedDevices());
         pw.print("  mCallbacks.size="); pw.println(mHandler.mCallbacks.size());
@@ -330,23 +335,7 @@ public class BluetoothControllerImpl implements BluetoothController, BluetoothCa
     @Override
     public int getBatteryLevel() {
         synchronized (mConnectedDevices) {
-            if (mConnectedDevices.isEmpty()) {
-                return BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
-            }
-            int fallback = BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
-            for (CachedBluetoothDevice device : mConnectedDevices) {
-                int level = getDeviceBatteryLevel(device);
-                if (level == BluetoothDevice.BATTERY_LEVEL_UNKNOWN) {
-                    continue;
-                }
-                if (isAudioActiveDevice(device)) {
-                    return level;
-                }
-                if (fallback == BluetoothDevice.BATTERY_LEVEL_UNKNOWN) {
-                    fallback = level;
-                }
-            }
-            return fallback;
+            return mBatteryLevel;
         }
     }
 
@@ -357,21 +346,118 @@ public class BluetoothControllerImpl implements BluetoothController, BluetoothCa
                 || device.isActiveDevice(BluetoothProfile.LE_AUDIO);
     }
 
+    /**
+     * Level shown in the status bar for one device.
+     *
+     * <p>Untethered headsets report each bud through metadata, and the icon uses the lower bud.
+     * Other devices use the Bluetooth service level, including member devices. Main-battery
+     * metadata is only the fallback for devices that never report a service level, such as input
+     * devices.
+     */
+    @WorkerThread
     private static int getDeviceBatteryLevel(CachedBluetoothDevice device) {
-        int metadataLevel = BluetoothUtils.getIntMetaData(
-                device.getDevice(), BluetoothDevice.METADATA_MAIN_BATTERY);
-        if (metadataLevel > BluetoothUtils.META_INT_ERROR) {
-            return metadataLevel;
+        int untetheredLevel = getUntetheredBatteryLevel(device);
+        if (untetheredLevel > BluetoothDevice.BATTERY_LEVEL_UNKNOWN) {
+            return untetheredLevel;
         }
-        return device.getMinBatteryLevelWithMemberDevices();
+        int serviceLevel = device.getMinBatteryLevelWithMemberDevices();
+        if (serviceLevel > BluetoothDevice.BATTERY_LEVEL_UNKNOWN) {
+            return serviceLevel;
+        }
+        return getMainBatteryMetadata(device);
     }
 
-    private void updateBattery() {
-        int batteryLevel = getBatteryLevel();
-        if (batteryLevel != mBatteryLevel) {
-            mBatteryLevel = batteryLevel;
-            mHandler.sendEmptyMessage(H.MSG_STATE_CHANGED);
+    @WorkerThread
+    private static int getUntetheredBatteryLevel(CachedBluetoothDevice device) {
+        BluetoothDevice bluetoothDevice = device.getDevice();
+        if (!BluetoothUtils.getBooleanMetaData(
+                bluetoothDevice, BluetoothDevice.METADATA_IS_UNTETHERED_HEADSET)) {
+            return BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
         }
+        int left = BluetoothUtils.getIntMetaData(
+                bluetoothDevice, BluetoothDevice.METADATA_UNTETHERED_LEFT_BATTERY);
+        int right = BluetoothUtils.getIntMetaData(
+                bluetoothDevice, BluetoothDevice.METADATA_UNTETHERED_RIGHT_BATTERY);
+        int overall = minKnownBatteryLevel(left, right);
+        if (overall > BluetoothDevice.BATTERY_LEVEL_UNKNOWN) {
+            return overall;
+        }
+        int caseLevel = BluetoothUtils.getIntMetaData(
+                bluetoothDevice, BluetoothDevice.METADATA_UNTETHERED_CASE_BATTERY);
+        return caseLevel > BluetoothDevice.BATTERY_LEVEL_UNKNOWN
+                ? caseLevel
+                : BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
+    }
+
+    private static int minKnownBatteryLevel(int first, int second) {
+        int overall = BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
+        if (first > BluetoothDevice.BATTERY_LEVEL_UNKNOWN) {
+            overall = first;
+        }
+        if (second > BluetoothDevice.BATTERY_LEVEL_UNKNOWN
+                && (overall == BluetoothDevice.BATTERY_LEVEL_UNKNOWN || second < overall)) {
+            overall = second;
+        }
+        return overall;
+    }
+
+    @WorkerThread
+    private static int getMainBatteryMetadata(CachedBluetoothDevice device) {
+        int level = BluetoothUtils.getIntMetaData(
+                device.getDevice(), BluetoothDevice.METADATA_MAIN_BATTERY);
+        return level > BluetoothDevice.BATTERY_LEVEL_UNKNOWN
+                ? level
+                : BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
+    }
+
+    /**
+     * Reads battery levels off the main thread. {@link BluetoothDevice#getMetadata} and
+     * {@link BluetoothDevice#getBatteryLevel} are binder calls.
+     */
+    private void updateBattery() {
+        final List<CachedBluetoothDevice> devices;
+        final int generation;
+        synchronized (mConnectedDevices) {
+            devices = new ArrayList<>(mConnectedDevices);
+            generation = ++mBatteryUpdateGeneration;
+        }
+        if (devices.isEmpty()) {
+            publishBatteryLevel(generation, BluetoothDevice.BATTERY_LEVEL_UNKNOWN);
+            return;
+        }
+        mBackgroundExecutor.execute(
+                () -> publishBatteryLevel(generation, resolveBatteryLevel(devices)));
+    }
+
+    @WorkerThread
+    private static int resolveBatteryLevel(List<CachedBluetoothDevice> devices) {
+        int fallback = BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
+        for (CachedBluetoothDevice device : devices) {
+            int level = getDeviceBatteryLevel(device);
+            if (level == BluetoothDevice.BATTERY_LEVEL_UNKNOWN) {
+                continue;
+            }
+            if (isAudioActiveDevice(device)) {
+                return level;
+            }
+            if (fallback == BluetoothDevice.BATTERY_LEVEL_UNKNOWN) {
+                fallback = level;
+            }
+        }
+        return fallback;
+    }
+
+    private void publishBatteryLevel(int generation, int batteryLevel) {
+        synchronized (mConnectedDevices) {
+            if (generation != mBatteryUpdateGeneration) {
+                return;
+            }
+            if (batteryLevel == mBatteryLevel) {
+                return;
+            }
+            mBatteryLevel = batteryLevel;
+        }
+        mHandler.sendEmptyMessage(H.MSG_STATE_CHANGED);
     }
 
     @Override
@@ -411,6 +497,9 @@ public class BluetoothControllerImpl implements BluetoothController, BluetoothCa
     public void onDeviceAttributesChanged() {
         mLogger.logDeviceAttributesChanged();
         updateConnected();
+        // Metadata listeners update the cached device before this callback, so the battery read
+        // does not have to wait for the connection-status refetch.
+        updateBattery();
         mHandler.sendEmptyMessage(H.MSG_PAIRED_DEVICES_CHANGED);
     }
 
@@ -440,6 +529,9 @@ public class BluetoothControllerImpl implements BluetoothController, BluetoothCa
             @Nullable CachedBluetoothDevice activeDevice, int bluetoothProfile) {
         mLogger.logActiveDeviceChanged(getAddressOrNull(activeDevice), bluetoothProfile);
         updateActive();
+        // The status-bar level follows the active audio device, which this callback changes
+        // without a connection refetch.
+        updateBattery();
         mHandler.sendEmptyMessage(H.MSG_STATE_CHANGED);
     }
 
