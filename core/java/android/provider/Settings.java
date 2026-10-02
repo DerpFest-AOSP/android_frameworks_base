@@ -14913,12 +14913,22 @@ public final class Settings {
         /**
          * @hide
          */
+        public static final String PULSE_CUSTOM_COLOR = "pulse_custom_color";
+
+        /**
+         * @hide
+         */
         public static final String PULSE_RENDERER = "pulse_renderer";
 
         /**
          * @hide
          */
         public static final String PULSE_HAPTICS_ENABLED = "pulse_haptics_enabled";
+
+        /**
+         * @hide
+         */
+        public static final String PULSE_HEIGHT_MULTIPLIER = "pulse_height_multiplier";
 
         /**
          * Per-apps device spoofing
