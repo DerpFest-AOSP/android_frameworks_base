@@ -218,7 +218,9 @@ final class LrcLibLyricSource implements LyricSource {
             long resultDurationMs = item.optInt("duration", 0) * 1000L;
             String plain = text(item, "plainLyrics");
             String synced = text(item, "syncedLyrics");
-            if (plain.isEmpty() && synced.isEmpty()) {
+            String lyricsFile = text(item, "lyricsfile");
+            boolean wordSync = item.optBoolean("hasWordSync", false);
+            if (plain.isEmpty() && synced.isEmpty() && lyricsFile.isEmpty()) {
                 continue;
             }
             int metaScore = matchScore(artist, song, resultArtist, resultTitle);
@@ -239,27 +241,34 @@ final class LrcLibLyricSource implements LyricSource {
             }
             int combinedScore = metaScore + durationModifier;
             boolean canUsePlain = metaScore >= 80 && !plain.isEmpty();
-            boolean canUseSynced = !synced.isEmpty() && metaScore >= 80
+            boolean hasSyncedPayload = !synced.isEmpty() || lyricsFile.contains("start_ms:");
+            boolean canUseSynced = hasSyncedPayload && metaScore >= 80
                     && ((comparableDuration && durationDifference <= 5_000L)
                     || (!comparableDuration && metaScore >= 90));
-            if ((canUsePlain || canUseSynced) && combinedScore > bestScore) {
-                bestScore = combinedScore;
+            int score = combinedScore + (canUseSynced ? 20 : 0) + (wordSync && canUseSynced ? 10 : 0);
+            if ((canUsePlain || canUseSynced) && score > bestScore) {
+                bestScore = score;
                 best = Lookup.found(
                         canUsePlain ? plain : null,
-                        canUseSynced ? synced : null);
+                        canUseSynced ? synced : null,
+                        canUseSynced ? lyricsFile : null);
             }
         }
         return best;
     }
 
     private LyricSource.Lyrics toLyrics(Lookup lookup) {
+        LyricSource.Lyrics fromFile = parseLyricsFile(lookup.lyricsFile);
+        if (fromFile != null) {
+            return fromFile.hasWordTiming() ? fromFile : withCharacterTiming(fromFile);
+        }
         if (!TextUtils.isEmpty(lookup.syncedLyrics)) {
             try {
                 JSONObject response = new JSONObject();
                 response.put("lrc", new JSONObject().put("lyric", lookup.syncedLyrics));
                 LyricSource.Lyrics lyrics = LyricResponseParser.parseLyrics(response);
                 if (lyrics != null) {
-                    return lyrics;
+                    return withCharacterTiming(lyrics);
                 }
             } catch (JSONException e) {
                 Log.w(TAG, "Unable to parse LRCLIB synced lyrics", e);
@@ -269,6 +278,231 @@ final class LrcLibLyricSource implements LyricSource {
             return null;
         }
         return new LyricSource.Lyrics(new TreeMap<>(), lookup.plainLyrics);
+    }
+
+    /**
+     * LRCLIB usually has line times only. Spread each line across its own window so the highlight
+     * moves through the line instead of lighting the whole line at once. Real word times, when the
+     * record has them, are left untouched.
+     */
+    private LyricSource.Lyrics withCharacterTiming(LyricSource.Lyrics lyrics) {
+        ArrayList<LyricSource.Cue> cues = new ArrayList<>(lyrics.getCues());
+        TreeMap<Long, LyricSource.Cue> rebuilt = new TreeMap<>();
+        for (int i = 0; i < cues.size(); i++) {
+            LyricSource.Cue cue = cues.get(i);
+            if (cue.hasWordTiming() || TextUtils.isEmpty(cue.text)) {
+                rebuilt.put(cue.timestampMs, cue);
+                continue;
+            }
+            long endMs = i + 1 < cues.size() && cues.get(i + 1).timestampMs > cue.timestampMs
+                    ? cues.get(i + 1).timestampMs : cue.timestampMs + 4_000L;
+            rebuilt.put(cue.timestampMs, new LyricSource.Cue(
+                    cue.timestampMs, cue.text, cue.translatedText,
+                    characterWords(cue.text, cue.timestampMs, endMs)));
+        }
+        return rebuilt.isEmpty() ? null : new LyricSource.Lyrics(rebuilt);
+    }
+
+    private LyricSource.Lyrics parseLyricsFile(String lyricsFile) {
+        if (TextUtils.isEmpty(lyricsFile) || !lyricsFile.contains("start_ms:")) {
+            return null;
+        }
+        ArrayList<LyricSource.Cue> cues = new ArrayList<>();
+        LineBuilder line = null;
+        WordBuilder word = null;
+        boolean inWords = false;
+        int lineIndent = -1;
+        for (String rawLine : lyricsFile.split("\\r?\\n")) {
+            if (rawLine.trim().isEmpty() || rawLine.trim().startsWith("#")) {
+                continue;
+            }
+            int indent = leadingSpaces(rawLine);
+            String stripped = rawLine.trim();
+            if (stripped.startsWith("plain:") || stripped.startsWith("metadata:")
+                    || stripped.startsWith("version:")) {
+                inWords = false;
+                continue;
+            }
+            if (stripped.startsWith("- text:")) {
+                String value = unquote(stripped.substring("- text:".length()).trim());
+                if (!inWords || indent <= lineIndent) {
+                    finishWord(line, word);
+                    finishLine(cues, line);
+                    word = null;
+                    line = new LineBuilder(value);
+                    lineIndent = indent;
+                    inWords = false;
+                } else {
+                    finishWord(line, word);
+                    word = new WordBuilder(value);
+                }
+                continue;
+            }
+            if (stripped.startsWith("words:")) {
+                inWords = true;
+                continue;
+            }
+            if (stripped.startsWith("start_ms:")) {
+                long timeMs = parseTime(stripped.substring("start_ms:".length()).trim());
+                if (word != null) {
+                    word.beginMs = timeMs;
+                } else if (line != null) {
+                    line.beginMs = timeMs;
+                }
+                continue;
+            }
+            if (stripped.startsWith("end_ms:")) {
+                long timeMs = parseTime(stripped.substring("end_ms:".length()).trim());
+                if (word != null) {
+                    word.endMs = timeMs;
+                } else if (line != null) {
+                    line.endMs = timeMs;
+                }
+            }
+        }
+        finishWord(line, word);
+        finishLine(cues, line);
+        if (cues.isEmpty()) {
+            return null;
+        }
+        TreeMap<Long, LyricSource.Cue> timed = new TreeMap<>();
+        for (LyricSource.Cue cue : cues) {
+            timed.put(cue.timestampMs, cue);
+        }
+        return timed.isEmpty() ? null : new LyricSource.Lyrics(timed);
+    }
+
+    private void finishWord(LineBuilder line, WordBuilder word) {
+        if (line == null || word == null || TextUtils.isEmpty(word.text) || word.beginMs < 0) {
+            return;
+        }
+        line.words.add(word);
+    }
+
+    private void finishLine(List<LyricSource.Cue> cues, LineBuilder line) {
+        if (line == null || line.beginMs < 0 || TextUtils.isEmpty(line.text)) {
+            return;
+        }
+        ArrayList<LyricSource.Word> words = new ArrayList<>();
+        for (int i = 0; i < line.words.size(); i++) {
+            WordBuilder word = line.words.get(i);
+            long endMs = word.endMs;
+            if (endMs < word.beginMs) {
+                endMs = i + 1 < line.words.size()
+                        ? line.words.get(i + 1).beginMs : Math.max(line.endMs, word.beginMs);
+            }
+            words.add(new LyricSource.Word(word.beginMs, endMs, word.text));
+        }
+        words = placeWordsOnSongClock(words, line.beginMs);
+        List<LyricSource.Word> timedWords = words;
+        if (timedWords.isEmpty() && line.endMs > line.beginMs) {
+            timedWords = characterWords(line.text, line.beginMs, line.endMs);
+        }
+        cues.add(new LyricSource.Cue(line.beginMs, line.text, null,
+                timedWords == null || timedWords.isEmpty() ? null : timedWords));
+    }
+
+    private List<LyricSource.Word> characterWords(String text, long beginMs, long endMs) {
+        if (TextUtils.isEmpty(text) || endMs <= beginMs) {
+            return null;
+        }
+        int count = text.codePointCount(0, text.length());
+        if (count <= 0) {
+            return null;
+        }
+        ArrayList<LyricSource.Word> words = new ArrayList<>(count);
+        long span = Math.max(1L, (endMs - beginMs) / count);
+        int offset = 0;
+        int index = 0;
+        while (offset < text.length()) {
+            int next = offset + Character.charCount(text.codePointAt(offset));
+            long wordBegin = beginMs + span * index;
+            long wordEnd = index == count - 1 ? endMs : Math.min(endMs, wordBegin + span);
+            words.add(new LyricSource.Word(wordBegin, Math.max(wordBegin, wordEnd),
+                    text.substring(offset, next)));
+            offset = next;
+            index++;
+        }
+        return words;
+    }
+
+    /**
+     * Some word times are offsets from their line. Times that already begin with the line are
+     * song times and stay as they are.
+     */
+    private ArrayList<LyricSource.Word> placeWordsOnSongClock(
+            ArrayList<LyricSource.Word> words, long lineBeginMs) {
+        if (words.isEmpty() || lineBeginMs <= 0) {
+            return words;
+        }
+        long firstBeginMs = Long.MAX_VALUE;
+        for (LyricSource.Word word : words) {
+            firstBeginMs = Math.min(firstBeginMs, word.beginMs);
+        }
+        if (firstBeginMs + 1_000L >= lineBeginMs) {
+            return words;
+        }
+        ArrayList<LyricSource.Word> shifted = new ArrayList<>(words.size());
+        for (LyricSource.Word word : words) {
+            shifted.add(new LyricSource.Word(
+                    word.beginMs + lineBeginMs, word.endMs + lineBeginMs, word.text));
+        }
+        return shifted;
+    }
+
+    private int leadingSpaces(String line) {
+        int indent = 0;
+        while (indent < line.length() && line.charAt(indent) == ' ') {
+            indent++;
+        }
+        return indent;
+    }
+
+    private long parseTime(String value) {
+        String number = unquote(value);
+        int dot = number.indexOf('.');
+        if (dot >= 0) {
+            number = number.substring(0, dot);
+        }
+        if (number.isEmpty()) {
+            return -1;
+        }
+        try {
+            return Long.parseLong(number);
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    private String unquote(String value) {
+        if (value.length() >= 2 && value.charAt(0) == '\'' && value.charAt(value.length() - 1) == '\'') {
+            return value.substring(1, value.length() - 1).replace("''", "'");
+        }
+        if (value.length() >= 2 && value.charAt(0) == '"' && value.charAt(value.length() - 1) == '"') {
+            return value.substring(1, value.length() - 1).replace("\\\"", "\"").replace("\\n", "\n");
+        }
+        return value;
+    }
+
+    private static final class LineBuilder {
+        final String text;
+        long beginMs = -1;
+        long endMs = -1;
+        final ArrayList<WordBuilder> words = new ArrayList<>();
+
+        LineBuilder(String text) {
+            this.text = text;
+        }
+    }
+
+    private static final class WordBuilder {
+        final String text;
+        long beginMs = -1;
+        long endMs = -1;
+
+        WordBuilder(String text) {
+            this.text = text;
+        }
     }
 
     private List<String[]> searchCandidates(String artist, String song) {
@@ -407,21 +641,24 @@ final class LrcLibLyricSource implements LyricSource {
         final boolean found;
         final String plainLyrics;
         final String syncedLyrics;
+        final String lyricsFile;
         final long timestampMs;
 
-        private Lookup(boolean found, String plainLyrics, String syncedLyrics, long timestampMs) {
+        private Lookup(boolean found, String plainLyrics, String syncedLyrics, String lyricsFile,
+                long timestampMs) {
             this.found = found;
             this.plainLyrics = plainLyrics;
             this.syncedLyrics = syncedLyrics;
+            this.lyricsFile = lyricsFile;
             this.timestampMs = timestampMs;
         }
 
-        static Lookup found(String plainLyrics, String syncedLyrics) {
-            return new Lookup(true, plainLyrics, syncedLyrics, 0L);
+        static Lookup found(String plainLyrics, String syncedLyrics, String lyricsFile) {
+            return new Lookup(true, plainLyrics, syncedLyrics, lyricsFile, 0L);
         }
 
         static Lookup notFound(long timestampMs) {
-            return new Lookup(false, null, null, timestampMs);
+            return new Lookup(false, null, null, null, timestampMs);
         }
     }
 }
