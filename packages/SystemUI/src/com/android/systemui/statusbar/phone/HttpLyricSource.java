@@ -55,8 +55,8 @@ final class HttpLyricSource implements LyricSource {
                     + "&durationMs=" + track.durationMs
                     + "&sourcePackage=" + encode(track.packageName)
                     + "&mediaId=" + encode(track.mediaId);
-            JSONObject lyricResponse = new JSONObject(NetEaseLyricProvider.request(lyricUrl));
-            return NetEaseLyricProvider.parseLyrics(normalizeLyricResponse(lyricResponse));
+            JSONObject lyricResponse = new JSONObject(LyricResponseParser.request(lyricUrl));
+            return LyricResponseParser.parseLyrics(normalizeLyricResponse(lyricResponse));
         } catch (IOException | JSONException | RuntimeException e) {
             Log.w(TAG, "Unable to fetch lyrics from " + mBaseUrl, e);
             return null;
