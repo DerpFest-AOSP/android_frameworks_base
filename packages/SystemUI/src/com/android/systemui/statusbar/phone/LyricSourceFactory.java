@@ -28,6 +28,7 @@ final class LyricSourceFactory {
     static List<LyricSource> create(String configuredSources) {
         ArrayList<LyricSource> sources = new ArrayList<>();
         if (TextUtils.isEmpty(configuredSources)) {
+            sources.add(new LrcLibLyricSource());
             return sources;
         }
         for (String source : configuredSources.split(";")) {

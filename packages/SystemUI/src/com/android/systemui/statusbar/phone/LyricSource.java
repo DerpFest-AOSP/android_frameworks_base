@@ -51,9 +51,19 @@ public interface LyricSource {
 
     final class Lyrics {
         private final java.util.TreeMap<Long, Cue> mCues;
+        private final String mUnsyncedLyrics;
 
         Lyrics(java.util.TreeMap<Long, Cue> cues) {
+            this(cues, null);
+        }
+
+        Lyrics(java.util.TreeMap<Long, Cue> cues, String unsyncedLyrics) {
             mCues = cues;
+            mUnsyncedLyrics = unsyncedLyrics;
+        }
+
+        String getUnsyncedLyrics() {
+            return mUnsyncedLyrics;
         }
 
         Cue getCueAt(long positionMs) {

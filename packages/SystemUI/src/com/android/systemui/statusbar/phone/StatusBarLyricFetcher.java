@@ -148,7 +148,11 @@ public final class StatusBarLyricFetcher {
             lines.add(new TimedLine(cue.timestampMs, cue.text, timedWords(cue)));
         }
         if (plain.length() == 0) {
-            return null;
+            String unsynced = lyrics.getUnsyncedLyrics();
+            if (TextUtils.isEmpty(unsynced)) {
+                return null;
+            }
+            return new Result(unsynced, null, Collections.emptyList());
         }
         return new Result(plain.toString(), synced.toString(), lines);
     }
