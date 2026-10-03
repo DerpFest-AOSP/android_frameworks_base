@@ -40,7 +40,7 @@ public final class AttestationService extends SystemService {
             Resources.getSystem().getString(com.android.internal.R.string.config_pifUpdateUrl);
 
     private static final long INITIAL_DELAY = 0;
-    private static final long INTERVAL = 5;
+    private static final long INTERVAL = 8;
 
     private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
     private static final Boolean sDisableGmsProps = SystemProperties.getBoolean(
@@ -48,11 +48,19 @@ public final class AttestationService extends SystemService {
 
     private final Context mContext;
     private final ScheduledExecutorService mScheduler;
+    private final ConnectivityManager mConnectivityManager;
+    private final FetchGmsCertifiedProps mFetchRunnable;
+
+    private boolean mPendingUpdate;
 
     public AttestationService(Context context) {
         super(context);
         mContext = context;
+        mFetchRunnable = new FetchGmsCertifiedProps();
         mScheduler = Executors.newSingleThreadScheduledExecutor();
+        mConnectivityManager = (ConnectivityManager) mContext.getSystemService(
+                Context.CONNECTIVITY_SERVICE);
+        registerNetworkCallback();
     }
 
     @Override
@@ -63,9 +71,9 @@ public final class AttestationService extends SystemService {
         if (!sDisableGmsProps
                 && isPackageInstalled(mContext, "com.google.android.gms")
                 && phase == PHASE_BOOT_COMPLETED) {
-            Log.i(TAG, "Scheduling the service");
+            Log.i(TAG, "Scheduling periodic fetch every " + INTERVAL + " hours");
             mScheduler.scheduleAtFixedRate(
-                    new FetchGmsCertifiedProps(), INITIAL_DELAY, INTERVAL, TimeUnit.MINUTES);
+                    mFetchRunnable, INITIAL_DELAY, INTERVAL, TimeUnit.HOURS);
         }
     }
 
@@ -124,16 +132,35 @@ public final class AttestationService extends SystemService {
     }
 
     private boolean isInternetConnected() {
-        ConnectivityManager cm =
-                (ConnectivityManager) mContext.getSystemService(Context.CONNECTIVITY_SERVICE);
-        Network nw = cm.getActiveNetwork();
-        if (nw == null) return false;
-        NetworkCapabilities actNw = cm.getNetworkCapabilities(nw);
-        return actNw != null
-                && (actNw.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
-                        || actNw.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
-                        || actNw.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
-                        || actNw.hasTransport(NetworkCapabilities.TRANSPORT_BLUETOOTH));
+        Network network = mConnectivityManager.getActiveNetwork();
+        if (network == null) {
+            dlog("No active network");
+            return false;
+        }
+        NetworkCapabilities capabilities = mConnectivityManager.getNetworkCapabilities(network);
+        boolean connected = capabilities != null
+                && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
+        dlog("isInternetConnected(): " + connected);
+        return connected;
+    }
+
+    private void registerNetworkCallback() {
+        mConnectivityManager.registerDefaultNetworkCallback(new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onAvailable(Network network) {
+                Log.i(TAG, "Connectivity established");
+                if (mPendingUpdate) {
+                    Log.i(TAG, "Pending fetch detected. Executing now");
+                    mScheduler.schedule(mFetchRunnable, 0, TimeUnit.SECONDS);
+                    mPendingUpdate = false;
+                }
+            }
+
+            @Override
+            public void onLost(Network network) {
+                Log.w(TAG, "Connectivity lost");
+            }
+        });
     }
 
     private void dlog(String message) {
@@ -147,7 +174,10 @@ public final class AttestationService extends SystemService {
                 dlog("FetchGmsCertifiedProps started");
 
                 if (!isInternetConnected()) {
-                    Log.e(TAG, "Internet unavailable");
+                    if (!mPendingUpdate) {
+                        Log.w(TAG, "Internet unavailable, deferring update until network is restored");
+                        mPendingUpdate = true;
+                    }
                     return;
                 }
 
