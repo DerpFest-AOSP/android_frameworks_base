@@ -4,12 +4,10 @@ import android.database.ContentObserver
 import android.os.Handler
 import android.os.UserHandle
 import android.provider.Settings
-import android.provider.Settings.Global
 import com.android.systemui.axdynamicbar.model.IslandEvent
 import com.android.systemui.axdynamicbar.shared.EVENT_TYPE_IDS
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Main
-import com.android.systemui.util.settings.GlobalSettings
 import com.android.systemui.util.settings.SecureSettings
 import com.android.systemui.util.settings.SystemSettings
 import javax.inject.Inject
@@ -22,7 +20,6 @@ import org.json.JSONArray
 class AxDynamicBarSettings @Inject constructor(
     @Main private val mainHandler: Handler,
     private val secureSettings: SecureSettings,
-    private val globalSettings: GlobalSettings,
     private val systemSettings: SystemSettings,
 ) {
     companion object {
@@ -53,9 +50,6 @@ class AxDynamicBarSettings @Inject constructor(
 
     private val _compactNotifications = MutableStateFlow(true)
     val compactNotifications: StateFlow<Boolean> = _compactNotifications.asStateFlow()
-
-    private val _isHeadsUpEnabled = MutableStateFlow(true)
-    val isHeadsUpEnabled: StateFlow<Boolean> = _isHeadsUpEnabled.asStateFlow()
 
     private val _chipStyle = MutableStateFlow(0)
     val chipStyle: StateFlow<Int> = _chipStyle.asStateFlow()
@@ -145,11 +139,6 @@ class AxDynamicBarSettings @Inject constructor(
             settingsObserver,
             UserHandle.USER_ALL,
         )
-        globalSettings.registerContentObserverSync(
-            Global.HEADS_UP_NOTIFICATIONS_ENABLED,
-            false,
-            settingsObserver,
-        )
         systemSettings.registerContentObserverForUserSync(
             Settings.System.STATUS_BAR_SHOW_DYNAMIC_ISLAND,
             false,
@@ -180,7 +169,6 @@ class AxDynamicBarSettings @Inject constructor(
         if (!initialized) return
         initialized = false
         secureSettings.getContentResolver().unregisterContentObserver(settingsObserver)
-        globalSettings.getContentResolver().unregisterContentObserver(settingsObserver)
         systemSettings.getContentResolver().unregisterContentObserver(settingsObserver)
     }
 
@@ -197,8 +185,6 @@ class AxDynamicBarSettings @Inject constructor(
             secureSettings.getIntForUser(KEY_KEYGUARD_BATTERY_CHIP_MODE, 1, UserHandle.USER_CURRENT)
         _compactNotifications.value =
             secureSettings.getIntForUser(KEY_COMPACT_NOTIFICATIONS, 1, UserHandle.USER_CURRENT) == 1
-        _isHeadsUpEnabled.value =
-            globalSettings.getInt(Global.HEADS_UP_NOTIFICATIONS_ENABLED, 1) == 1
         _chipStyle.value =
             secureSettings.getIntForUser(KEY_CHIP_STYLE, 0, UserHandle.USER_CURRENT)
 
