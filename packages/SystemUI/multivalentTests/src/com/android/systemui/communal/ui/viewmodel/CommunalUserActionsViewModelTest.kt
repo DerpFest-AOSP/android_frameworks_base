@@ -41,6 +41,7 @@ import com.android.systemui.power.domain.interactor.PowerInteractor.Companion.se
 import com.android.systemui.power.domain.interactor.PowerInteractor.Companion.setAwakeForTest
 import com.android.systemui.power.domain.interactor.powerInteractor
 import com.android.systemui.scene.domain.interactor.sceneInteractor
+import com.android.systemui.scene.ui.viewmodel.SceneContainerArea
 import com.android.systemui.scene.shared.model.Overlays
 import com.android.systemui.scene.shared.model.Scenes
 import com.android.systemui.scene.shared.model.TransitionKeys.SwipeUpToGone
@@ -140,13 +141,28 @@ class CommunalUserActionsViewModelTest : SysuiTestCase() {
             expect.that(actions?.get(Swipe.Start)).isEqualTo(UserActionResult(Scenes.Lockscreen))
             expect.that(actions?.get(Swipe.Up)).isEqualTo(UserActionResult(Scenes.Lockscreen))
             expect
-                .that(actions?.get(Swipe.Down(pointerType = PointerType.Eraser)))
+                .that(actions?.get(
+                    Swipe.Down(
+                        fromSource = SceneContainerArea.StartHalf,
+                        pointerType = PointerType.Eraser,
+                    )
+                ))
                 .isEqualTo(UserActionResult.ShowOverlay(Overlays.NotificationsShade))
             expect
-                .that(actions?.get(Swipe.Down(pointerType = PointerType.Stylus)))
+                .that(actions?.get(
+                    Swipe.Down(
+                        fromSource = SceneContainerArea.StartHalf,
+                        pointerType = PointerType.Stylus,
+                    )
+                ))
                 .isEqualTo(UserActionResult.ShowOverlay(Overlays.NotificationsShade))
             expect
-                .that(actions?.get(Swipe.Down(pointerType = PointerType.Touch)))
+                .that(actions?.get(
+                    Swipe.Down(
+                        fromSource = SceneContainerArea.StartHalf,
+                        pointerType = PointerType.Touch,
+                    )
+                ))
                 .isEqualTo(UserActionResult.ShowOverlay(Overlays.NotificationsShade))
 
             setUpState(isShadeTouchable = false, isDeviceUnlocked = false)
@@ -159,13 +175,28 @@ class CommunalUserActionsViewModelTest : SysuiTestCase() {
                 .that(actions?.get(Swipe.Up))
                 .isEqualTo(UserActionResult(Scenes.Gone, transitionKey = SwipeUpToGone))
             expect
-                .that(actions?.get(Swipe.Down(pointerType = PointerType.Eraser)))
+                .that(actions?.get(
+                    Swipe.Down(
+                        fromSource = SceneContainerArea.StartHalf,
+                        pointerType = PointerType.Eraser,
+                    )
+                ))
                 .isEqualTo(UserActionResult.ShowOverlay(Overlays.NotificationsShade))
             expect
-                .that(actions?.get(Swipe.Down(pointerType = PointerType.Stylus)))
+                .that(actions?.get(
+                    Swipe.Down(
+                        fromSource = SceneContainerArea.StartHalf,
+                        pointerType = PointerType.Stylus,
+                    )
+                ))
                 .isEqualTo(UserActionResult.ShowOverlay(Overlays.NotificationsShade))
             expect
-                .that(actions?.get(Swipe.Down(pointerType = PointerType.Touch)))
+                .that(actions?.get(
+                    Swipe.Down(
+                        fromSource = SceneContainerArea.StartHalf,
+                        pointerType = PointerType.Touch,
+                    )
+                ))
                 .isEqualTo(UserActionResult.ShowOverlay(Overlays.NotificationsShade))
         }
 

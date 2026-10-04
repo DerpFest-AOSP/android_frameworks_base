@@ -47,6 +47,7 @@ import com.android.systemui.power.data.repository.fakePowerRepository
 import com.android.systemui.power.shared.model.WakefulnessState
 import com.android.systemui.scene.domain.interactor.sceneInteractor
 import com.android.systemui.scene.shared.model.Overlays
+import com.android.systemui.scene.ui.viewmodel.SceneContainerArea
 import com.android.systemui.scene.shared.model.Scenes
 import com.android.systemui.scene.shared.model.TransitionKeys
 import com.android.systemui.shade.domain.interactor.disableDualShade
@@ -293,7 +294,12 @@ class LockscreenUserActionsViewModelTest : SysuiTestCase() {
             val downDestination =
                 userActions?.get(
                     Swipe.Down(
-                        fromSource = Edge.Top.takeIf { downFromEdge },
+                        fromSource =
+                            when {
+                                downFromEdge -> Edge.Top
+                                downWithTwoPointers -> null
+                                else -> SceneContainerArea.StartHalf
+                            },
                         pointerCount = if (downWithTwoPointers) 2 else 1,
                         // ShadeUserActions filters one-finger swipes to "not mouse".
                         pointerType = if (downWithTwoPointers) null else PointerType.Touch,
@@ -304,7 +310,7 @@ class LockscreenUserActionsViewModelTest : SysuiTestCase() {
             when {
                 // Swiping is disabled if the shade is not touchable.
                 !isShadeTouchable -> assertThat(downDestination).isNull()
-                // Swiping from the top edge has no action in dual shade mode.
+                // An unqualified top-edge swipe has no action in dual shade mode.
                 downFromEdge -> assertThat(downDestination).isNull()
                 // A two-finger swipe should open the quick settings shade.
                 downWithTwoPointers ->

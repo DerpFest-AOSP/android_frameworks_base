@@ -99,15 +99,39 @@ class GoneUserActionsViewModelTest : SysuiTestCase() {
             enableDualShade(wideLayout = true)
 
             expect
-                .that(userActions?.get(Swipe.Down(pointerType = PointerType.Eraser)))
+                .that(userActions?.get(
+                    Swipe.Down(
+                        fromSource = SceneContainerArea.StartHalf,
+                        pointerType = PointerType.Eraser,
+                    )
+                ))
                 .isEqualTo(ShowOverlay(Overlays.NotificationsShade))
             expect
-                .that(userActions?.get(Swipe.Down(pointerType = PointerType.Stylus)))
+                .that(userActions?.get(
+                    Swipe.Down(
+                        fromSource = SceneContainerArea.StartHalf,
+                        pointerType = PointerType.Stylus,
+                    )
+                ))
                 .isEqualTo(ShowOverlay(Overlays.NotificationsShade))
             expect
-                .that(userActions?.get(Swipe.Down(pointerType = PointerType.Touch)))
+                .that(userActions?.get(
+                    Swipe.Down(
+                        fromSource = SceneContainerArea.StartHalf,
+                        pointerType = PointerType.Touch,
+                    )
+                ))
                 .isEqualTo(ShowOverlay(Overlays.NotificationsShade))
-            expect.that(userActions?.get(Swipe.Down(pointerType = PointerType.Mouse))).isNull()
+            expect
+                .that(
+                    userActions?.get(
+                        Swipe.Down(
+                            fromSource = SceneContainerArea.StartHalf,
+                            pointerType = PointerType.Mouse,
+                        )
+                    )
+                )
+                .isNull()
         }
 
     @Test
@@ -118,46 +142,26 @@ class GoneUserActionsViewModelTest : SysuiTestCase() {
             val userActions by collectLastValue(underTest.actions)
             enableDualShade(wideLayout = true)
 
-            expect
-                .that(
-                    userActions?.get(
-                        Swipe.Down(
-                            fromSource = SceneContainerArea.TopEdgeEndHalf,
-                            pointerType = PointerType.Eraser,
+            listOf(SceneContainerArea.TopEdgeEndHalf, SceneContainerArea.EndHalf).forEach {
+                source ->
+                listOf(PointerType.Eraser, PointerType.Stylus, PointerType.Touch).forEach {
+                    pointerType ->
+                    expect
+                        .that(
+                            userActions?.get(
+                                Swipe.Down(fromSource = source, pointerType = pointerType)
+                            )
+                        )
+                        .isEqualTo(ShowOverlay(Overlays.QuickSettingsShade))
+                }
+                expect
+                    .that(
+                        userActions?.get(
+                            Swipe.Down(fromSource = source, pointerType = PointerType.Mouse)
                         )
                     )
-                )
-                .isEqualTo(ShowOverlay(Overlays.QuickSettingsShade))
-            expect
-                .that(
-                    userActions?.get(
-                        Swipe.Down(
-                            fromSource = SceneContainerArea.TopEdgeEndHalf,
-                            pointerType = PointerType.Stylus,
-                        )
-                    )
-                )
-                .isEqualTo(ShowOverlay(Overlays.QuickSettingsShade))
-            expect
-                .that(
-                    userActions?.get(
-                        Swipe.Down(
-                            fromSource = SceneContainerArea.TopEdgeEndHalf,
-                            pointerType = PointerType.Touch,
-                        )
-                    )
-                )
-                .isEqualTo(ShowOverlay(Overlays.QuickSettingsShade))
-            expect
-                .that(
-                    userActions?.get(
-                        Swipe.Down(
-                            fromSource = SceneContainerArea.TopEdgeEndHalf,
-                            pointerType = PointerType.Mouse,
-                        )
-                    )
-                )
-                .isNull()
+                    .isNull()
+            }
         }
 
     @Test

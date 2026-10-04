@@ -45,14 +45,14 @@
     <bool name="config_qsInlinePowerMenu">false</bool>
 
     <!--
-    Sets the boundary for the swipe-down gesture from the top of the screen that opens the
-    Notifications and Quick Settings shades in Dual Shade mode.
+    Sets the boundary for the swipe-down gesture that opens the Notifications and Quick Settings
+    shades in Dual Shade mode.
 
     This value is a ratio (from 0.0 to 1.0) that represents the fraction of the screen width
     dedicated to notifications, measured from the "start" edge (left in LTR layouts, right in RTL).
 
-     - Swiping from the start edge to this boundary opens Notifications.
-     - Swiping from this boundary to the end edge opens Quick Settings.
+     - Swiping down on the start side of this boundary opens Notifications.
+     - Swiping down on the end side of this boundary opens Quick Settings.
     -->
-    <item name="config_invocationGestureSplitRatio" format="float" type="dimen">0.75</item>
+    <item name="config_invocationGestureSplitRatio" format="float" type="dimen">0.5</item>
 </resources>

@@ -106,21 +106,25 @@ class QuickSettingsShadeOverlayActionsViewModelTest : SysuiTestCase() {
         }
 
     @Test
-    fun downFromStartHalf_wideScreen_doesNothing() =
+    fun downFromStartHalf_wideScreen_switchesToNotificationsShade() =
         kosmos.runTest {
             enableDualShade(wideLayout = true)
 
             val action = actions?.get(Swipe.Down(fromSource = SceneContainerArea.StartHalf))
-            assertThat(action).isNull()
+            assertThat((action as ShowOverlay).overlay).isEqualTo(Overlays.NotificationsShade)
+            assertThat((action.hideCurrentOverlays as HideCurrentOverlays.Some).overlays)
+                .containsExactly(Overlays.QuickSettingsShade)
         }
 
     @Test
-    fun downFromStartHalf_narrowScreen_doesNothing() =
+    fun downFromStartHalf_narrowScreen_switchesToNotificationsShade() =
         kosmos.runTest {
             enableDualShade(wideLayout = false)
 
             val action = actions?.get(Swipe.Down(fromSource = SceneContainerArea.StartHalf))
-            assertThat(action).isNull()
+            assertThat((action as ShowOverlay).overlay).isEqualTo(Overlays.NotificationsShade)
+            assertThat((action.hideCurrentOverlays as HideCurrentOverlays.Some).overlays)
+                .containsExactly(Overlays.QuickSettingsShade)
         }
 
     @Test
