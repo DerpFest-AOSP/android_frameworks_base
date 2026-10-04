@@ -31,6 +31,7 @@ import com.android.systemui.scene.domain.interactor.SceneInteractor
 import com.android.systemui.shade.data.repository.FakeShadeRepository
 import com.android.systemui.shade.data.repository.ShadeConfigRepository
 import com.android.systemui.shared.settings.data.repository.FakeSecureSettingsRepository
+import com.android.systemui.shared.settings.data.repository.FakeSystemSettingsRepository
 import com.android.systemui.util.mockito.mock
 import com.android.systemui.util.mockito.whenever
 import com.android.systemui.wallpapers.domain.interactor.WallpaperFocalAreaInteractor
@@ -65,6 +66,7 @@ object KeyguardInteractorFactory {
                 resources = context.resources,
                 configurationRepository = configurationRepository,
                 secureSettingsRepository = FakeSecureSettingsRepository(),
+                systemSettingsRepository = FakeSystemSettingsRepository(),
                 featureFlags = featureFlags,
             ),
         wallpaperFocalAreaInteractor: WallpaperFocalAreaInteractor = mock(),

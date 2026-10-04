@@ -22,6 +22,7 @@ import com.android.systemui.flags.featureFlagsClassic
 import com.android.systemui.kosmos.Kosmos
 import com.android.systemui.kosmos.testDispatcher
 import com.android.systemui.shared.settings.data.repository.secureSettingsRepository
+import com.android.systemui.shared.settings.data.repository.systemSettingsRepository
 
 var Kosmos.shadeConfigRepository: ShadeConfigRepository by
     Kosmos.Fixture {
@@ -30,6 +31,7 @@ var Kosmos.shadeConfigRepository: ShadeConfigRepository by
             resources = mainResources,
             configurationRepository = configurationRepository,
             secureSettingsRepository = secureSettingsRepository,
+            systemSettingsRepository = systemSettingsRepository,
             featureFlags = featureFlagsClassic,
         )
     }

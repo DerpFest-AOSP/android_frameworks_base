@@ -58,6 +58,7 @@ import com.android.systemui.shade.domain.interactor.DisplayAwareShadeElementTogg
 import com.android.systemui.shade.domain.interactor.NotificationShadeElement
 import com.android.systemui.shade.domain.interactor.QSShadeElement
 import com.android.systemui.shade.domain.interactor.ShadeInteractor
+import com.android.systemui.shade.domain.interactor.ShadeModeInteractor
 import com.android.systemui.shared.settings.data.repository.SecureSettingsRepository
 import com.android.systemui.statusbar.chips.mediaprojection.domain.model.MediaProjectionStopDialogModel
 import com.android.systemui.statusbar.chips.sharetoapp.ui.viewmodel.ShareToAppChipViewModel
@@ -322,6 +323,7 @@ constructor(
     override val operatorNameViewModel: StatusBarOperatorNameViewModel,
     sceneInteractor: SceneInteractor,
     private val shadeInteractor: ShadeInteractor,
+    private val shadeModeInteractor: ShadeModeInteractor,
     private val shadeExpansionTargetDisplayInteractor: ShadeExpansionTargetDisplayInteractor,
     private val displayAwareShadeElementToggleInteractor: DisplayAwareShadeElementToggleInteractor,
     private val qsShadeElement: QSShadeElement,
@@ -461,8 +463,8 @@ constructor(
 
     override val isHomeStatusBarAllowed = statusBarVisibilityInteractor.isHomeStatusBarAllowed
 
-    private val shadeInvocationSplitRatio: Float =
-        resources.getFloat(R.dimen.config_invocationGestureSplitRatio)
+    private val shadeInvocationSplitRatio: Float
+        get() = shadeModeInteractor.dualShadeGestureSplitRatio.value
 
     override val shouldShowOperatorNameView: Flow<Boolean> =
         combine(

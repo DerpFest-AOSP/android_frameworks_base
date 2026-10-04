@@ -316,5 +316,7 @@ public class SystemSettingsValidators {
                 new InclusiveIntegerRangeValidator(70, 140));
         VALIDATORS.put(System.STATUS_BAR_DYNAMIC_ISLAND_VERTICAL_OFFSET,
                 new InclusiveIntegerRangeValidator(-100, 100));
+        VALIDATORS.put(System.STATUS_BAR_SHADE_SPLIT_PERCENTAGE,
+                new InclusiveIntegerRangeValidator(10, 90));
     }
 }

@@ -16,6 +16,7 @@
 
 package com.android.systemui.shade.domain.interactor
 
+import android.content.res.mainResources
 import android.content.testableContext
 import android.provider.Settings
 import androidx.compose.ui.Alignment
@@ -39,6 +40,7 @@ val Kosmos.shadeModeInteractor by Fixture {
         applicationScope = applicationCoroutineScope,
         shadeConfigRepository = shadeConfigRepository,
         tableLogBuffer = logcatTableLogBuffer(this, "sceneFrameworkTableLogBuffer"),
+        resources = mainResources,
     )
 }
 
@@ -65,6 +67,7 @@ class FakeShadeModeInteractorImpl : ShadeModeInteractor {
     override val notificationStackHorizontalAlignment: StateFlow<Alignment.Horizontal> =
         MutableStateFlow(Alignment.CenterHorizontally)
     override var isSplitShade: Boolean = false
+    override val dualShadeGestureSplitRatio: StateFlow<Float> = MutableStateFlow(0.5f)
 }
 
 val Kosmos.shadeMode by Fixture { shadeModeInteractor.shadeMode }

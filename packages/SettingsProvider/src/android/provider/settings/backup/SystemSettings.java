@@ -157,7 +157,8 @@ public class SystemSettings {
                 Settings.System.STATUS_BAR_DYNAMIC_ISLAND_CALLS,
                 Settings.System.STATUS_BAR_DYNAMIC_ISLAND_WIDTH,
                 Settings.System.STATUS_BAR_DYNAMIC_ISLAND_HEIGHT_SCALE,
-                Settings.System.STATUS_BAR_DYNAMIC_ISLAND_VERTICAL_OFFSET
+                Settings.System.STATUS_BAR_DYNAMIC_ISLAND_VERTICAL_OFFSET,
+                Settings.System.STATUS_BAR_SHADE_SPLIT_PERCENTAGE
         ));
         return settings.toArray(new String[0]);
     }

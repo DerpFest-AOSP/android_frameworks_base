@@ -32,6 +32,7 @@ import com.android.systemui.shade.domain.interactor.displayAwareShadeElementTogg
 import com.android.systemui.shade.domain.interactor.notificationElement
 import com.android.systemui.shade.domain.interactor.qsElement
 import com.android.systemui.shade.domain.interactor.shadeInteractor
+import com.android.systemui.shade.domain.interactor.shadeModeInteractor
 import com.android.systemui.shared.settings.data.repository.secureSettingsRepository
 import com.android.systemui.statusbar.chips.sharetoapp.ui.viewmodel.shareToAppChipViewModel
 import com.android.systemui.statusbar.chips.ui.viewmodel.ongoingActivityChipsViewModel
@@ -104,6 +105,7 @@ var Kosmos.homeStatusBarViewModelFactory: (Int) -> HomeStatusBarViewModel by
                 statusBarOperatorNameViewModel,
                 sceneInteractor,
                 shadeInteractor,
+                shadeModeInteractor,
                 shadeExpansionTargetDisplayInteractor,
                 displayAwareShadeElementToggleInteractor,
                 qsElement,
