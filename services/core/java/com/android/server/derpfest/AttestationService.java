@@ -253,6 +253,14 @@ public final class AttestationService extends SystemService {
             }
         }
 
+        private void enforceKeyboxQueryPermission(int targetUid) {
+            int callingUid = Binder.getCallingUid();
+            if (callingUid == Process.KEYSTORE_UID || callingUid == targetUid) {
+                return;
+            }
+            throw new SecurityException("Not allowed to query keybox policy");
+        }
+
         private static KeyDescriptor buildDescriptor(String alias, int domain, long nspace) {
             KeyDescriptor descriptor = new KeyDescriptor();
             descriptor.alias = alias;
@@ -264,7 +272,7 @@ public final class AttestationService extends SystemService {
 
         @Override
         public boolean shouldUseKeybox(int targetUid) {
-            enforcePermission();
+            enforceKeyboxQueryPermission(targetUid);
             Context userContext = mContext.createContextAsUser(
                     UserHandle.of(UserHandle.getUserId(targetUid)), 0);
             String excluded = Settings.Secure.getString(

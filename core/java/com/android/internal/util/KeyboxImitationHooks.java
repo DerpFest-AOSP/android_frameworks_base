@@ -12,7 +12,9 @@ import android.hardware.security.keymint.KeyParameter;
 import android.hardware.security.keymint.KeyParameterValue;
 import android.hardware.security.keymint.Tag;
 import android.os.Binder;
+import android.os.IBinder;
 import android.os.RemoteException;
+import android.os.ServiceManager;
 import android.os.ServiceSpecificException;
 import android.security.KeyStore2;
 import android.security.KeyStoreException;
@@ -20,6 +22,10 @@ import android.system.keystore2.IKeystoreSecurityLevel;
 import android.system.keystore2.KeyDescriptor;
 import android.system.keystore2.KeyMetadata;
 import android.util.Log;
+
+import com.android.internal.security.keybox.IKeyboxAttestationService;
+import com.android.internal.util.KeyboxChainGenerator.GeneratedKeyMaterial;
+import com.android.internal.util.KeyboxChainGenerator.KeyGenParameters;
 
 import java.security.KeyPair;
 import java.security.cert.Certificate;
@@ -55,6 +61,11 @@ public class KeyboxImitationHooks {
         }
 
         int uid = Binder.getCallingUid();
+        if (!shouldUseKeybox(uid)) {
+            dlog("Keybox disabled for uid " + uid);
+            return null;
+        }
+
         try {
             GeneratedKeyMaterial keyMaterial = KeyboxChainGenerator.generateKeyMaterial(uid,
                     descriptor, params, entropy);
@@ -94,6 +105,23 @@ public class KeyboxImitationHooks {
         } catch (Exception e) {
             Log.e(TAG, "Failed to generate key", e);
             return null;
+        }
+    }
+
+    private static boolean shouldUseKeybox(int uid) {
+        IBinder binder = ServiceManager.getService("android.security.keybox");
+        if (binder == null) {
+            return true;
+        }
+        IKeyboxAttestationService service = IKeyboxAttestationService.Stub.asInterface(binder);
+        if (service == null) {
+            return true;
+        }
+        try {
+            return service.shouldUseKeybox(uid);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to query keybox policy", e);
+            return true;
         }
     }
 
