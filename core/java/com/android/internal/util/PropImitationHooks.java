@@ -58,8 +58,10 @@ public class PropImitationHooks {
     private static final String TAG = "PropImitationHooks";
     private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
 
-    private static final Boolean sDisableGmsProps = SystemProperties.getBoolean(
-            "persist.sys.pihooks.disable.gms_props", false);
+    // Settings toggle. Default on, matching the spoofing screen.
+    private static final String PROP_PI_SPOOF = "persist.sys.pihooks.pi";
+    // Shell kill switch. Default off.
+    private static final String PROP_DISABLE_GMS_PROPS = "persist.sys.pihooks.disable.gms_props";
 
     private static final String DATA_FILE = "gms_certified_props.json";
 
@@ -182,8 +184,13 @@ public class PropImitationHooks {
         }
     }
 
+    private static boolean isPiSpoofEnabled() {
+        return SystemProperties.getBoolean(PROP_PI_SPOOF, true)
+                && !SystemProperties.getBoolean(PROP_DISABLE_GMS_PROPS, false);
+    }
+
     private static void setPlayIntegrityProps(Context context) {
-        if (sDisableGmsProps) {
+        if (!isPiSpoofEnabled()) {
             dlog("GMS prop imitation is disabled by user");
             return;
         }
@@ -293,7 +300,7 @@ public class PropImitationHooks {
     }
 
     public static boolean shouldBypassTaskPermission(Context context) {
-        if (sDisableGmsProps) {
+        if (!isPiSpoofEnabled()) {
             return false;
         }
 

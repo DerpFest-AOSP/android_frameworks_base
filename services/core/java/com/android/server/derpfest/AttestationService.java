@@ -59,8 +59,8 @@ public final class AttestationService extends SystemService {
     private static final long INTERVAL = 8;
 
     private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
-    private static final Boolean sDisableGmsProps = SystemProperties.getBoolean(
-            "persist.sys.pihooks.disable.gms_props", false);
+    private static final String PROP_PI_SPOOF = "persist.sys.pihooks.pi";
+    private static final String PROP_DISABLE_GMS_PROPS = "persist.sys.pihooks.disable.gms_props";
 
     private final Context mContext;
     private final ScheduledExecutorService mScheduler;
@@ -86,10 +86,14 @@ public final class AttestationService extends SystemService {
         publishBinderService("android.security.keybox", mKeyboxAttestationService);
     }
 
+    private static boolean isPiSpoofEnabled() {
+        return SystemProperties.getBoolean(PROP_PI_SPOOF, true)
+                && !SystemProperties.getBoolean(PROP_DISABLE_GMS_PROPS, false);
+    }
+
     @Override
     public void onBootPhase(int phase) {
-        if (!sDisableGmsProps
-                && isPackageInstalled(mContext, "com.google.android.gms")
+        if (isPackageInstalled(mContext, "com.google.android.gms")
                 && phase == PHASE_BOOT_COMPLETED) {
             Log.i(TAG, "Scheduling periodic fetch every " + INTERVAL + " hours");
             mScheduler.scheduleAtFixedRate(
@@ -191,6 +195,11 @@ public final class AttestationService extends SystemService {
         @Override
         public void run() {
             try {
+                if (!isPiSpoofEnabled()) {
+                    dlog("FetchGmsCertifiedProps skipped; Play Integrity spoof is disabled");
+                    return;
+                }
+
                 dlog("FetchGmsCertifiedProps started");
 
                 if (!isInternetConnected()) {
