@@ -43,7 +43,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.stateIn
 
 /**
@@ -248,9 +250,11 @@ constructor(
             }
         }
 
+    private val refinerInvalidations =
+        merge(flowOf(Unit), *chipsRefiners.map { it.invalidations }.toTypedArray())
+
     val chips: StateFlow<MultipleOngoingActivityChipsModel> =
-        unrefinedChips
-            .map { unrefinedChips ->
+        combine(unrefinedChips, refinerInvalidations) { unrefinedChips, _ ->
                 chipsRefiners.fold(unrefinedChips) { currentOutput, refiner ->
                     refiner.transform(currentOutput)
                 }

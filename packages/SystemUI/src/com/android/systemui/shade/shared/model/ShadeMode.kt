@@ -33,12 +33,9 @@ sealed class ShadeMode : Diffable<ShadeMode> {
      * The split shade where, on large screens and unfolded foldables, the QS and notification parts
      * are placed side-by-side and expand/collapse as a single panel.
      *
-     * Note: This isn't the only mode where the shade is wide.
+     * Used when independent Dual Shade panels are disabled and the screen is wide.
+     * This isn't the only mode where the shade is wide.
      */
-    @Deprecated(
-        """Deprecated in scene container. Only `Single` and `Dual` are possible when scene container
-        is enabled."""
-    )
     data object Split : ShadeMode()
 
     /**

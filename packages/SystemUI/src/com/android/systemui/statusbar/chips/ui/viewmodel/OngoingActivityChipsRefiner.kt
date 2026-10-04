@@ -17,6 +17,8 @@
 package com.android.systemui.statusbar.chips.ui.viewmodel
 
 import com.android.systemui.statusbar.chips.ui.model.MultipleOngoingActivityChipsModel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 
 /**
  * An [OngoingActivityChipsRefiner] takes the entire set of chips produced by the
@@ -25,4 +27,11 @@ import com.android.systemui.statusbar.chips.ui.model.MultipleOngoingActivityChip
  */
 interface OngoingActivityChipsRefiner {
     fun transform(input: MultipleOngoingActivityChipsModel): MultipleOngoingActivityChipsModel
+
+    /**
+     * Asks [OngoingActivityChipsViewModel] to run [transform] again on the latest chips. The
+     * initial value is ignored; later emissions cover changes that do not alter the chip list.
+     */
+    val invalidations: Flow<Unit>
+        get() = emptyFlow()
 }

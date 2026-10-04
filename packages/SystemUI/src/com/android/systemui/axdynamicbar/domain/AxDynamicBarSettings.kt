@@ -66,6 +66,10 @@ class AxDynamicBarSettings @Inject constructor(
     private val _isDynamicIslandCallsActive = MutableStateFlow(false)
     val isDynamicIslandCallsActive: StateFlow<Boolean> = _isDynamicIslandCallsActive.asStateFlow()
 
+    private val _isDynamicIslandScreenRecordingActive = MutableStateFlow(false)
+    val isDynamicIslandScreenRecordingActive: StateFlow<Boolean> =
+        _isDynamicIslandScreenRecordingActive.asStateFlow()
+
     private val _disabledEventTypes = MutableStateFlow<Set<String>>(emptySet())
     val disabledEventTypes: StateFlow<Set<String>> = _disabledEventTypes.asStateFlow()
 
@@ -164,6 +168,12 @@ class AxDynamicBarSettings @Inject constructor(
             settingsObserver,
             UserHandle.USER_ALL,
         )
+        systemSettings.registerContentObserverForUserSync(
+            Settings.System.STATUS_BAR_DYNAMIC_ISLAND_SCREEN_RECORDING,
+            false,
+            settingsObserver,
+            UserHandle.USER_ALL,
+        )
     }
 
     fun destroy() {
@@ -198,6 +208,14 @@ class AxDynamicBarSettings @Inject constructor(
 
         val callsEnabled = systemSettings.getIntForUser(Settings.System.STATUS_BAR_DYNAMIC_ISLAND_CALLS, 1, UserHandle.USER_CURRENT) == 1
         _isDynamicIslandCallsActive.value = diEnabled && callsEnabled
+
+        val screenRecordingEnabled =
+            systemSettings.getIntForUser(
+                Settings.System.STATUS_BAR_DYNAMIC_ISLAND_SCREEN_RECORDING,
+                1,
+                UserHandle.USER_CURRENT,
+            ) == 1
+        _isDynamicIslandScreenRecordingActive.value = diEnabled && screenRecordingEnabled
 
         val json = secureSettings.getStringForUser(KEY_EVENTS, UserHandle.USER_CURRENT) ?: ""
         _disabledEventTypes.value =

@@ -139,6 +139,7 @@ fun StatusBarDynamicIslandContainer(
                         Modifier.offset(x = cutoutSpec.horizontalOffset)
                     }
                 )
+                .offset(y = cutoutSpec.verticalOffset)
                 .onGloballyPositioned { coordinates ->
                     if (selectedChip == null) {
                         onIslandBoundsChanged(android.graphics.Rect())

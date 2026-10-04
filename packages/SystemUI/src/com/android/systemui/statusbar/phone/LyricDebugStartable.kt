@@ -63,7 +63,7 @@ class LyricDebugStartable @Inject constructor(
             val response = JSONObject()
                 .put("lrc", JSONObject().put("lyric", "[00:00.00]debug"))
                 .put("yrc", JSONObject().put("lyric", yrc))
-            val lyrics = NetEaseLyricProvider.parseLyrics(response)
+            val lyrics = LyricResponseParser.parseLyrics(response)
             if (lyrics == null || !lyrics.hasWordTiming()) {
                 pw.println("Invalid YRC payload")
             } else if (LyricViewController.setDebugLyrics(lyrics)) {

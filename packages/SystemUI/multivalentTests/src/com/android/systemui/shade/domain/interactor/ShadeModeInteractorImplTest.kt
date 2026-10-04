@@ -162,12 +162,87 @@ class ShadeModeInteractorImplTest : SysuiTestCase() {
 
     @Test
     @EnableFlags(FLAG_DUAL_SHADE)
-    fun isFullWidthShade_singleShadeWide_true() =
+    fun isFullWidthShade_combinedShadeWide_false() =
         kosmos.runTest {
             val isFullWidthShade by collectLastValue(underTest.isFullWidthShade)
             enableSingleShade(wideLayout = true)
 
+            assertThat(isFullWidthShade).isFalse()
+        }
+
+    @Test
+    @EnableFlags(FLAG_DUAL_SHADE)
+    fun shadeMode_dualDisabledWide_combinedSplitShade() =
+        kosmos.runTest {
+            val shadeMode by collectLastValue(underTest.shadeMode)
+            val alignment by collectLastValue(underTest.notificationStackHorizontalAlignment)
+            enableSingleShade(wideLayout = true)
+
+            assertThat(shadeMode).isEqualTo(ShadeMode.Split)
+            assertThat(alignment).isEqualTo(Alignment.End)
+        }
+
+    @Test
+    @EnableFlags(FLAG_DUAL_SHADE)
+    fun shadeMode_dualDisabledNarrow_singleShade() =
+        kosmos.runTest {
+            val shadeMode by collectLastValue(underTest.shadeMode)
+            enableSingleShade(wideLayout = false)
+
+            assertThat(shadeMode).isEqualTo(ShadeMode.Single)
+        }
+
+    @Test
+    @EnableFlags(FLAG_DUAL_SHADE)
+    fun shadeMode_wideDefaultOff_combinedSplitShade() =
+        kosmos.runTest {
+            // Do not write a user preference: exercise the disabled product default.
+            overrideResource(R.bool.config_dualShadeEnabledByDefault, false)
+            overrideResource(R.bool.config_isFullWidthShade, false)
+            overrideResource(com.android.settingslib.R.bool.config_useDualShadeSetting, true)
+            fakeConfigurationRepository.onConfigurationChange()
+
+            val shadeMode by collectLastValue(underTest.shadeMode)
+            val isFullWidthShade by collectLastValue(underTest.isFullWidthShade)
+
+            assertThat(shadeMode).isEqualTo(ShadeMode.Split)
+            assertThat(isFullWidthShade).isFalse()
+        }
+
+    @Test
+    @EnableFlags(FLAG_DUAL_SHADE)
+    fun shadeMode_toggleDualOnWideScreen_preservesWideLayout() =
+        kosmos.runTest {
+            val shadeMode by collectLastValue(underTest.shadeMode)
+            val isFullWidthShade by collectLastValue(underTest.isFullWidthShade)
+            enableSingleShade(wideLayout = true)
+            assertThat(shadeMode).isEqualTo(ShadeMode.Split)
+
+            enableDualShade(wideLayout = true)
+            assertThat(shadeMode).isEqualTo(ShadeMode.Dual)
+            assertThat(isFullWidthShade).isFalse()
+
+            disableDualShade()
+            assertThat(shadeMode).isEqualTo(ShadeMode.Split)
+            assertThat(isFullWidthShade).isFalse()
+        }
+
+    @Test
+    @EnableFlags(FLAG_DUAL_SHADE)
+    fun shadeMode_dualDisabled_resizeUpdatesCombinedLayout() =
+        kosmos.runTest {
+            val shadeMode by collectLastValue(underTest.shadeMode)
+            val isFullWidthShade by collectLastValue(underTest.isFullWidthShade)
+            enableSingleShade(wideLayout = true)
+            assertThat(shadeMode).isEqualTo(ShadeMode.Split)
+
+            enableSingleShade(wideLayout = false)
+            assertThat(shadeMode).isEqualTo(ShadeMode.Single)
             assertThat(isFullWidthShade).isTrue()
+
+            enableSingleShade(wideLayout = true)
+            assertThat(shadeMode).isEqualTo(ShadeMode.Split)
+            assertThat(isFullWidthShade).isFalse()
         }
 
     @Test
@@ -193,6 +268,7 @@ class ShadeModeInteractorImplTest : SysuiTestCase() {
         }
 
     @Test
+    @DisableFlags(FLAG_DUAL_SHADE)
     fun notificationStackHorizontalAlignment_singleShade_centeredHorizontally() =
         kosmos.runTest {
             val alignment by collectLastValue(underTest.notificationStackHorizontalAlignment)

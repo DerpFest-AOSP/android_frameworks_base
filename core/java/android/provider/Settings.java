@@ -7413,6 +7413,16 @@ public final class Settings {
                 "status_bar_dynamic_island_height_scale";
 
         /**
+         * User vertical offset of the dynamic island pill, as a percent of the status bar
+         * height ({@code -100} to {@code 100}). {@code 0} leaves the pill unmoved; negative
+         * values move the pill up. The pixel distance is derived from the current status bar
+         * height so the same value tracks across density and resolution.
+         * @hide
+         */
+        public static final String STATUS_BAR_DYNAMIC_ISLAND_VERTICAL_OFFSET =
+                "status_bar_dynamic_island_vertical_offset";
+
+        /**
          * Defines the screen-off animation to display
          * @hide
          */
@@ -14815,6 +14825,13 @@ public final class Settings {
         public static final String KEYBOX_DATA = "keybox_data";
 
         /**
+         * Packages that should use the device attestation implementation instead of the
+         * configured keybox.
+         * @hide
+         */
+        public static final String KEYBOX_EXCLUDED_PACKAGES = "keybox_excluded_packages";
+
+        /**
          * Timestamp for user selectable keybox data.
          * @hide
          */
@@ -14903,12 +14920,22 @@ public final class Settings {
         /**
          * @hide
          */
+        public static final String PULSE_CUSTOM_COLOR = "pulse_custom_color";
+
+        /**
+         * @hide
+         */
         public static final String PULSE_RENDERER = "pulse_renderer";
 
         /**
          * @hide
          */
         public static final String PULSE_HAPTICS_ENABLED = "pulse_haptics_enabled";
+
+        /**
+         * @hide
+         */
+        public static final String PULSE_HEIGHT_MULTIPLIER = "pulse_height_multiplier";
 
         /**
          * Per-apps device spoofing
@@ -15603,8 +15630,7 @@ public final class Settings {
          * Semicolon-separated HTTPS base URLs for custom lyric sources. Each source must provide
          * GET /v1/lyrics?title=&artist=&album=&durationMs=&sourcePackage=&mediaId= and return
          * the standard lyric payload. GET /v2/lyrics with the same parameters is optional and may
-         * return YRC word timing. An empty value uses the default remote source followed by the
-         * built-in lyric provider fallback.
+         * return YRC word timing. An empty value looks up line-synced lyrics from LRCLIB.
          *
          * @hide
          */

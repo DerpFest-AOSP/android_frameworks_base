@@ -58,13 +58,16 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.android.systemui.common.ui.compose.Icon
+import com.android.systemui.res.R
 import com.android.systemui.statusbar.quickactions.island.shared.DynamicIslandFeatureSettings
 import com.android.systemui.statusbar.quickactions.island.shared.DynamicIslandFeatureSettings.observeDynamicIslandScale
+import com.android.systemui.statusbar.quickactions.island.shared.DynamicIslandFeatureSettings.observeDynamicIslandVerticalOffset
 import com.android.systemui.statusbar.quickactions.island.shared.DynamicIslandFeatureSettings.observeDynamicIslandWidth
 import com.android.systemui.statusbar.quickactions.island.ui.model.PopupChipModel
 import com.android.systemui.statusbar.quickactions.island.ui.model.PopupContentModel
@@ -387,12 +390,15 @@ data class DynamicIslandCutoutSpec(
     val horizontalOffset: Dp,
     /** The camera's centre in window pixels, or null with no top cutout. */
     val cutoutCenterX: Float? = null,
+    val verticalOffset: Dp,
 )
 
 @Composable
 fun rememberDynamicIslandCutoutSpec(): DynamicIslandCutoutSpec {
     val density = LocalDensity.current
     val view = LocalView.current
+    val verticalOffsetPercent = rememberDynamicIslandVerticalOffsetPercent()
+    val statusBarHeight = dimensionResource(R.dimen.status_bar_height)
     val displayCutout = view.rootWindowInsets?.displayCutout ?: view.display?.cutout
     val topCutout = displayCutout?.topBoundingRectOrNull()
     val rootWidthPx =
@@ -403,10 +409,14 @@ fun rememberDynamicIslandCutoutSpec(): DynamicIslandCutoutSpec {
         }
 
     return with(density) {
+        // Percent of the status bar, so the same setting is the same fraction of the bar at
+        // every density and resolution.
+        val verticalOffsetDp = statusBarHeight * (verticalOffsetPercent / 100f)
         if (topCutout == null || rootWidthPx <= 0) {
             DynamicIslandCutoutSpec(
                 embeddedGapWidth = DynamicIslandEmbeddedGapFallbackWidth,
                 horizontalOffset = 0.dp,
+                verticalOffset = verticalOffsetDp,
             )
         } else {
             val embeddedGapWidthDp =
@@ -420,6 +430,7 @@ fun rememberDynamicIslandCutoutSpec(): DynamicIslandCutoutSpec {
                 embeddedGapWidth = embeddedGapWidthDp,
                 horizontalOffset = horizontalOffsetDp,
                 cutoutCenterX = topCutout.exactCenterX(),
+                verticalOffset = verticalOffsetDp,
             )
         }
     }
@@ -466,6 +477,15 @@ private fun rememberDynamicIslandHeightScale(): Float {
         remember { observeDynamicIslandScale(context, DynamicIslandFeatureSettings.HEIGHT_SCALE) }
             .collectAsState(initial = 1f)
     return heightScale
+}
+
+@Composable
+private fun rememberDynamicIslandVerticalOffsetPercent(): Int {
+    val context = LocalContext.current
+    val verticalOffsetPercent by
+        remember { observeDynamicIslandVerticalOffset(context) }
+            .collectAsState(initial = 0)
+    return verticalOffsetPercent
 }
 
 private data class DynamicIslandCollapseState(val scale: Float, val contentAlpha: Float)

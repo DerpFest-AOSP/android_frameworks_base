@@ -17,12 +17,17 @@
 package com.android.systemui.axdynamicbar.domain
 
 import com.android.systemui.dagger.SysUISingleton
+import com.android.systemui.statusbar.chips.call.ui.viewmodel.CallChipViewModel
+import com.android.systemui.statusbar.chips.screenrecord.ui.viewmodel.ScreenRecordChipViewModel
 import com.android.systemui.statusbar.chips.ui.model.MultipleOngoingActivityChipsModel
 import com.android.systemui.statusbar.chips.ui.viewmodel.OngoingActivityChipsRefiner
 import javax.inject.Inject
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.drop
 
 @SysUISingleton
 class AxDynamicBarChipsRefiner @Inject constructor(
@@ -32,12 +37,33 @@ class AxDynamicBarChipsRefiner @Inject constructor(
     private val _chipsFlow = MutableStateFlow(MultipleOngoingActivityChipsModel())
     val chipsFlow: StateFlow<MultipleOngoingActivityChipsModel> = _chipsFlow.asStateFlow()
 
+    override val invalidations: Flow<Unit> =
+        combine(
+            settings.isEnabled,
+            settings.isDynamicIslandCallsActive,
+            settings.isDynamicIslandScreenRecordingActive,
+        ) { _, _, _ ->
+            Unit
+        }.drop(1)
+
     override fun transform(input: MultipleOngoingActivityChipsModel): MultipleOngoingActivityChipsModel {
         _chipsFlow.value = input
-        if (!settings.isEnabled.value) return input
+        if (settings.isEnabled.value) {
+            return input.copy(active = input.active.map { chip -> chip.copy(isHidden = true) })
+        }
+
+        val hideCalls = settings.isDynamicIslandCallsActive.value
+        val hideScreenRecord = settings.isDynamicIslandScreenRecordingActive.value
+        if (!hideCalls && !hideScreenRecord) return input
 
         return input.copy(
-            active = input.active.map { chip -> chip.copy(isHidden = true) },
+            active =
+                input.active.map { chip ->
+                    val coveredByIsland =
+                        (hideCalls && chip.key.startsWith(CallChipViewModel.KEY_PREFIX)) ||
+                            (hideScreenRecord && chip.key == ScreenRecordChipViewModel.KEY)
+                    if (coveredByIsland) chip.copy(isHidden = true) else chip
+                },
         )
     }
 }

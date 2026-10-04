@@ -348,6 +348,32 @@ aidl_interface {
     host_supported: true,
 }
 
+aidl_interface {
+    name: "keybox_attestation_aidl",
+    srcs: [
+        "com/android/internal/security/keybox/AttestationCertificates.aidl",
+        "com/android/internal/security/keybox/IKeyboxAttestationService.aidl",
+        "com/android/internal/security/keybox/KeyboxKeyParameters.aidl",
+    ],
+    unstable: true,
+    backend: {
+        java: {
+            enabled: true,
+            platform_apis: true,
+        },
+        rust: {
+            enabled: true,
+            apex_available: ["//apex_available:platform"],
+        },
+        cpp: {
+            enabled: false,
+        },
+        ndk: {
+            enabled: false,
+        },
+    },
+}
+
 filegroup {
     name: "framework-internal-display-sources",
     srcs: ["com/android/internal/display/BrightnessSynchronizer.java"],

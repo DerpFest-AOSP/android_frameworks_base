@@ -1,7 +1,6 @@
 /*
  * SPDX-FileCopyrightText: 2025 Neoteric OS
- * SPDX-FileCopyrightText: 2025 The Clover Project
- * SPDX-FileCopyrightText: 2025 The halogenOS Project
+ * SPDX-FileCopyrightText: 2026 The DerpFest Project
  * SPDX-License-Identifier: Apache-2.0
  */
 package com.android.internal.util;
@@ -15,6 +14,9 @@ import android.hardware.security.keymint.Algorithm;
 import android.hardware.security.keymint.EcCurve;
 import android.hardware.security.keymint.KeyParameter;
 import android.hardware.security.keymint.Tag;
+
+import com.android.internal.security.keybox.KeyboxKeyParameters;
+
 import android.os.Binder;
 import android.os.Build;
 import android.security.keystore.KeyProperties;
@@ -42,19 +44,21 @@ import com.android.internal.org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import com.android.internal.org.bouncycastle.asn1.x509.Time;
 import com.android.internal.org.bouncycastle.cert.X509CertificateHolder;
 import com.android.internal.org.bouncycastle.cert.X509v3CertificateBuilder;
-import com.android.internal.org.bouncycastle.jce.provider.BouncyCastleProvider;
 import com.android.internal.org.bouncycastle.operator.ContentSigner;
 import com.android.internal.org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 
 import java.io.IOException;
+import java.io.ByteArrayInputStream;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.MessageDigest;
+import java.security.PublicKey;
 import java.security.SecureRandom;
-import java.security.Security;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
 import java.security.spec.ECGenParameterSpec;
 import java.security.spec.RSAKeyGenParameterSpec;
 import java.util.Arrays;
@@ -80,57 +84,96 @@ public final class KeyboxChainGenerator {
     private static final int ATTESTATION_PACKAGE_INFO_PACKAGE_NAME_INDEX = 0;
     private static final int ATTESTATION_PACKAGE_INFO_VERSION_INDEX = 1;
 
-    public static List<Certificate> generateCertChain(int uid, KeyDescriptor descriptor, KeyGenParameters params) {
+    public static List<Certificate> generateCertChain(int uid, KeyDescriptor descriptor,
+            KeyGenParameters params, byte[] entropy) {
+        GeneratedKeyMaterial keyMaterial = generateKeyMaterial(uid, descriptor, params, entropy);
+        return keyMaterial != null ? keyMaterial.certificateChain : null;
+    }
+
+    public static List<Certificate> generateCertChainFromCert(int uid, KeyDescriptor descriptor,
+            KeyGenParameters params, byte[] leafCertificateBytes) {
+        if (leafCertificateBytes == null || leafCertificateBytes.length == 0) {
+            Log.e(TAG, "Leaf certificate bytes are empty");
+            return null;
+        }
+        try {
+            X509Certificate leafCertificate = (X509Certificate) CertificateFactory.getInstance(
+                    "X.509").generateCertificate(new ByteArrayInputStream(leafCertificateBytes));
+            return generateCertChain(uid, descriptor, params, leafCertificate.getPublicKey());
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to parse generated leaf certificate", e);
+            return null;
+        }
+    }
+
+    public static List<Certificate> generateCertChain(int uid, KeyDescriptor descriptor,
+            KeyGenParameters params, PublicKey publicKey) {
+        try {
+            return buildCertificateChain(uid, descriptor, params, publicKey);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to build certificate chain", e);
+            return null;
+        }
+    }
+
+    public static GeneratedKeyMaterial generateKeyMaterial(int uid, KeyDescriptor descriptor,
+            KeyGenParameters params, byte[] entropy) {
         dlog("Requested KeyPair with alias: " + descriptor.alias);
         int size = params.keySize;
         KeyPair kp;
         try {
             if (Objects.equals(params.algorithm, Algorithm.EC)) {
                 dlog("Generating EC keypair of size " + size);
-                kp = buildECKeyPair(params);
+                kp = buildECKeyPair(params, entropy);
             } else if (Objects.equals(params.algorithm, Algorithm.RSA)) {
                 dlog("Generating RSA keypair of size " + size);
-                kp = buildRSAKeyPair(params);
+                kp = buildRSAKeyPair(params, entropy);
             } else {
                 dlog("Unsupported algorithm");
                 return null;
             }
 
-            X509v3CertificateBuilder certBuilder = new X509v3CertificateBuilder(
-                    KeyboxUtils.getCertificateHolder(
-                            Objects.equals(params.algorithm, Algorithm.EC)
-                                    ? KeyProperties.KEY_ALGORITHM_EC
-                                    : KeyProperties.KEY_ALGORITHM_RSA
-                    ).getSubject(),
-                    params.certificateSerial,
-                    new Time(params.certificateNotBefore),
-                    new Time(params.certificateNotAfter),
-                    params.certificateSubject,
-                    SubjectPublicKeyInfo.getInstance(
-                            ASN1Sequence.getInstance(kp.getPublic().getEncoded())
-                    )
-            );
-
-            KeyUsage keyUsage = new KeyUsage(KeyUsage.keyCertSign);
-            certBuilder.addExtension(Extension.keyUsage, true, keyUsage);
-            certBuilder.addExtension(createExtension(params, uid));
-
-            ContentSigner contentSigner;
-            if (Objects.equals(params.algorithm, Algorithm.EC)) {
-                contentSigner = new JcaContentSignerBuilder("SHA256withECDSA").build(KeyboxUtils.getPrivateKey(KeyProperties.KEY_ALGORITHM_EC));
-            } else {
-                contentSigner = new JcaContentSignerBuilder("SHA256withRSA").build(KeyboxUtils.getPrivateKey(KeyProperties.KEY_ALGORITHM_RSA));
-            }
-            X509CertificateHolder certHolder = certBuilder.build(contentSigner);
-            Certificate leaf = KeyboxUtils.getCertificateFromHolder(certHolder);
-            List<Certificate> chain = KeyboxUtils.getCertificateChain(leaf.getPublicKey().getAlgorithm());
-            chain.add(0, leaf);
+            List<Certificate> chain = buildCertificateChain(uid, descriptor, params, kp.getPublic());
             dlog("Successfully generated X500 Cert for alias: " + descriptor.alias);
-            return chain;
+            return new GeneratedKeyMaterial(kp, chain);
         } catch (Throwable t) {
             Log.e(TAG, Log.getStackTraceString(t));
         }
         return null;
+    }
+
+    private static List<Certificate> buildCertificateChain(int uid, KeyDescriptor descriptor,
+            KeyGenParameters params, PublicKey publicKey) throws Exception {
+        X509v3CertificateBuilder certBuilder = new X509v3CertificateBuilder(
+                KeyboxUtils.getCertificateHolder(
+                        Objects.equals(params.algorithm, Algorithm.EC)
+                                ? KeyProperties.KEY_ALGORITHM_EC
+                                : KeyProperties.KEY_ALGORITHM_RSA
+                ).getSubject(),
+                params.certificateSerial,
+                new Time(params.certificateNotBefore),
+                new Time(params.certificateNotAfter),
+                params.certificateSubject,
+                SubjectPublicKeyInfo.getInstance(ASN1Sequence.getInstance(publicKey.getEncoded()))
+        );
+
+        KeyUsage keyUsage = new KeyUsage(KeyUsage.keyCertSign);
+        certBuilder.addExtension(Extension.keyUsage, true, keyUsage);
+        certBuilder.addExtension(createExtension(params, uid));
+
+        ContentSigner contentSigner;
+        if (Objects.equals(params.algorithm, Algorithm.EC)) {
+            contentSigner = new JcaContentSignerBuilder("SHA256withECDSA").build(
+                    KeyboxUtils.getPrivateKey(KeyProperties.KEY_ALGORITHM_EC));
+        } else {
+            contentSigner = new JcaContentSignerBuilder("SHA256withRSA").build(
+                    KeyboxUtils.getPrivateKey(KeyProperties.KEY_ALGORITHM_RSA));
+        }
+        X509CertificateHolder certHolder = certBuilder.build(contentSigner);
+        Certificate leaf = KeyboxUtils.getCertificateFromHolder(certHolder);
+        List<Certificate> chain = KeyboxUtils.getCertificateChain(leaf.getPublicKey().getAlgorithm());
+        chain.add(0, leaf);
+        return chain;
     }
 
     private static ASN1Encodable[] fromIntList(List<Integer> list) {
@@ -143,16 +186,11 @@ public final class KeyboxChainGenerator {
 
     private static Extension createExtension(KeyGenParameters params, int uid) {
         try {
-            SecureRandom random = new SecureRandom();
-
-            byte[] bytes1 = new byte[32];
-            byte[] bytes2 = new byte[32];
-
-            random.nextBytes(bytes1);
-            random.nextBytes(bytes2);
-
-            ASN1Encodable[] rootOfTrustEncodables = {new DEROctetString(bytes1), ASN1Boolean.TRUE,
-                    new ASN1Enumerated(0), new DEROctetString(bytes2)};
+            ASN1Encodable[] rootOfTrustEncodables = {
+                    new DEROctetString(VerifiedBootState.getVerifiedBootKeyBytes()),
+                    ASN1Boolean.TRUE,
+                    new ASN1Enumerated(0),
+                    new DEROctetString(VerifiedBootState.getVerifiedBootHashBytes())};
 
             ASN1Sequence rootOfTrustSeq = new DERSequence(rootOfTrustEncodables);
 
@@ -288,6 +326,9 @@ public final class KeyboxChainGenerator {
 
     private static DEROctetString createApplicationId(int uid) throws Throwable {
         Context context = ActivityThread.currentApplication();
+        if (context == null && ActivityThread.currentActivityThread() != null) {
+            context = ActivityThread.currentActivityThread().getSystemContext();
+        }
         if (context == null) {
             throw new IllegalStateException("createApplicationId: context not available from ActivityThread!");
         }
@@ -351,23 +392,40 @@ public final class KeyboxChainGenerator {
         }
     }
 
-    private static KeyPair buildECKeyPair(KeyGenParameters params) throws Exception {
+    private static KeyPair buildECKeyPair(KeyGenParameters params, byte[] entropy) throws Exception {
         ECGenParameterSpec spec = new ECGenParameterSpec(params.ecCurveName);
         KeyPairGenerator kpg = KeyPairGenerator.getInstance("EC");
-        kpg.initialize(spec);
+        kpg.initialize(spec, getSecureRandom(entropy));
         return kpg.generateKeyPair();
     }
 
-    private static KeyPair buildRSAKeyPair(KeyGenParameters params) throws Exception {
+    private static KeyPair buildRSAKeyPair(KeyGenParameters params, byte[] entropy) throws Exception {
         RSAKeyGenParameterSpec spec = new RSAKeyGenParameterSpec(
                 params.keySize, params.rsaPublicExponent);
         KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
-        kpg.initialize(spec);
+        kpg.initialize(spec, getSecureRandom(entropy));
         return kpg.generateKeyPair();
     }
 
+    private static SecureRandom getSecureRandom(byte[] entropy) {
+        SecureRandom secureRandom = new SecureRandom();
+        if (entropy != null && entropy.length > 0) {
+            secureRandom.setSeed(entropy);
+        }
+        return secureRandom;
+    }
     private static void dlog(String msg) {
         if (DEBUG) Log.d(TAG, msg);
+    }
+
+    public static final class GeneratedKeyMaterial {
+        public final KeyPair keyPair;
+        public final List<Certificate> certificateChain;
+
+        GeneratedKeyMaterial(KeyPair keyPair, List<Certificate> certificateChain) {
+            this.keyPair = keyPair;
+            this.certificateChain = certificateChain;
+        }
     }
 
     public static class KeyGenParameters {
@@ -394,37 +452,69 @@ public final class KeyboxChainGenerator {
 
         public int securityLevel;
 
+        public KeyGenParameters(KeyboxKeyParameters params) {
+            keySize = params.keySize;
+            algorithm = params.algorithm;
+            certificateSerial = params.certificateSerial != null
+                    && params.certificateSerial.length > 0
+                    ? new BigInteger(params.certificateSerial) : null;
+            certificateNotBefore = new Date(params.certificateNotBefore);
+            certificateNotAfter = new Date(params.certificateNotAfter);
+            certificateSubject = params.certificateSubject != null
+                    && params.certificateSubject.length > 0
+                    ? new X500Name(new X500Principal(params.certificateSubject).getName()) : null;
+            rsaPublicExponent = BigInteger.valueOf(params.rsaPublicExponent);
+            ecCurve = params.ecCurve;
+            ecCurveName = (params.ecCurveName != null && !params.ecCurveName.isEmpty())
+                    ? params.ecCurveName
+                    : (ecCurve != 0 ? getEcCurveName(ecCurve) : null);
+            if (params.purpose != null) {
+                for (int value : params.purpose) {
+                    purpose.add(value);
+                }
+            }
+            if (params.digest != null) {
+                for (int value : params.digest) {
+                    digest.add(value);
+                }
+            }
+            attestationChallenge = params.attestationChallenge;
+            brand = params.brand;
+            device = params.device;
+            product = params.product;
+            manufacturer = params.manufacturer;
+            model = params.model;
+            securityLevel = params.securityLevel;
+        }
+
         public KeyGenParameters(KeyParameter[] params) {
-            for (var kp : params) {
-                var p = kp.value;
+            for (KeyParameter kp : params) {
                 switch (kp.tag) {
-                    case Tag.KEY_SIZE -> keySize = p.getInteger();
-                    case Tag.ALGORITHM -> algorithm = p.getAlgorithm();
-                    case Tag.CERTIFICATE_SERIAL -> certificateSerial = new BigInteger(p.getBlob());
-                    case Tag.CERTIFICATE_NOT_BEFORE ->
-                            certificateNotBefore = new Date(p.getDateTime());
-                    case Tag.CERTIFICATE_NOT_AFTER ->
-                            certificateNotAfter = new Date(p.getDateTime());
-                    case Tag.CERTIFICATE_SUBJECT ->
-                            certificateSubject = new X500Name(new X500Principal(p.getBlob()).getName());
-                    case Tag.RSA_PUBLIC_EXPONENT -> rsaPublicExponent = new BigInteger(p.getBlob());
+                    case Tag.KEY_SIZE -> keySize = kp.value.getInteger();
+                    case Tag.ALGORITHM -> algorithm = kp.value.getAlgorithm();
+                    case Tag.CERTIFICATE_SERIAL -> certificateSerial = new BigInteger(kp.value.getBlob());
+                    case Tag.CERTIFICATE_NOT_BEFORE -> certificateNotBefore = new Date(kp.value.getDateTime());
+                    case Tag.CERTIFICATE_NOT_AFTER -> certificateNotAfter = new Date(kp.value.getDateTime());
+                    case Tag.CERTIFICATE_SUBJECT -> certificateSubject =
+                            new X500Name(new X500Principal(kp.value.getBlob()).getName());
+                    case Tag.RSA_PUBLIC_EXPONENT -> rsaPublicExponent = BigInteger.valueOf(kp.value.getLongInteger());
                     case Tag.EC_CURVE -> {
-                        ecCurve = p.getEcCurve();
+                        ecCurve = kp.value.getEcCurve();
                         ecCurveName = getEcCurveName(ecCurve);
                     }
                     case Tag.PURPOSE -> {
-                        purpose.add(p.getKeyPurpose());
+                        purpose.add(kp.value.getKeyPurpose());
                     }
                     case Tag.DIGEST -> {
-                        digest.add(p.getDigest());
+                        digest.add(kp.value.getDigest());
                     }
-                    case Tag.ATTESTATION_CHALLENGE -> attestationChallenge = p.getBlob();
-                    case Tag.ATTESTATION_ID_BRAND -> brand = p.getBlob();
-                    case Tag.ATTESTATION_ID_DEVICE -> device = p.getBlob();
-                    case Tag.ATTESTATION_ID_PRODUCT -> product = p.getBlob();
-                    case Tag.ATTESTATION_ID_MANUFACTURER -> manufacturer = p.getBlob();
-                    case Tag.ATTESTATION_ID_MODEL -> model = p.getBlob();
-                    case Tag.HARDWARE_TYPE -> securityLevel = p.getSecurityLevel();
+                    case Tag.ATTESTATION_CHALLENGE -> attestationChallenge = kp.value.getBlob();
+                    case Tag.ATTESTATION_ID_BRAND -> brand = kp.value.getBlob();
+                    case Tag.ATTESTATION_ID_DEVICE -> device = kp.value.getBlob();
+                    case Tag.ATTESTATION_ID_PRODUCT -> product = kp.value.getBlob();
+                    case Tag.ATTESTATION_ID_MANUFACTURER -> manufacturer = kp.value.getBlob();
+                    case Tag.ATTESTATION_ID_MODEL -> model = kp.value.getBlob();
+                    case Tag.HARDWARE_TYPE -> securityLevel = kp.value.getSecurityLevel();
                 }
             }
         }

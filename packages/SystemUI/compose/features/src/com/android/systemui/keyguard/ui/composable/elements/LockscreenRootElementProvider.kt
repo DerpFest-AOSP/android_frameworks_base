@@ -239,12 +239,13 @@ private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
             )
 
         var upperRegionMaxHeight = lockIconBounds.top - statusBarPlaceable.measuredHeight
-        var lowerRegionMaxHeight = constraints.maxHeight - lockIconBounds.bottom
+        val lowerRegionMaxHeight = constraints.maxHeight - lockIconBounds.bottom
 
         if (!isUdfpsSupported) {
+            // Non-UDFPS draws the indication above the lock glyph, so it consumes upper space.
+            // UDFPS floats it between the sensor and the shortcuts, so the lower region keeps
+            // its full height and the shortcuts stay at the bottom of the screen.
             upperRegionMaxHeight -= ambientIndicationPlaceable.measuredHeight
-        } else {
-            lowerRegionMaxHeight -= ambientIndicationPlaceable.measuredHeight
         }
 
         val upperRegionPlaceable =
@@ -275,10 +276,18 @@ private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
             lockIconPlaceable.place(lockIconBounds.left, lockIconBounds.top)
 
             if (isUdfpsSupported) {
-                // Place below UDFPS icon.
+                // Center between the bottom of the UDFPS circle and the top of the shortcuts.
+                val iconBottom = lockIconBounds.bottom
+                val shortcutsTop = constraints.maxHeight - lowerRegionPlaceable.measuredHeight
+                val freeSpace =
+                    shortcutsTop - iconBottom - ambientIndicationPlaceable.measuredHeight
+                val lowestTop =
+                    (shortcutsTop - ambientIndicationPlaceable.measuredHeight).coerceAtLeast(
+                        iconBottom
+                    )
                 ambientIndicationPlaceable.placeRelative(
                     0,
-                    lockIconBounds.top + lockIconPlaceable.measuredHeight,
+                    (iconBottom + freeSpace / 2).coerceIn(iconBottom, lowestTop),
                 )
             } else {
                 // Place above lock icon.

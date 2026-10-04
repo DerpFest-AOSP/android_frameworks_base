@@ -21,6 +21,9 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.view.View
 import android.view.WindowInsets.Type.defaultVisible
+import android.view.WindowInsets.Type.displayCutout
+import android.view.WindowInsets.Type.ime
+import android.view.WindowInsets.Type.systemBars
 import androidx.annotation.VisibleForTesting
 import androidx.compose.ui.Alignment
 import com.android.app.tracing.coroutines.flow.flowName
@@ -125,6 +128,7 @@ import com.android.systemui.util.state.SynchronouslyObservableState
 import com.android.systemui.utils.coroutines.flow.conflatedCallbackFlow
 import com.android.systemui.utils.coroutines.flow.flatMapLatestConflated
 import com.android.systemui.utils.coroutines.flow.transformLatestConflated
+import com.android.systemui.utils.windowmanager.WindowManagerUtils
 import com.android.systemui.window.domain.interactor.WindowRootViewBlurInteractor
 import dagger.Lazy
 import javax.inject.Inject
@@ -297,7 +301,15 @@ constructor(
                     shadeModeInteractor.notificationStackHorizontalAlignment,
                     shadeModeInteractor.shadeMode,
                     shadeModeInteractor.isFullWidthShade,
-                    configurationInteractor.onAnyConfigurationChange,
+                    merge(
+                        configurationInteractor.onAnyConfigurationChange,
+                        // Compose repositions the scrim when window insets change without a config
+                        // change. Refresh the sibling View's insets when its horizontal bounds move.
+                        notificationStackAppearanceInteractor.notificationShadeScrimBounds
+                            .map { it?.let { bounds -> bounds.left to bounds.right } }
+                            .distinctUntilChanged()
+                            .map { Unit },
+                    ),
                 ) { horizontalAlignment, shadeMode, isFullWidthShade, _ ->
                     with(context.resources) {
                         val marginHorizontal =
@@ -309,19 +321,20 @@ constructor(
                                 }
                             )
 
-                        val (insetStart, insetEnd) =
+                        val isRtl = configuration.layoutDirection == View.LAYOUT_DIRECTION_RTL
+                        val insets =
                             if (shadeMode is Dual && !isFullWidthShade) {
-                                // No need to add insets in the "floating" shade design, since
-                                // they are already applied to the shade panel (container).
-                                0 to 0
+                                // This full-window sibling View does not inherit the Compose panel's
+                                // padding. Match safeDrawing, excluding gesture-only insets.
+                                WindowManagerUtils.getWindowManager(context)
+                                    .currentWindowMetrics
+                                    .windowInsets
+                                    .getInsets(systemBars() or ime() or displayCutout())
                             } else {
-                                val isRtl =
-                                    configuration.layoutDirection == View.LAYOUT_DIRECTION_RTL
-                                // All inset types combined, except the IME.
-                                with(getInsetsOf(context, defaultVisible())) {
-                                    if (isRtl) right to left else left to right
-                                }
+                                getInsetsOf(context, defaultVisible())
                             }
+                        val (insetStart, insetEnd) =
+                            if (isRtl) insets.right to insets.left else insets.left to insets.right
 
                         val (marginStart, marginEnd) =
                             if (shadeMode is Single) {

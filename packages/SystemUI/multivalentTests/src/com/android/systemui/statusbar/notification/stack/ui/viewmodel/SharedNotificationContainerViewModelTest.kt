@@ -17,9 +17,15 @@
 
 package com.android.systemui.statusbar.notification.stack.ui.viewmodel
 
+import android.content.Context
+import android.graphics.Insets
+import android.graphics.Rect
 import android.platform.test.annotations.DisableFlags
 import android.platform.test.annotations.EnableFlags
 import android.platform.test.flag.junit.FlagsParameterization
+import android.view.WindowInsets
+import android.view.WindowMetrics
+import android.view.mockWindowManager
 import androidx.compose.ui.geometry.Offset
 import androidx.test.filters.SmallTest
 import com.android.compose.animation.scene.ObservableTransitionState
@@ -87,7 +93,9 @@ import com.android.systemui.shade.largeScreenHeaderHelper
 import com.android.systemui.shade.shadeTestUtil
 import com.android.systemui.statusbar.notification.data.repository.activeNotificationListRepository
 import com.android.systemui.statusbar.notification.data.repository.setActiveNotifs
+import com.android.systemui.statusbar.notification.stack.domain.interactor.notificationStackAppearanceInteractor
 import com.android.systemui.statusbar.notification.stack.domain.interactor.sharedNotificationContainerInteractor
+import com.android.systemui.statusbar.notification.stack.shared.model.ShadeScrimBounds
 import com.android.systemui.statusbar.notification.stack.ui.viewmodel.SharedNotificationContainerViewModel.Companion.PUSHBACK_SCALE
 import com.android.systemui.statusbar.notification.stack.ui.viewmodel.SharedNotificationContainerViewModel.HorizontalPosition
 import com.android.systemui.testKosmos
@@ -95,9 +103,11 @@ import com.android.systemui.window.data.repository.fakeWindowRootViewBlurReposit
 import com.android.systemui.window.ui.viewmodel.fakeBouncerTransitions
 import com.google.common.collect.Range
 import com.google.common.truth.Truth.assertThat
+import java.util.Locale
 import kotlin.test.assertIs
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -124,6 +134,7 @@ class SharedNotificationContainerViewModelTest(flags: FlagsParameterization) : S
 
     private val aodBurnInViewModel = mock(AodBurnInViewModel::class.java)
     private lateinit var movementFlow: MutableStateFlow<BurnInModel>
+    private var originalScreenLayout = 0
 
     private val kosmos =
         testKosmos().useUnconfinedTestDispatcher().apply {
@@ -141,9 +152,180 @@ class SharedNotificationContainerViewModelTest(flags: FlagsParameterization) : S
 
     @Before
     fun setUp() {
+        originalScreenLayout = context.resources.configuration.screenLayout
+        val windowManager = kosmos.mockWindowManager
+        context.addMockSystemService(Context.WINDOW_SERVICE, windowManager)
+        val metrics = WindowMetrics(Rect(0, 0, 1000, 600), WindowInsets.Builder().build())
+        whenever(windowManager.currentWindowMetrics).thenReturn(metrics)
+        whenever(windowManager.maximumWindowMetrics).thenReturn(metrics)
         kosmos.enableSingleShade()
         movementFlow = MutableStateFlow(BurnInModel())
         whenever(aodBurnInViewModel.movement).thenReturn(movementFlow)
+    }
+
+    @After
+    fun restoreLayoutDirection() {
+        context.resources.configuration.screenLayout = originalScreenLayout
+    }
+
+    @Test
+    @EnableSceneContainer
+    @EnableFlags(FLAG_DUAL_SHADE)
+    fun floatingDualShade_start_safeDrawingMargins() =
+        kosmos.runTest { assertFloatingDualShadeMargins(endAligned = false) }
+
+    @Test
+    @EnableSceneContainer
+    @EnableFlags(FLAG_DUAL_SHADE)
+    fun floatingDualShade_end_safeDrawingMargins() =
+        kosmos.runTest { assertFloatingDualShadeMargins(endAligned = true) }
+
+    private fun Kosmos.assertFloatingDualShadeMargins(endAligned: Boolean) {
+        overrideResource(R.bool.config_notificationShadeOnTopEnd, endAligned)
+        overrideDimensionPixelSize(R.dimen.shade_panel_margin_horizontal, 20)
+        overrideDimensionPixelSize(R.dimen.shade_panel_width, 300)
+        enableDualShade(wideLayout = true)
+        val dimens by collectLastValue(underTest.configurationBasedDimensions)
+
+        for ((locale, expectedStart, expectedEnd) in
+            listOf(
+                Triple(Locale.US, 84, 96),
+                Triple(Locale.forLanguageTag("ar"), 96, 84),
+            )
+        ) {
+            context.resources.configuration.setLayoutDirection(locale)
+            for ((insets, expectedMargin) in
+                listOf(
+                    Insets.NONE to 20,
+                    Insets.of(12, 0, 8, 0) to 20,
+                    Insets.of(20, 0, 20, 0) to 20,
+                    Insets.of(84, 0, 96, 0) to
+                        if (endAligned) expectedEnd else expectedStart,
+                )
+            ) {
+                setCurrentWindowInsets(
+                    WindowInsets.Builder()
+                        .setInsets(WindowInsets.Type.displayCutout(), insets)
+                        .build()
+                )
+                fakeConfigurationRepository.onAnyConfigurationChange()
+
+                val result = checkNotNull(dimens)
+                assertThat(result.marginStart).isEqualTo(if (endAligned) 0 else expectedMargin)
+                assertThat(result.marginEnd).isEqualTo(if (endAligned) expectedMargin else 0)
+                if (endAligned) {
+                    assertThat(result.horizontalPosition)
+                        .isEqualTo(HorizontalPosition.MiddleToEdge(maxWidth = 300))
+                } else {
+                    assertThat(result.horizontalPosition)
+                        .isEqualTo(HorizontalPosition.EdgeToMiddle(maxWidth = 300))
+                }
+            }
+        }
+    }
+
+    @Test
+    @EnableSceneContainer
+    @EnableFlags(FLAG_DUAL_SHADE)
+    fun floatingDualShade_safeDrawing_includesImeAndBars_excludesGestureInsets() =
+        kosmos.runTest {
+            overrideResource(R.bool.config_notificationShadeOnTopEnd, false)
+            overrideDimensionPixelSize(R.dimen.shade_panel_margin_horizontal, 20)
+            context.resources.configuration.setLayoutDirection(Locale.US)
+            setCurrentWindowInsets(
+                WindowInsets.Builder()
+                    .setInsets(WindowInsets.Type.systemBars(), Insets.of(44, 0, 0, 0))
+                    .setInsets(WindowInsets.Type.ime(), Insets.of(56, 0, 0, 0))
+                    .setInsets(WindowInsets.Type.systemGestures(), Insets.of(120, 0, 0, 0))
+                    .setInsets(WindowInsets.Type.mandatorySystemGestures(), Insets.of(120, 0, 0, 0))
+                    .setInsets(WindowInsets.Type.tappableElement(), Insets.of(120, 0, 0, 0))
+                    .build()
+            )
+            enableDualShade(wideLayout = true)
+            val dimens by collectLastValue(underTest.configurationBasedDimensions)
+
+            assertThat(checkNotNull(dimens).marginStart).isEqualTo(56)
+
+            setCurrentWindowInsets(
+                WindowInsets.Builder()
+                    .setInsetsIgnoringVisibility(
+                        WindowInsets.Type.systemBars(),
+                        Insets.of(88, 0, 0, 0),
+                    )
+                    .setVisible(WindowInsets.Type.systemBars(), false)
+                    .build()
+            )
+            fakeConfigurationRepository.onAnyConfigurationChange()
+            assertThat(checkNotNull(dimens).marginStart).isEqualTo(20)
+        }
+
+    @Test
+    @EnableSceneContainer
+    @EnableFlags(FLAG_DUAL_SHADE)
+    fun floatingDualShade_refreshesInsetsWhenScrimMovesWithoutConfigurationChange() =
+        kosmos.runTest {
+            overrideResource(R.bool.config_notificationShadeOnTopEnd, false)
+            overrideDimensionPixelSize(R.dimen.shade_panel_margin_horizontal, 20)
+            context.resources.configuration.setLayoutDirection(Locale.US)
+            enableDualShade(wideLayout = true)
+            notificationStackAppearanceInteractor.setNotificationShadeScrimBounds(
+                ShadeScrimBounds(left = 20f, right = 500f)
+            )
+            val dimens by collectLastValue(underTest.configurationBasedDimensions)
+            assertThat(checkNotNull(dimens).marginStart).isEqualTo(20)
+
+            setCurrentWindowInsets(
+                WindowInsets.Builder()
+                    .setInsets(WindowInsets.Type.displayCutout(), Insets.of(84, 0, 0, 0))
+                    .build()
+            )
+            notificationStackAppearanceInteractor.setNotificationShadeScrimBounds(
+                ShadeScrimBounds(left = 84f, right = 500f)
+            )
+            assertThat(checkNotNull(dimens).marginStart).isEqualTo(84)
+
+            setCurrentWindowInsets(WindowInsets.Builder().build())
+            notificationStackAppearanceInteractor.setNotificationShadeScrimBounds(
+                ShadeScrimBounds(left = 20f, right = 500f)
+            )
+            assertThat(checkNotNull(dimens).marginStart).isEqualTo(20)
+
+            overrideDimensionPixelSize(R.dimen.shade_panel_margin_horizontal, 32)
+            overrideDimensionPixelSize(R.dimen.shade_panel_width, 280)
+            fakeConfigurationRepository.onAnyConfigurationChange()
+            assertThat(checkNotNull(dimens).marginStart).isEqualTo(32)
+            assertThat(checkNotNull(dimens).horizontalPosition)
+                .isEqualTo(HorizontalPosition.EdgeToMiddle(maxWidth = 280))
+        }
+
+    @Test
+    @EnableSceneContainer
+    @EnableFlags(FLAG_DUAL_SHADE)
+    fun safeDrawingInsets_preserveFullWidthDualAndSingleShade() =
+        kosmos.runTest {
+            overrideDimensionPixelSize(R.dimen.notification_panel_margin_horizontal, 20)
+            setCurrentWindowInsets(
+                WindowInsets.Builder()
+                    .setInsets(WindowInsets.Type.displayCutout(), Insets.of(84, 0, 96, 0))
+                    .build()
+            )
+            enableDualShade(wideLayout = false)
+            val dimens by collectLastValue(underTest.configurationBasedDimensions)
+            assertThat(checkNotNull(dimens).marginStart).isEqualTo(0)
+            assertThat(checkNotNull(dimens).marginEnd).isEqualTo(0)
+            assertThat(checkNotNull(dimens).horizontalPosition)
+                .isEqualTo(HorizontalPosition.EdgeToEdge)
+
+            enableSingleShade()
+            assertThat(checkNotNull(dimens).marginStart).isEqualTo(20)
+            assertThat(checkNotNull(dimens).marginEnd).isEqualTo(20)
+            assertThat(checkNotNull(dimens).horizontalPosition)
+                .isEqualTo(HorizontalPosition.EdgeToEdge)
+        }
+
+    private fun Kosmos.setCurrentWindowInsets(insets: WindowInsets) {
+        whenever(mockWindowManager.currentWindowMetrics)
+            .thenReturn(WindowMetrics(Rect(0, 0, 1000, 600), insets))
     }
 
     @Test

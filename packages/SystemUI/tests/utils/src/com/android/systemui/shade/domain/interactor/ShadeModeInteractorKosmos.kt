@@ -110,6 +110,7 @@ fun Kosmos.disableDualShade(disabledBySetting: Boolean = true) {
     fakeConfigurationRepository.onAnyConfigurationChange()
 }
 
+/** With the Dual Shade feature flag enabled, a wide combined shade uses [ShadeMode.Split]. */
 fun Kosmos.enableSingleShade(wideLayout: Boolean = false) {
     disableDualShade()
     overrideLargeScreenResources(isLargeScreen = wideLayout)
@@ -120,9 +121,6 @@ fun Kosmos.enableSingleShade(wideLayout: Boolean = false) {
 }
 
 fun Kosmos.enableSplitShade() {
-    check(!DualShadeFlag.isEnabled) {
-        "Split Shade not supported when ${DualShadeFlag.FLAG_NAME} is enabled."
-    }
     disableDualShade()
     overrideLargeScreenResources(isLargeScreen = true)
     displayStateRepository.setIsWideScreen(true)

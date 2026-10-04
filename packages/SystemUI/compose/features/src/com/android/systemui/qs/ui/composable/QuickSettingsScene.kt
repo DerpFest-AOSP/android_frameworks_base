@@ -455,10 +455,7 @@ private fun ContentScope.QuickSettingsContent(
                                     isSplitShade = false,
                                 )
                             else ->
-                                ExpandedShadeHeader(
-                                    viewModel = headerViewModel,
-                                    modifier = Modifier.padding(horizontal = 16.dp),
-                                )
+                                ExpandedShadeHeader(viewModel = headerViewModel)
                         }
                     }
                     Spacer(modifier = Modifier.height(16.dp))

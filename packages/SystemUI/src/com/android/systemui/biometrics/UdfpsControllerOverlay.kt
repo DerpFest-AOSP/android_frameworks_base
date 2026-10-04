@@ -26,6 +26,7 @@ import android.hardware.biometrics.BiometricRequestConstants.REASON_AUTH_KEYGUAR
 import android.hardware.biometrics.BiometricRequestConstants.REASON_ENROLL_ENROLLING
 import android.hardware.biometrics.BiometricRequestConstants.REASON_ENROLL_FIND_SENSOR
 import android.hardware.biometrics.BiometricRequestConstants.RequestReason
+import android.hardware.fingerprint.FingerprintSensorProperties.TYPE_UDFPS_OPTICAL
 import android.hardware.fingerprint.FingerprintSensorProperties.TYPE_UDFPS_ULTRASONIC
 import android.hardware.fingerprint.IUdfpsOverlayControllerCallback
 import android.os.Build
@@ -122,6 +123,12 @@ constructor(
             },
         )
 
+    private val addViewTrigger: Flow<Unit> =
+        merge(
+            currentStateUpdatedToOffAodDozingOrDreaming,
+            powerInteractor.detailedWakefulness.filter { it.isAwake() }.map {},
+        )
+
     private var listenForCurrentKeyguardState: Job? = null
     private var addViewRunnable: Runnable? = null
     private var overlayTouchView: UdfpsTouchOverlay? = null
@@ -146,7 +153,9 @@ constructor(
     )
 
     private val udfpsHelper: UdfpsHelper? = if (useFrameworkDimming) {
-        UdfpsHelper(context, windowManager, shadeInteractor, requestReason,
+        UdfpsHelper(
+            context, windowManager, shadeInteractor, transitionInteractor,
+            deviceEntryUdfpsTouchOverlayViewModel, requestReason,
                 brightnessMirrorShowingInteractor)
     } else {
         null
@@ -188,7 +197,15 @@ constructor(
     }
 
     private fun setHandleTouchesDisregardingUdfpsOverlayViewLifecycle(): Boolean {
-        return overlayParams.sensorType == TYPE_UDFPS_ULTRASONIC
+        if (overlayParams.sensorType == TYPE_UDFPS_ULTRASONIC) return true
+        if (useFrameworkDimming && overlayParams.sensorType == TYPE_UDFPS_OPTICAL) return true
+        return false
+    }
+
+    private fun setHandleTouchesDisregardingUdfpsOverlayViewLifecycle(params: UdfpsOverlayParams): Boolean {
+        if (params.sensorType == TYPE_UDFPS_ULTRASONIC) return true
+        if (useFrameworkDimming && params.sensorType == TYPE_UDFPS_OPTICAL) return true
+        return false
     }
 
     /** Show the overlay or return false and do nothing if it is already showing. */
@@ -199,7 +216,7 @@ constructor(
             overlayAttachStateListener = attachListener
             sensorBounds = Rect(params.sensorBounds)
             var udfpsTouchForwarder: UdfpsOverlayInteractor? = udfpsOverlayInteractor
-            if (setHandleTouchesDisregardingUdfpsOverlayViewLifecycle()) {
+            if (setHandleTouchesDisregardingUdfpsOverlayViewLifecycle(params)) {
                 // don't use the overlayTouchView to handle the lifecycle of forwarding
                 // shouldHandleTouches to the HAL
                 udfpsTouchForwarder = null
@@ -284,9 +301,9 @@ constructor(
     }
 
     private fun addViewNowOrLater(view: View, animation: UdfpsAnimationViewController<*>?) {
-        udfpsHelper?.addDimLayer()
         addViewRunnable =
             kotlinx.coroutines.Runnable {
+                udfpsHelper?.addDimLayer()
                 Trace.setCounter("UdfpsAddView", 1)
                 if (Build.IS_DEBUGGABLE) {
                     Log.d(TAG, "adding view=$view")
@@ -294,13 +311,12 @@ constructor(
                 windowManager.addView(view, coreLayoutParams.updateDimensions(animation))
             }
         if (powerInteractor.detailedWakefulness.value.isAwake()) {
-            // Device is awake, so we add the view immediately.
             addViewIfPending()
         } else {
             listenForCurrentKeyguardState?.cancel()
             listenForCurrentKeyguardState =
                 scope.launch {
-                    currentStateUpdatedToOffAodDozingOrDreaming.collect { addViewIfPending() }
+                    addViewTrigger.collect { addViewIfPending() }
                 }
         }
     }

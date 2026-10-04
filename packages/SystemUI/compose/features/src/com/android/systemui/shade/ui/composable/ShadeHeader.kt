@@ -28,6 +28,7 @@ import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -138,6 +139,7 @@ import com.android.systemui.statusbar.systemstatusicons.ui.compose.SystemStatusI
 import com.android.systemui.statusbar.systemstatusicons.ui.compose.SystemStatusIconsLegacy
 import com.android.systemui.util.composable.kairos.ActivatedKairosSpec
 import com.android.systemui.util.kotlin.toDp
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
@@ -375,11 +377,25 @@ fun ContentScope.ExpandedShadeHeader(
     val textColor = ShadeHeader.Colors.textColor
     val statusBarHeight = viewModel.statusBarHeightPx.toDp(LocalContext.current).dp
     val density = LocalDensity.current
+    // Same side inset as the collapsed header.
+    val cornerRadius = LocalScreenCornerRadius.current
+    val horizontalPadding = max(cornerRadius / 2f, Shade.Dimensions.HorizontalPadding)
     var clockWidthPx by remember { mutableIntStateOf(0) }
+    var clockHeightPx by remember { mutableIntStateOf(0) }
+    // Scale grows upward from the layout box and does not change the shared element. The corner
+    // curve ends at the corner radius, which is also just below the camera cutout. Keep the
+    // glyphs on that line. A full status-bar inset is only needed while the privacy chip is showing.
+    val clockOverflow =
+        with(density) { clockHeightPx.toDp() } * ((ExpandedClockScale - 1f) / 2f)
+    val topInset =
+        if (viewModel.isPrivacyChipVisible) statusBarHeight else cornerRadius + clockOverflow
 
     Box(
         modifier =
-            modifier.shadeHeaderDoubleTapToSleep(viewModel).sysuiResTag(ShadeHeader.TestTags.Root)
+            modifier
+                .padding(horizontal = horizontalPadding)
+                .shadeHeaderDoubleTapToSleep(viewModel)
+                .sysuiResTag(ShadeHeader.TestTags.Root)
     ) {
         if (viewModel.isPrivacyChipVisible) {
             Box(modifier = Modifier.height(statusBarHeight).fillMaxWidth()) {
@@ -392,28 +408,37 @@ fun ContentScope.ExpandedShadeHeader(
         }
         Column(
             verticalArrangement = Arrangement.spacedBy(space = 16.dp, alignment = Alignment.Bottom),
-            // The top inset keeps the content clear of the status bar area, which the privacy chip
-            // above draws into.
-            modifier = Modifier.fillMaxWidth().padding(top = statusBarHeight),
+            modifier = Modifier.fillMaxWidth().padding(top = topInset),
         ) {
             Box(modifier = Modifier.fillMaxWidth()) {
-                Clock(
-                    viewModel = viewModel,
-                    onClick = viewModel::onClockClicked,
-                    scale = ExpandedClockScale,
-                    textColor = textColor,
-                    modifier =
-                        Modifier.sysuiResTag("expanded_header_clock")
-                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-                            .wrapContentSize(Alignment.CenterStart),
-                    onUnscaledWidthChanged = { clockWidthPx = it },
-                )
+                Box(modifier = Modifier.fillMaxWidth().padding(bottom = clockOverflow)) {
+                    Clock(
+                        viewModel = viewModel,
+                        onClick = viewModel::onClockClicked,
+                        scale = ExpandedClockScale,
+                        textColor = textColor,
+                        modifier =
+                            Modifier.sysuiResTag("expanded_header_clock")
+                                .wrapContentSize(Alignment.CenterStart),
+                        onUnscaledSizeChanged = { width, height ->
+                            clockWidthPx = width
+                            clockHeightPx = height
+                        },
+                    )
+                }
                 if (!viewModel.isPrivacyChipVisible) {
-                    // Full-width shared element (stable on expand); vertically centered on the clock.
-                    Box(modifier = Modifier.align(Alignment.Center).fillMaxWidth()) {
+                    // Match the unscaled clock, not the overflow padding, so the carrier stays on
+                    // the glyphs. The shared element is stable across the expand transition.
+                    Box(
+                        modifier =
+                            Modifier.align(Alignment.TopStart)
+                                .fillMaxWidth()
+                                .height(with(density) { clockHeightPx.toDp() }),
+                    ) {
                         Box(
                             modifier =
-                                Modifier.element(ShadeHeader.Elements.ShadeCarrierGroup)
+                                Modifier.align(Alignment.Center)
+                                    .element(ShadeHeader.Elements.ShadeCarrierGroup)
                                     .fillMaxWidth(),
                         ) {
                             ShadeCarrierGroup(
@@ -574,6 +599,29 @@ fun ContentScope.OverlayShadeHeader(
     )
 }
 
+/** Switches between dual-shade panels after a deliberate horizontal swipe on the header. */
+fun Modifier.switchShadeOnHorizontalSwipe(
+    swipeLeft: Boolean,
+    onSwipe: () -> Unit,
+): Modifier =
+    pointerInput(swipeLeft, onSwipe) {
+        var dragDistance = 0f
+        detectHorizontalDragGestures(
+            onDragStart = { dragDistance = 0f },
+            onDragEnd = {
+                val threshold = maxOf(size.width * 0.25f, viewConfiguration.touchSlop * 2)
+                if (abs(dragDistance) >= threshold && (dragDistance < 0) == swipeLeft) {
+                    onSwipe()
+                }
+            },
+            onDragCancel = { dragDistance = 0f },
+            onHorizontalDrag = { change, dragAmount ->
+                dragDistance += dragAmount
+                change.consume()
+            },
+        )
+    }
+
 /** The header that appears at the top of the Quick Settings shade overlay. */
 @Composable
 fun QuickSettingsOverlayHeader(viewModel: ShadeHeaderViewModel, modifier: Modifier = Modifier) {
@@ -704,7 +752,7 @@ private fun ContentScope.Clock(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
     scale: Float = 1f,
-    onUnscaledWidthChanged: ((Int) -> Unit)? = null,
+    onUnscaledSizeChanged: ((width: Int, height: Int) -> Unit)? = null,
 ) {
     val layoutDirection = LocalLayoutDirection.current
     // Shared with the date so the two can never drift apart in weight or size.
@@ -729,7 +777,7 @@ private fun ContentScope.Clock(
                 // width clips the last digit, and the QS scale makes it obvious. It shows up on
                 // some pulls and not others because it depends on progress and the current time.
                 Modifier.clockIntrinsicWidth()
-                    .onSizeChanged { onUnscaledWidthChanged?.invoke(it.width) }
+                    .onSizeChanged { onUnscaledSizeChanged?.invoke(it.width, it.height) }
                     .then(modifier)
                     // use graphicsLayer instead of Modifier.scale to anchor transform to the
                     // (start, top) corner. clip stays false so the scaled glyphs are not cut

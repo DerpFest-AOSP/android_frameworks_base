@@ -48,6 +48,7 @@ import android.system.keystore2.ResponseCode;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.util.PropImitationHooks;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -181,6 +182,8 @@ public class AndroidKeyStoreSpi extends KeyStoreSpi {
 
     @Override
     public Certificate[] engineGetCertificateChain(String alias) {
+        PropImitationHooks.onEngineGetCertificateChain();
+
         KeyEntryResponse response = getKeyMetadata(alias);
 
         if (response == null || response.metadata.certificate == null) {
@@ -1257,8 +1260,17 @@ public class AndroidKeyStoreSpi extends KeyStoreSpi {
                     return d.alias;
                 }
             } else if (response.metadata.certificateChain != null && caAlias == null) {
-                if (Arrays.equals(response.metadata.certificateChain, targetCertBytes)) {
-                    caAlias =  d.alias;
+                final Collection<X509Certificate> caChain =
+                        toCertificates(response.metadata.certificateChain);
+                if (!caChain.isEmpty()) {
+                    final X509Certificate firstCert = caChain.iterator().next();
+                    try {
+                        if (Arrays.equals(firstCert.getEncoded(), targetCertBytes)) {
+                            caAlias = d.alias;
+                        }
+                    } catch (CertificateEncodingException e) {
+                        Log.w(TAG, "Failed to encode certificate while looking up alias", e);
+                    }
                 }
             }
         }

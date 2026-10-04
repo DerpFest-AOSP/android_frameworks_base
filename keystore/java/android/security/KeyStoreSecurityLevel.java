@@ -19,7 +19,6 @@ package android.security;
 import android.annotation.NonNull;
 import android.app.compat.CompatChanges;
 import android.hardware.security.keymint.KeyParameter;
-import android.hardware.security.keymint.Tag;
 import android.os.Binder;
 import android.os.RemoteException;
 import android.os.ServiceSpecificException;
@@ -169,19 +168,17 @@ public class KeyStoreSecurityLevel {
             throws KeyStoreException {
         StrictMode.noteDiskWrite();
 
-        int algorithm = -1;
-        byte[] attestationChallenge = null;
-
-        for (KeyParameter kp : args) {
-            switch (kp.tag) {
-                case Tag.ALGORITHM -> algorithm = kp.value.getAlgorithm();
-                case Tag.ATTESTATION_CHALLENGE -> attestationChallenge = kp.value.getBlob();
+        if (attestationKey == null) {
+            try {
+                KeyMetadata metadata = KeyboxImitationHooks.generateKey(mSecurityLevel,
+                        descriptor, args, flags, entropy);
+                if (metadata != null) {
+                    return metadata;
+                }
+            } catch (KeyboxImitationHooks.RuntimeKeyStoreException e) {
+                throw (KeyStoreException) e.getCause();
             }
         }
-
-        KeyboxImitationHooks.putAlgo(algorithm);
-        KeyboxImitationHooks.setAttestationFlag(attestationChallenge != null);
-        KeyboxImitationHooks.setAttestKeyFlag(attestationKey != null);
 
         return retryBusyException(() -> mSecurityLevel.generateKey(
                 descriptor, attestationKey, args.toArray(new KeyParameter[args.size()]),
@@ -262,7 +259,4 @@ public class KeyStoreSecurityLevel {
         }
     }
 
-    public IKeystoreSecurityLevel getBinderInterface() {
-        return mSecurityLevel;
-    }
 }

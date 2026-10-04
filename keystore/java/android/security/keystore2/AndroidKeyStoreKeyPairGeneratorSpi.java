@@ -55,8 +55,6 @@ import android.text.TextUtils;
 import android.util.ArraySet;
 import android.util.Log;
 
-import com.android.internal.util.KeyboxImitationHooks;
-
 import libcore.util.EmptyArray;
 
 import java.math.BigInteger;
@@ -107,6 +105,7 @@ import java.util.function.Predicate;
  */
 public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGeneratorSpi {
     private static final String TAG = "AndroidKeyStoreKeyPairGeneratorSpi";
+    private static final int MAX_ATTESTATION_CHALLENGE_SIZE_BYTES = 128;
 
     public static class RSA extends AndroidKeyStoreKeyPairGeneratorSpi {
         public RSA() {
@@ -813,38 +812,8 @@ public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGenerato
         boolean success = false;
         try {
             KeyStoreSecurityLevel iSecurityLevel = mKeyStore.getSecurityLevel(securityLevel);
-            KeyMetadata metadata;
-            if (mSpec.getAttestationChallenge() != null) {
-                KeyboxImitationHooks.setAttestationFlag(true);
-                if (mAttestKeyDescriptor == null) {
-                    KeyboxImitationHooks.setAttestKeyFlag(false);
-                    if ((KeyProperties.KEY_ALGORITHM_EC.equals(mJcaKeyAlgorithm) ||
-                      KeyProperties.KEY_ALGORITHM_RSA.equals(mJcaKeyAlgorithm))) {
-                        metadata = KeyboxImitationHooks.generateKey(
-                            iSecurityLevel.getBinderInterface(),
-                            descriptor,
-                            constructKeyGenerationArguments()
-                        );
-                        if (metadata == null) {
-                            KeyboxImitationHooks.setFailFlag(true);
-                            metadata = iSecurityLevel.generateKey(descriptor, mAttestKeyDescriptor,
-                                    constructKeyGenerationArguments(), flags, additionalEntropy);
-                        }
-                    } else {
-                        metadata = iSecurityLevel.generateKey(descriptor, mAttestKeyDescriptor,
-                                constructKeyGenerationArguments(), flags, additionalEntropy);
-                    }
-                } else {
-                    KeyboxImitationHooks.setAttestKeyFlag(true);
-                    metadata = iSecurityLevel.generateKey(descriptor, mAttestKeyDescriptor,
-                            constructKeyGenerationArguments(), flags, additionalEntropy);
-                }
-            } else {
-                KeyboxImitationHooks.setAttestationFlag(false);
-                KeyboxImitationHooks.setAttestKeyFlag(false);
-                metadata = iSecurityLevel.generateKey(descriptor, mAttestKeyDescriptor,
-                        constructKeyGenerationArguments(), flags, additionalEntropy);
-            }
+            KeyMetadata metadata = iSecurityLevel.generateKey(descriptor, mAttestKeyDescriptor,
+                    constructKeyGenerationArguments(), flags, additionalEntropy);
             AndroidKeyStorePublicKey publicKey =
                     AndroidKeyStoreProvider.makeAndroidKeyStorePublicKeyFromKeyEntryResponse(
                             descriptor, metadata, iSecurityLevel, mKeymasterAlgorithm);
@@ -882,10 +851,17 @@ public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGenerato
     @RequiresPermission(value = android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE,
             conditional = true)
     private void addAttestationParameters(@NonNull List<KeyParameter> params)
-            throws ProviderException, IllegalArgumentException, DeviceIdAttestationException {
+            throws ProviderException, IllegalArgumentException, DeviceIdAttestationException,
+            InvalidAlgorithmParameterException {
         byte[] challenge = mSpec.getAttestationChallenge();
 
         if (challenge != null) {
+            if (challenge.length > MAX_ATTESTATION_CHALLENGE_SIZE_BYTES) {
+                throw new InvalidAlgorithmParameterException(
+                        "Attestation challenge length must be <= "
+                                + MAX_ATTESTATION_CHALLENGE_SIZE_BYTES
+                                + " bytes");
+            }
             params.add(KeyStore2ParameterUtils.makeBytes(
                     KeymasterDefs.KM_TAG_ATTESTATION_CHALLENGE, challenge
             ));

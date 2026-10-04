@@ -22,25 +22,21 @@ import java.util.ArrayList;
 import java.util.List;
 
 final class LyricSourceFactory {
-    private static final String DEFAULT_LYRIC_SOURCE_URL =
-            "https://api.uwuaosp.uwuniverse.org";
-
     private LyricSourceFactory() {
     }
 
     static List<LyricSource> create(String configuredSources) {
         ArrayList<LyricSource> sources = new ArrayList<>();
-        if (!TextUtils.isEmpty(configuredSources)) {
-            for (String source : configuredSources.split(";")) {
-                source = source.trim();
-                if (source.regionMatches(true, 0, "https://", 0, 8)) {
-                    sources.add(new HttpLyricSource(source));
-                }
-            }
-        } else {
-            sources.add(new HttpLyricSource(DEFAULT_LYRIC_SOURCE_URL));
+        if (TextUtils.isEmpty(configuredSources)) {
+            sources.add(new LrcLibLyricSource());
+            return sources;
         }
-        sources.add(new NetEaseLyricProvider());
+        for (String source : configuredSources.split(";")) {
+            source = source.trim();
+            if (source.regionMatches(true, 0, "https://", 0, 8)) {
+                sources.add(new HttpLyricSource(source));
+            }
+        }
         return sources;
     }
 }
