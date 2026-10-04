@@ -130,7 +130,9 @@ public class NotificationBackgroundView extends View implements Dumpable,
             }
 
             if (!NotificationAddXOnHoverToDismiss.isEnabled()) {
-                if (mBackgroundBlurDrawable != null) {
+                // A suppressed blur drawable is kept alive at alpha 0 and would
+                // replace the solid fill, so the row draws fully transparent.
+                if (shouldDrawBlur()) {
                     draw(canvas, mBackgroundBlurDrawable);
                 } else {
                     draw(canvas, mBackground);
@@ -148,7 +150,7 @@ public class NotificationBackgroundView extends View implements Dumpable,
             if (mDrawDismissButtonCutout) {
                 canvas.clipPath(calculateDismissButtonCutoutPath(backgroundBounds));
             }
-            if (mBackgroundBlurDrawable != null) {
+            if (shouldDrawBlur()) {
                 mBackgroundBlurDrawable.setBounds(backgroundBounds);
                 mBackgroundBlurDrawable.draw(canvas);
             } else if (mBackground != null) {
@@ -555,6 +557,11 @@ public class NotificationBackgroundView extends View implements Dumpable,
     @VisibleForTesting
     protected boolean isBlurEnabled() {
         return mBackgroundBlurDrawable != null;
+    }
+
+    /** Blur regions ignore ancestor alpha, so a suppressed one must not replace the fill. */
+    private boolean shouldDrawBlur() {
+        return mBackgroundBlurDrawable != null && !mBlurRegionSuppressed;
     }
 
     private void updateBackgroundRadii() {

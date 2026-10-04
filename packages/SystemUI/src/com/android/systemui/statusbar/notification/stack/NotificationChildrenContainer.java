@@ -1261,6 +1261,9 @@ public class NotificationChildrenContainer extends ViewGroup
             }
         }
         updateHeaderTouchability();
+        // Roundness is normally pushed only when this container's own radius
+        // changes, which does not happen when a group opens or closes.
+        applyRoundnessAndInvalidate();
     }
 
     public void setContainingNotification(ExpandableNotificationRow parent) {
@@ -1625,6 +1628,7 @@ public class NotificationChildrenContainer extends ViewGroup
             child.setUserSwipingToExpandRow(isUserSwiping && !showingAsLowPriority());
         }
         updateHeaderTouchability();
+        applyRoundnessAndInvalidate();
     }
 
     private void updateHeaderTouchability() {
@@ -1721,9 +1725,14 @@ public class NotificationChildrenContainer extends ViewGroup
                     /* animate = */ false
             );
         }
-        final boolean roundChildrenAsCards = mContainingNotification != null
-                && (mContainingNotification.isGroupExpanded()
-                    || mContainingNotification.isGroupExpansionChanging());
+        // mChildrenExpanded is the visual state. isGroupExpanded() can already
+        // be true before that flag flips, and a swipe starts before either one.
+        final boolean roundChildrenAsCards = mChildrenExpanded
+                || mIsUserSwipingToExpandRow
+                || (mContainingNotification != null
+                    && (mContainingNotification.isGroupExpanded()
+                        || mContainingNotification.isGroupExpansionChanging()
+                        || mContainingNotification.isUserSwipingToExpandRow()));
         for (int i = mAttachedChildren.size() - 1; i >= 0; i--) {
             ExpandableNotificationRow child = mAttachedChildren.get(i);
             if (child.getVisibility() == View.GONE) {

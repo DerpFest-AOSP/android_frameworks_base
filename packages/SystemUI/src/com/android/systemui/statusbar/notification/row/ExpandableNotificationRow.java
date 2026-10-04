@@ -4007,6 +4007,11 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
     public void onFinishedExpansionChange() {
         mGroupExpansionChanging = false;
         updateBackgroundForGroupState();
+        if (mChildrenContainer != null) {
+            // Drop card roundness once a collapse finishes. During the animation
+            // isGroupExpansionChanging() still forces full corners.
+            mChildrenContainer.applyRoundnessAndInvalidate();
+        }
     }
 
     /**
@@ -4021,8 +4026,11 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
             mShowNoBackground = true;
             mChildrenContainer.updateHeaderForExpansion(mShowNoBackground);
         } else if (mIsSummaryWithChildren) {
+            // Don't wait for isGroupExpansionChanging() to clear. If that flag
+            // sticks, children keep a hidden background and the summary stays one
+            // rectangle, or the rows draw with no fill at all.
             mShowNoBackground = !mShowGroupBackgroundWhenExpanded && isGroupExpanded()
-                    && !isGroupExpansionChanging() && !isUserSwipingToExpandRow();
+                    && !isUserSwipingToExpandRow();
             mChildrenContainer.updateHeaderForExpansion(mShowNoBackground);
             List<ExpandableNotificationRow> children = mChildrenContainer.getAttachedChildren();
             for (int i = 0; i < children.size(); i++) {
@@ -4277,6 +4285,11 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
                 return true;
             }
         } else if (child == mChildrenContainer) {
+            // An open group is a stack of cards. Clipping them to this row's outline
+            // keeps the inner corners square.
+            if (mIsSummaryWithChildren && isGroupExpanded() && !isUserSwipingToExpandRow()) {
+                return false;
+            }
             if (isClippingNeeded() || hasRoundedCorner()) {
                 return true;
             }

@@ -7531,7 +7531,13 @@ public class NotificationStackScrollLayout
         changedRow.setChildrenExpanded(expanded);
         onChildHeightChanged(changedRow, false /* needsAnimation */, "NSSL.onGroupExpandChanged");
 
-        runAfterAnimationFinished(changedRow::onFinishedExpansionChange);
+        if (animated) {
+            runAfterAnimationFinished(changedRow::onFinishedExpansionChange);
+        } else {
+            // No animation will drain mAnimationFinishedRunnables, so the group
+            // would otherwise stay in the expansion-changing state.
+            changedRow.onFinishedExpansionChange();
+        }
     }
 
     private final ExpandHelper.Callback mExpandHelperCallback = new ExpandHelper.Callback() {
