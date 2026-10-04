@@ -639,6 +639,20 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
                 UserHandle.USER_ALL);
 
         // All wallpaper color and keyguard logic only applies when Monet is enabled.
+        setBootAnimationColors();
+        mSecureSettings.registerContentObserverForUserSync(
+                Settings.Secure.getUriFor(Settings.Secure.UI_NIGHT_MODE),
+                false,
+                new ContentObserver(mBgHandler) {
+                    @Override
+                    public void onChange(boolean selfChange, Collection<Uri> collection, int flags,
+                            int userId) {
+                        // Night mode picks bootanimation.zip or bootanimation-dark.zip,
+                        // and the accent resources below follow the current uiMode.
+                        mMainExecutor.execute(() -> setBootAnimationColors());
+                    }
+                },
+                UserHandle.USER_ALL);
         if (!mIsMonetEnabled) {
             return;
         }
@@ -886,6 +900,29 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
         return true;
     }
 
+    /**
+     * Publish the current Monet accents for the next boot animation.
+     * color1 fills the circle, color2 the sparks. The other two are unused by
+     * this animation but the bootanimation binary always reads four colors.
+     * Missing properties leave the animation in its authored teal and orange.
+     */
+    private void setBootAnimationColors() {
+        final int[] colors = new int[] {
+            android.R.color.system_accent1_400,
+            android.R.color.system_accent2_400,
+            android.R.color.system_accent1_200,
+            android.R.color.system_accent3_400,
+        };
+        try {
+            for (int i = 0; i < colors.length; i++) {
+                mSystemPropertiesHelper.set("persist.bootanim.color" + (i + 1),
+                        mContext.getColor(colors[i]));
+            }
+        } catch (RuntimeException e) {
+            Log.w(TAG, "Cannot set boot animation colors", e);
+        }
+    }
+
     @SuppressWarnings("StringCaseLocaleUsage") // Package name is not localized
     private void updateThemeOverlays(boolean forceUpdate) {
         final int currentUser = mUserTracker.getUserId();
@@ -979,6 +1016,7 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
             Log.d(TAG, "ThemeHomeDelay: ThemeOverlayController ready with user "
                     + currentUser);
             mActivityManager.setThemeOverlayReady(currentUser);
+            setBootAnimationColors();
         };
 
         if (DEBUG) {

@@ -668,7 +668,18 @@ bool BootAnimation::findBootAnimationFileInternal(const std::vector<std::string>
 
 void BootAnimation::findBootAnimationFile() {
     ATRACE_CALL();
-    const bool playDarkAnim = android::base::GetIntProperty("ro.boot.theme", 0) == 1;
+    // Pixel bootloaders pass ro.boot.theme=1 for a dark boot animation and 0
+    // for a light one. Devices without that bootloader only record the night
+    // mode as persist.sys.theme, which UiModeManagerService sets to
+    // MODE_NIGHT_YES (2). An unset ro.boot.theme must not be treated as light,
+    // or a dark-theme user would always get the light file.
+    bool playDarkAnim = false;
+    const std::string bootTheme = android::base::GetProperty("ro.boot.theme", "");
+    if (!bootTheme.empty()) {
+        playDarkAnim = bootTheme == "1";
+    } else {
+        playDarkAnim = android::base::GetIntProperty("persist.sys.theme", 0) == 2;
+    }
     const std::string productBootanimationFile = PRODUCT_BOOTANIMATION_DIR +
         android::base::GetProperty("ro.product.bootanim.file", playDarkAnim ?
         PRODUCT_BOOTANIMATION_DARK_FILE : PRODUCT_BOOTANIMATION_FILE);
