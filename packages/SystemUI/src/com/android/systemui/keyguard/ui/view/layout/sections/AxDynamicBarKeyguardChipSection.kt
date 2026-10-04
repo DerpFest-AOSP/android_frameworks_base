@@ -142,7 +142,7 @@ constructor(
 
                         lp.topToBottom = -1
                     } else {
-                        lp.width = ViewGroup.LayoutParams.WRAP_CONTENT
+                        lp.width = 0
                         lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
                         lp.topMargin = 0
 
@@ -184,7 +184,7 @@ constructor(
                 connect(chipViewId, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
                 connect(chipViewId, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
             } else {
-                constrainWidth(chipViewId, ViewGroup.LayoutParams.WRAP_CONTENT)
+                constrainWidth(chipViewId, ConstraintSet.MATCH_CONSTRAINT)
                 constrainHeight(chipViewId, ViewGroup.LayoutParams.WRAP_CONTENT)
                 connect(chipViewId, ConstraintSet.BOTTOM, R.id.start_button, ConstraintSet.BOTTOM)
                 connect(chipViewId, ConstraintSet.START, R.id.start_button, ConstraintSet.END)
