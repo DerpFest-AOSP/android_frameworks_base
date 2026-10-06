@@ -30,7 +30,7 @@ final class LyricResponseParser {
     private static final int MAX_RESPONSE_SIZE = 2 * 1024 * 1024;
     private static final long MAX_TRANSLATION_DELTA_MS = 1_000;
     private static final Pattern TIMESTAMP_PATTERN = Pattern.compile(
-            "\\[(\\d{1,3}):(\\d{1,2})(?:\\.(\\d{1,3}))?\\]");
+            "\\[(\\d{1,3}):(\\d{1,2})(?:[\\.:](\\d{1,3}))?\\]");
     private static final Pattern OFFSET_PATTERN = Pattern.compile("\\[offset:([+-]?\\d+)\\]");
     private static final Pattern YRC_LINE_PATTERN = Pattern.compile("\\[(\\d+),(\\d+)\\](.*)");
     private static final Pattern YRC_WORD_PATTERN = Pattern.compile(
