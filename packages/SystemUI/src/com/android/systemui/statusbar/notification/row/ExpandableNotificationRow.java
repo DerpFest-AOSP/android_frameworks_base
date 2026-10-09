@@ -4026,16 +4026,18 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
             mShowNoBackground = true;
             mChildrenContainer.updateHeaderForExpansion(mShowNoBackground);
         } else if (mIsSummaryWithChildren) {
-            // Don't wait for isGroupExpansionChanging() to clear. If that flag
-            // sticks, children keep a hidden background and the summary stays one
-            // rectangle, or the rows draw with no fill at all.
+            // One filled, rounded card for the whole group. Hiding the summary
+            // background when the group is expanded lets every child paint its own
+            // card: the header bottom stays square, and swiping a child out of a
+            // stack of 3+ leaves shade-colored gaps at the corners.
             mShowNoBackground = !mShowGroupBackgroundWhenExpanded && isGroupExpanded()
-                    && !isUserSwipingToExpandRow();
+                    && !isGroupExpansionChanging() && !isUserSwipingToExpandRow();
             mChildrenContainer.updateHeaderForExpansion(mShowNoBackground);
             List<ExpandableNotificationRow> children = mChildrenContainer.getAttachedChildren();
             for (int i = 0; i < children.size(); i++) {
                 children.get(i).updateBackgroundForGroupState();
             }
+            mChildrenContainer.applyRoundnessAndInvalidate();
         } else if (isChildInGroup()) {
             final int childColor = getShowingLayout().getBackgroundColorForExpansionState();
             if (childColor == Color.TRANSPARENT) {
@@ -4285,11 +4287,8 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
                 return true;
             }
         } else if (child == mChildrenContainer) {
-            // An open group is a stack of cards. Clipping them to this row's outline
-            // keeps the inner corners square.
-            if (mIsSummaryWithChildren && isGroupExpanded() && !isUserSwipingToExpandRow()) {
-                return false;
-            }
+            // Clip the open group to this row so the outer corners stay rounded
+            // instead of each child drawing a square edge.
             if (isClippingNeeded() || hasRoundedCorner()) {
                 return true;
             }
