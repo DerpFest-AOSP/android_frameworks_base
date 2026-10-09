@@ -946,9 +946,13 @@ public class RingtoneManager {
     static Uri getActualUriFromSettingsUri(Context context, Uri uri) {
         final PhoneAccountHandle phoneAccountHandle = createPhoneAccountHandleFromUri(uri);
         final int type = getDefaultType(uri);
-        return type == TYPE_RINGTONE
-                ? getRingtoneUriForPhoneAccountHandle(context, phoneAccountHandle)
-                : getActualDefaultRingtoneUri(context, type);
+        if (type == TYPE_RINGTONE) {
+            if (phoneAccountHandle != null && Flags.supportPerPhoneAccountRingtone()) {
+                return getRingtoneUriForPhoneAccountHandle(context, phoneAccountHandle);
+            }
+            return getActualDefaultRingtoneUriBySlot(context, type, getRingtoneSlotId(uri));
+        }
+        return getActualDefaultRingtoneUri(context, type);
     }
 
     /**
@@ -966,9 +970,14 @@ public class RingtoneManager {
     static Uri getCacheUriFromSettingsUri(Context context, Uri uri) {
         final PhoneAccountHandle phoneAccountHandle = createPhoneAccountHandleFromUri(uri);
         final int type = getDefaultType(uri);
-        return type == TYPE_RINGTONE
-                ? getRingtoneCacheForPhoneAccountHandle(context.getUserId(), phoneAccountHandle)
-                : getCacheForType(type, context.getUserId());
+        if (type == TYPE_RINGTONE) {
+            if (phoneAccountHandle != null && Flags.supportPerPhoneAccountRingtone()) {
+                return getRingtoneCacheForPhoneAccountHandle(
+                        context.getUserId(), phoneAccountHandle);
+            }
+            return getCacheForTypeBySlot(type, context.getUserId(), getRingtoneSlotId(uri));
+        }
+        return getCacheForType(type, context.getUserId());
     }
 
     private static PhoneAccountHandle createPhoneAccountHandleFromUri(Uri uri) {
@@ -1041,10 +1050,12 @@ public class RingtoneManager {
             @Nullable PhoneAccountHandle phoneAccountHandle) {
         String setting = getRingtoneSettingForPhoneAccountHandle(phoneAccountHandle);
         Uri ringtoneUri = getRingtoneUriForSetting(context, setting);
-        // If the ringtoneUri for targeted phoneAccountHandle is null,
-        // try to use the default ringtone which is saved in Settings.System.RINGTONE.
+        // Per-account ringtones are optional. Sound settings stores a second SIM
+        // ringtone in Settings.System.RINGTONE2, so fall back to that slot instead
+        // of always using the SIM1 ringtone.
         if (ringtoneUri == null) {
-            ringtoneUri = getRingtoneUriForSetting(context, Settings.System.RINGTONE);
+            ringtoneUri = getRingtoneUriForSetting(context, getSettingForTypeBySlot(
+                    TYPE_RINGTONE, getSlotIdForPhoneAccountHandle(phoneAccountHandle)));
         }
         return ringtoneUri;
     }
@@ -1258,6 +1269,41 @@ public class RingtoneManager {
         }
     }
 
+    /**
+     * Slot for a settings ringtone {@link Uri}. A {@code ringtone2} URI is slot 1.
+     * A URI that carries a {@link PhoneAccountHandle} uses that subscription's phone id.
+     *
+     * @hide
+     */
+    static int getRingtoneSlotId(Uri settingsUri) {
+        if (settingsUri != null) {
+            Uri uri = ContentProvider.getUriWithoutUserId(settingsUri);
+            if (uri != null && uri.getPathSegments().size() >= 2
+                    && uri.getPathSegments().get(1).startsWith(Settings.System.RINGTONE2)) {
+                return 1;
+            }
+        }
+        return getSlotIdForPhoneAccountHandle(createPhoneAccountHandleFromUri(settingsUri));
+    }
+
+    private static int getSlotIdForPhoneAccountHandle(PhoneAccountHandle phoneAccountHandle) {
+        if (phoneAccountHandle != null
+                && !TextUtils.isEmpty(phoneAccountHandle.getId())
+                && !EMERGENCY_PHONE_ACCOUNT_HANDLE_ID.equals(phoneAccountHandle.getId())) {
+            try {
+                int phoneId = SubscriptionManager.getPhoneId(
+                        Integer.parseInt(phoneAccountHandle.getId()));
+                if (SubscriptionManager.isValidPhoneId(phoneId)) {
+                    return phoneId;
+                }
+            } catch (NumberFormatException ignored) {
+                // Non-SIM accounts keep the default voice slot.
+            }
+        }
+        int defaultPhoneId = SubscriptionManager.getDefaultVoicePhoneId();
+        return SubscriptionManager.isValidPhoneId(defaultPhoneId) ? defaultPhoneId : 0;
+    }
+
     private static String getRingtoneSettingForPhoneAccountHandle(
             PhoneAccountHandle phoneAccountHandle) {
         return (phoneAccountHandle == null || !Flags.supportPerPhoneAccountRingtone())
@@ -1416,8 +1462,11 @@ public class RingtoneManager {
         // Try cached ringtone first since the actual provider may not be
         // encryption aware, or it may be stored on CE media storage
         final int type = getDefaultType(uri);
-        final Uri cacheUri = getCacheForType(type, context.getUserId());
-        final Uri actualUri = getActualDefaultRingtoneUri(context, type);
+        final int slotId = getRingtoneSlotId(uri);
+        final Uri cacheUri = getCacheForTypeBySlot(type, context.getUserId(), slotId);
+        final Uri actualUri = type == TYPE_RINGTONE
+                ? getActualDefaultRingtoneUriBySlot(context, type, slotId)
+                : getActualDefaultRingtoneUri(context, type);
         final ContentResolver resolver = context.getContentResolver();
 
         AssetFileDescriptor afd = null;
