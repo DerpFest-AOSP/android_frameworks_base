@@ -47,6 +47,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.android.systemui.axdynamicbar.shared.IslandActions
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -386,13 +387,17 @@ private fun CallElapsedTimer(startTimeMs: Long, color: Color) {
 }
 
 @Composable
-internal fun PrimaryCard(content: @Composable () -> Unit) {
+internal fun PrimaryCard(
+    contentTopInset: Dp = 0.dp,
+    content: @Composable () -> Unit,
+) {
     Box(
         modifier =
             Modifier.fillMaxWidth()
                 .clip(ShapeCard)
                 .background(CardBg)
                 .border(1.dp, CardBorderBrush, ShapeCard)
+                .padding(top = contentTopInset)
                 .padding(SpaceXxl)
     ) {
         content()

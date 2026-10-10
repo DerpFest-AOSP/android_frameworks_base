@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.android.systemui.common.ui.compose.Icon
 import com.android.systemui.statusbar.quickactions.island.ui.compose.PopupActionChips
@@ -48,6 +49,7 @@ private val PopupShape = RoundedCornerShape(32.dp)
 fun StopwatchPopup(
     model: StopwatchPopupModel,
     modifier: Modifier = Modifier,
+    contentTopInset: Dp = 0.dp,
 ) {
     val accent = MaterialTheme.colorScheme.primary
     Surface(
@@ -61,7 +63,10 @@ fun StopwatchPopup(
                 .clickable(enabled = model.onOpen != null) { model.onOpen?.invoke() },
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 18.dp),
+            modifier =
+                Modifier.fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 18.dp + contentTopInset, bottom = 18.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Row(
