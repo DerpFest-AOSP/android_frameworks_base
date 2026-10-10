@@ -19,7 +19,6 @@ package com.android.systemui.volume.panel.component.volume.slider.ui.viewmodel
 
 import android.content.Context
 import com.android.settingslib.volume.domain.interactor.AudioVolumeInteractor
-import com.android.systemui.common.shared.model.ContentDescription
 import com.android.systemui.common.shared.model.Icon
 import com.android.systemui.common.shared.model.asIcon
 import com.android.systemui.dagger.qualifiers.UiBackground
@@ -42,7 +41,7 @@ import kotlinx.coroutines.withContext
 class AppVolumeSliderViewModel
 @AssistedInject
 constructor(
-    @Assisted private val packageName: String,
+    @Assisted val packageName: String,
     @Assisted private val coroutineScope: CoroutineScope,
     @UiBackground private val uiBackgroundContext: CoroutineContext,
     private val context: Context,
@@ -54,7 +53,11 @@ constructor(
     private val muteChanges = MutableStateFlow<Boolean?>(null)
 
     private val appLabel: String by lazy { resolveAppLabel() }
-    private val appIcon: Icon.Loaded? by lazy { resolveAppIcon() }
+    val appIcon = MutableStateFlow<Icon.Loaded?>(null)
+    private val volumeOnIcon: Icon.Loaded by lazy { loadTrackIcon(R.drawable.ic_volume_media) }
+    private val volumeOffIcon: Icon.Loaded by lazy {
+        loadTrackIcon(R.drawable.ic_volume_media_mute)
+    }
 
     override val slider = MutableStateFlow<SliderState>(SliderState.Empty)
 
@@ -66,6 +69,7 @@ constructor(
                 slider.value =
                     current.copy(
                         value = newValue,
+                        icon = trackIcon(current.isMuted, newValue),
                         a11yStateDescription = describe(newValue, current.isMuted),
                     )
                 audioVolumeInteractor.setAppVolume(packageName, newValue)
@@ -79,6 +83,7 @@ constructor(
                 slider.value =
                     current.copy(
                         isMuted = isMuted,
+                        icon = trackIcon(isMuted, current.value),
                         a11yStateDescription = describe(current.value, isMuted),
                     )
                 audioVolumeInteractor.setAppMuted(packageName, isMuted)
@@ -89,12 +94,15 @@ constructor(
             .filterNotNull()
             .onEach {
                 withContext(uiBackgroundContext) {
+                    if (appIcon.value == null) {
+                        appIcon.value = resolveAppIcon()
+                    }
                     val value = if (it.isMuted) 0f else it.volume
                     slider.value =
                         State(
                             value = value,
                             isMuted = it.isMuted,
-                            icon = appIcon,
+                            icon = trackIcon(it.isMuted, value),
                             label = appLabel,
                             a11yStateDescription = describe(value, it.isMuted),
                         )
@@ -139,10 +147,17 @@ constructor(
     private fun resolveAppIcon(): Icon.Loaded =
         runCatching { context.packageManager.getApplicationIcon(packageName) }
             .getOrElse { context.packageManager.getDefaultActivityIcon() }
-            .asIcon(
-                contentDescription = ContentDescription.Loaded(appLabel),
-                isBitmapImage = true
-            )
+            .asIcon(isBitmapImage = true)
+
+    private fun trackIcon(isMuted: Boolean, value: Float): Icon.Loaded =
+        if (isMuted || value == 0f) volumeOffIcon else volumeOnIcon
+
+    private fun loadTrackIcon(resId: Int): Icon.Loaded =
+        Icon.Loaded(
+            drawable = requireNotNull(context.getDrawable(resId)),
+            contentDescription = null,
+            resId = resId,
+        )
 
     private data class State(
         override val value: Float,

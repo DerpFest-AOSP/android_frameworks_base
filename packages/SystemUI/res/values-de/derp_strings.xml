@@ -251,4 +251,15 @@
     <string name="ax_dynamic_bar_sports_final">Finale</string>
     <string name="ax_dynamic_bar_sports_halftime">Halbzeit</string>
     <string name="ax_dynamic_bar_sports_upcoming">Demnächst</string>
+
+    <!-- Per-app volume panel -->
+    <string name="app_volume">App-Lautstärke</string>
+    <string name="app_volume_subtitle_idle">Lautstärke für jede App anpassen, die Audio wiedergibt</string>
+    <plurals name="app_volume_subtitle_active">
+        <item quantity="one"><xliff:g id="count" example="1">%d</xliff:g> App gibt Audio wieder</item>
+        <item quantity="other"><xliff:g id="count" example="3">%d</xliff:g> Apps geben Audio wieder</item>
+    </plurals>
+    <string name="app_volume_no_active_apps">Keine aktive Audiowiedergabe</string>
+    <!-- Accessibility state description of an app volume slider [CHAR LIMIT=NONE] -->
+    <string name="app_volume_percent"><xliff:g id="percent" example="50">%d</xliff:g> Prozent</string>
 </resources>
