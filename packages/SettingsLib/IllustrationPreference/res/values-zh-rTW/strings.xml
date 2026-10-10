@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settingslib_action_label_resume">繼續</string>
+    <string name="settingslib_action_label_pause">暫停</string>
+    <string name="settingslib_illustration_content_description">動畫</string>
+</resources>

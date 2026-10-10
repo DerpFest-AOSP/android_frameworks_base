@@ -20,4 +20,18 @@
     <string name="pocket_lock_message_long_press">長按電源鍵以解鎖</string>
     <string name="pocket_view_title">口袋模式已開啟</string>
     <string name="pocket_view_title_cancel">請清除裝置頂部的遮蔽區域，或長按電源鍵以強制退出口袋模式</string>
+    <string name="app_lock_use_credential_button">使用應用程式鎖 PIN 碼或圖案</string>
+    <string name="app_lock_credential_enter_pin">輸入應用程式鎖 PIN 碼</string>
+    <string name="app_lock_credential_enter_pattern">繪製應用程式鎖圖案</string>
+    <string name="app_lock_credential_choose_new_pin">設定新的應用程式鎖 PIN 碼</string>
+    <string name="app_lock_credential_choose_new_pattern">繪製新的應用程式鎖圖案</string>
+    <string name="app_lock_credential_confirm_new_pin">再次輸入新的 PIN 碼</string>
+    <string name="app_lock_credential_confirm_new_pattern">再次繪製新的圖案</string>
+    <string name="app_lock_credential_wrong">PIN 碼或圖案錯誤，請再試一次</string>
+    <string name="app_lock_credential_mismatch">兩次輸入不一致，請再試一次</string>
+    <string name="app_lock_credential_too_short">至少須包含 4 個數字或連接點</string>
+    <string name="app_lock_credential_lockout">嘗試次數過多，請於 <xliff:g id="seconds" example="30">%1$d</xliff:g> 秒後再試</string>
+    <string name="app_lock_credential_continue">繼續</string>
+    <string name="app_lock_credential_set_done">已設定應用程式鎖的 PIN 碼或圖案</string>
+    <string name="app_lock_credential_cleared">已移除應用程式鎖的 PIN 碼或圖案</string>
 </resources>
