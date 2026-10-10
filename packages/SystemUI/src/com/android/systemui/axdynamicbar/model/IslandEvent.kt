@@ -305,6 +305,8 @@ sealed class IslandEvent(open val priority: Int, val id: String) : Comparable<Is
         val callType: String = "Phone:incoming",
         val callStartTimeMs: Long = System.currentTimeMillis(),
         val actions: List<NotificationAction> = emptyList(),
+        /** True once the dialer's chronometer is running, which is the connected call. */
+        val connected: Boolean = false,
     ) : IslandEvent(priority = 100, id = "call_${sbn.key}") {
         override fun withoutDrawables() = copy(appIcon = null, callerPhoto = null)
     }

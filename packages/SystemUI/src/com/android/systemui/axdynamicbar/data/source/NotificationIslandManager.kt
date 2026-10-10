@@ -937,7 +937,18 @@ constructor(
             }
 
         val callWhen = sbn.notification?.`when` ?: 0L
-        val callStart = if (callWhen > 0L) callWhen else System.currentTimeMillis()
+        // Dialing and ringing also carry a `when`. The chronometer is the connected call.
+        val connected =
+            callType == "Phone:active" && extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER)
+        val previousCall = _callEvents.value.firstOrNull { it.sbn.key == sbn.key }
+        val callStart =
+            when {
+                !connected -> 0L
+                callWhen > 0L -> callWhen
+                previousCall?.connected == true && previousCall.callType == callType ->
+                    previousCall.callStartTimeMs
+                else -> System.currentTimeMillis()
+            }
 
         val event =
             IslandEvent.Call(
@@ -949,6 +960,7 @@ constructor(
                 callType = callType,
                 callStartTimeMs = callStart,
                 actions = actions,
+                connected = connected,
             )
 
         val current = _callEvents.value.toMutableList()

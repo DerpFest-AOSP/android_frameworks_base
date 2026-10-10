@@ -62,10 +62,12 @@ constructor(
                             .flatMapLatest { event ->
                                 if (event == null) {
                                     flowOf(PopupChipModel.Hidden(PopupChipId.OngoingCall))
-                                } else {
+                                } else if (event.connected && event.callStartTimeMs > 0L) {
                                     timerFlow.map { currentTime ->
                                         toPopupChipModel(event, currentTime)
                                     }
+                                } else {
+                                    flowOf(toPopupChipModel(event, currentTime = 0L))
                                 }
                             }
                     }
@@ -82,12 +84,26 @@ constructor(
                 resId = com.android.systemui.res.R.drawable.ic_call,
                 contentDescription = ContentDescription.Loaded(event.callerName ?: "Call"),
             )
-        val elapsedSecs = ((currentTime - event.callStartTimeMs) / 1000).coerceAtLeast(0)
-        val durationText = String.format("%d:%02d", elapsedSecs / 60, elapsedSecs % 60)
+        val chipText =
+            if (event.connected && event.callStartTimeMs > 0L) {
+                val elapsedSecs =
+                    ((currentTime - event.callStartTimeMs) / 1000).coerceAtLeast(0)
+                String.format("%d:%02d", elapsedSecs / 60, elapsedSecs % 60)
+            } else {
+                event.callerName?.takeIf { it.isNotBlank() }
+                    ?: event.number?.takeIf { it.isNotBlank() }
+                    ?: context.getString(
+                        if (event.callType.contains("incoming", ignoreCase = true)) {
+                            com.android.systemui.res.R.string.ax_dynamic_bar_incoming_call
+                        } else {
+                            com.android.systemui.res.R.string.ax_dynamic_bar_call
+                        }
+                    )
+            }
         return PopupChipModel.Shown(
             chipId = PopupChipId.OngoingCall,
             icons = listOf(ChipIcon(icon = iconModel)),
-            chipText = durationText,
+            chipText = chipText,
             colors = ColorsModel.DynamicIsland,
             contentDescription = event.callerName,
             popupContent = PopupContentModel.OngoingCall(event),
