@@ -154,12 +154,13 @@ constructor(
                     if (enableLockscreenBlur()) {
                         launch {
                             combine(
-                                windowRootViewBlurInteractor.isBlurCurrentlySupported,
-                                viewModel,
-                                { isSupported, viewModel ->
-                                    updateBackground(viewModel, view, isSupported)
-                                },
-                            )
+                                    windowRootViewBlurInteractor.isBlurCurrentlySupported,
+                                    viewModel,
+                                    { isSupported, viewModel ->
+                                        updateBackground(viewModel, view, isSupported)
+                                    },
+                                )
+                                .collect {}
                         }
                     }
                 }
