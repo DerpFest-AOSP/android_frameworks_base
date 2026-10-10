@@ -25,10 +25,12 @@ import com.android.systemui.common.shared.model.asIcon
 import com.android.systemui.dagger.qualifiers.UiBackground
 import com.android.systemui.haptics.slider.SliderHapticFeedbackFilter
 import com.android.systemui.haptics.slider.compose.ui.SliderHapticsViewModel
+import com.android.systemui.res.R
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import kotlin.coroutines.CoroutineContext
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterNotNull
@@ -59,17 +61,27 @@ constructor(
     init {
         volumeChanges
             .filterNotNull()
-            .onEach {
-                slider.value = (slider.value as State).copy(value = it)
-                audioVolumeInteractor.setAppVolume(packageName, it)
+            .onEach { newValue ->
+                val current = slider.value as State
+                slider.value =
+                    current.copy(
+                        value = newValue,
+                        a11yStateDescription = describe(newValue, current.isMuted),
+                    )
+                audioVolumeInteractor.setAppVolume(packageName, newValue)
             }
             .launchIn(coroutineScope)
 
         muteChanges
             .filterNotNull()
-            .onEach {
-                slider.value = (slider.value as State).copy(isMuted = it)
-                audioVolumeInteractor.setAppMuted(packageName, it)
+            .onEach { isMuted ->
+                val current = slider.value as State
+                slider.value =
+                    current.copy(
+                        isMuted = isMuted,
+                        a11yStateDescription = describe(current.value, isMuted),
+                    )
+                audioVolumeInteractor.setAppMuted(packageName, isMuted)
             }
             .launchIn(coroutineScope)
 
@@ -77,12 +89,15 @@ constructor(
             .filterNotNull()
             .onEach {
                 withContext(uiBackgroundContext) {
-                    slider.value = State(
-                        value = if (it.isMuted) 0f else it.volume,
-                        isMuted = it.isMuted,
-                        icon = appIcon,
-                        label = appLabel,
-                    )
+                    val value = if (it.isMuted) 0f else it.volume
+                    slider.value =
+                        State(
+                            value = value,
+                            isMuted = it.isMuted,
+                            icon = appIcon,
+                            label = appLabel,
+                            a11yStateDescription = describe(value, it.isMuted),
+                        )
                 }
             }
             .launchIn(coroutineScope)
@@ -105,6 +120,13 @@ constructor(
     override fun getSliderHapticsViewModelFactory(): SliderHapticsViewModel.Factory? =
         if (slider.value != SliderState.Empty) hapticsViewModelFactory else null
 
+    private fun describe(value: Float, isMuted: Boolean): String =
+        if (isMuted) {
+            context.getString(R.string.volume_panel_hint_muted)
+        } else {
+            context.getString(R.string.app_volume_percent, (value * 100).roundToInt())
+        }
+
     private fun resolveAppLabel(): String =
         runCatching {
             context.packageManager.getApplicationLabel(
@@ -126,6 +148,7 @@ constructor(
         override val value: Float,
         override val icon: Icon.Loaded?,
         override val label: String,
+        override val a11yStateDescription: String,
         val isMuted: Boolean,
     ) : SliderState {
         override val valueRange: ClosedFloatingPointRange<Float> = 0f..1f
@@ -136,7 +159,6 @@ constructor(
         override val isMutable: Boolean = true
         override val a11yContentDescription: String = label
         override val a11yClickDescription: String? = null
-        override val a11yStateDescription: String? = null
     }
 
     @AssistedFactory
