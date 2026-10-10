@@ -386,8 +386,8 @@ private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
 }
 
 /**
- * Y of a card centered in the open band under [contentBottom] and above [shortcutsTop], skipping
- * [obstacle]. Prefers the gap above the obstacle. Returns null when neither gap can hold the card.
+ * Y of a card centered between the lock icon and the shortcuts when that gap can hold it. When it
+ * cannot, centers the card in the gap above the icon. Returns null when neither gap fits.
  */
 private fun ambientSlotTop(
     contentBottom: Int,
@@ -398,13 +398,13 @@ private fun ambientSlotTop(
 ): Int? {
     if (contentBottom <= 0 || cardHeight <= 0) return null
     val needed = cardHeight + margin * 2
-    val aboveBottom = min(obstacle.top, shortcutsTop)
-    if (aboveBottom - contentBottom >= needed) {
-        return contentBottom + (aboveBottom - contentBottom - cardHeight) / 2
-    }
     val belowTop = max(obstacle.bottom, contentBottom)
     if (shortcutsTop - belowTop >= needed) {
         return belowTop + (shortcutsTop - belowTop - cardHeight) / 2
+    }
+    val aboveBottom = min(obstacle.top, shortcutsTop)
+    if (aboveBottom - contentBottom >= needed) {
+        return contentBottom + (aboveBottom - contentBottom - cardHeight) / 2
     }
     return null
 }
