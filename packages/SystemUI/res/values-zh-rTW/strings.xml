@@ -159,6 +159,19 @@
     <string name="screenrecord_stop_dialog_message" msgid="6262768207331626817">"目前正在錄製整個螢幕的畫面"</string>
     <string name="screenrecord_stop_dialog_message_specific_app" msgid="5995770227684523244">"目前正在錄製「<xliff:g id="APP_NAME">%1$s</xliff:g>」的畫面"</string>
     <string name="screenrecord_stop_dialog_button" msgid="2883812564938194350">"停止錄製"</string>
+    <string name="dynamic_island_screen_record_active">正在錄影</string>
+    <string name="dynamic_island_screen_record_countdown">將於 %1$s 秒後開始</string>
+    <string name="dynamic_island_alarm_title">下一個鬧鐘</string>
+    <string name="dynamic_island_flashlight_enabled">已啟用</string>
+    <string name="dynamic_island_flashlight_short">開啟</string>
+    <string name="dynamic_island_open_action">開啟</string>
+    <string name="dynamic_island_open_clock_action">開啟時鐘</string>
+    <string name="dynamic_island_stopwatch_title">碼錶</string>
+    <string name="dynamic_island_alarm_active_title">鬧鐘</string>
+    <string name="dynamic_island_action_snooze">稍後提醒</string>
+    <string name="dynamic_island_action_lap">計圈</string>
+    <string name="dynamic_island_action_stop">停止</string>
+    <string name="dynamic_island_action_resume">繼續</string>
     <string name="screen_record_entire_screen" msgid="66944996337928170">"整個畫面"</string>
     <string name="screen_record_single_app" msgid="7355880948574569290">"單一應用程式"</string>
     <string name="screen_record_single_app_hint" msgid="8404332826093639170">"要錄製畫面的應用程式"</string>
@@ -924,7 +937,7 @@
     <string name="show_demo_mode" msgid="3677956462273059726">"顯示展示模式"</string>
     <string name="status_bar_ethernet" msgid="5690979758988647484">"乙太網路"</string>
     <string name="status_bar_alarm" msgid="87160847643623352">"鬧鐘"</string>
-    <string name="active_mode_content_description">%1$s 已開啟</string>
+    <string name="active_mode_content_description" msgid="1627555562186515927"><xliff:g id="modeName" example="Do Not Disturb">%1$s</xliff:g> 已開啟</string>
     <string name="wallet_title" msgid="5369767670735827105">"錢包"</string>
     <string name="wallet_empty_state_label" msgid="7776761245237530394">"完成相關設定之後，就能以更快速安全的方式透過手機消費"</string>
     <string name="wallet_app_button_label" msgid="7123784239111190992">"顯示全部"</string>
@@ -948,6 +961,7 @@
     <string name="accessibility_status_bar_satellite_good_connection" msgid="308079391708578704">"衛星，連線品質良好"</string>
     <string name="accessibility_status_bar_satellite_available" msgid="6514855015496916829">"衛星，可連線"</string>
     <string name="accessibility_status_bar_satellite_symbol" msgid="3840194796890095832">"人造衛星"</string>
+    <string name="accessibility_status_bar_vowifi_dedicated">Wi-Fi 通話</string>
     <string name="satellite_connected_carrier_text" msgid="118524195198532589">"緊急衛星連線"</string>
     <string name="satellite_emergency_only_carrier_text" msgid="9103913890116841786">"僅限緊急電話或需要求救的情況"</string>
     <string name="satellite_network_title_text" msgid="1483004114819442028">"衛星網路"</string>
@@ -1341,7 +1355,7 @@
     <string name="privacy_type_microphone" msgid="9136763906797732428">"麥克風"</string>
     <string name="privacy_type_media_projection" msgid="8136723828804251547">"錄製螢幕畫面"</string>
     <string name="privacy_chip_container_leading_title" msgid="4911201935798986077">"隱私權"</string>
-    <string name="music_controls_no_title">無標題</string>
+    <string name="music_controls_no_title" msgid="4166497066552290938">無標題</string>
     <string name="inattentive_sleep_warning_title" msgid="3891371591713990373">"待機"</string>
     <string name="font_scaling_dialog_title" msgid="6273107303850248375">"字型大小"</string>
     <string name="font_scaling_smaller" msgid="1012032217622008232">"縮小"</string>

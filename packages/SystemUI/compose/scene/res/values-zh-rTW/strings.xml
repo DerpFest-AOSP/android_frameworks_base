@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_close_overlay_action">返回</string>
+    <string name="accessibility_close_overlay_box_description">返回</string>
+</resources>
