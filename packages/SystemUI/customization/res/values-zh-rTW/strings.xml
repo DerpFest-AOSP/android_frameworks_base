@@ -18,5 +18,6 @@
 -->
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
         xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="clock_default_name">預設</string>
         <string name="clock_default_description" msgid="5309401440896597541">"數位預設"</string>
 </resources>

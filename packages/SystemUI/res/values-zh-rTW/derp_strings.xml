@@ -51,6 +51,16 @@
     <!-- Name of the VoWiFi status bar icon. -->
     <string name="status_bar_vowifi">Wi-Fi 通話 (VoWiFi)</string>
 
+    <string name="status_bar_ims_indicator_category_title">語音網路指示圖示</string>
+    <string name="status_bar_ims_indicator_style_title">指示圖示樣式</string>
+    <string name="status_bar_ims_style_integrated">整合式（HD 顯示於訊號旁，VoWiFi 顯示於 Wi-Fi 上）</string>
+    <string name="status_bar_ims_style_dedicated">獨立圖示（VoLTE / VoNR / VoWiFi）</string>
+    <string name="status_bar_icon_packs_category_title">圖示套件</string>
+    <string name="status_bar_icon_packs_title">系統圖示套件</string>
+    <string name="status_bar_icon_packs_summary">變更設定、系統介面及啟動器中的系統圖示</string>
+    <string name="status_bar_network_icons_category_title">網路圖示</string>
+    <string name="custom_system_theme_title">網路圖示主題</string>
+    <string name="custom_system_theme_summary">自訂網路圖示外觀</string>
     <!-- WiFi standard numbering on statusbar -->
     <string name="status_bar_wifi_standard">Wi-Fi 標準編號</string>
 
@@ -117,6 +127,16 @@
     <string name="usb_use_MIDI">MIDI</string>
     <string name="usb_use">USB 用途</string>
 
+    <string name="qs_edit_media_player">媒體播放器</string>
+    <string name="qs_edit_brightness_visibility_title">亮度滑桿</string>
+    <string name="qs_edit_brightness_visibility_always">一律顯示，包含精簡快速設定</string>
+    <string name="qs_edit_brightness_visibility_always_short">一律顯示</string>
+    <string name="qs_edit_brightness_visibility_expanded">僅在展開時顯示</string>
+    <string name="qs_edit_brightness_visibility_expanded_short">展開時顯示</string>
+    <string name="qs_edit_brightness_visibility_hidden">隱藏</string>
+    <string name="qs_edit_brightness_visibility_show">顯示</string>
+    <string name="qs_edit_brightness_visibility_hide">隱藏</string>
+    <string name="qs_edit_volume_visibility_title">音量滑桿</string>
     <!-- DerpFest Tile -->
     <string name="quick_derpfest_label">DerpFest 自訂設定</string>
     <string name="quick_derpfest_toast">哈哈，你真的以為長按會帶你到哪裡去嗎！！！</string>
@@ -171,6 +191,22 @@
     <string name="flashlight_strength_turn_off">關閉</string>
     <string name="flashlight_strength_turn_on">開啟</string>
 
+    <string name="low_battery_notification_text_ebs">開啟超級省電模式，延長電池續航力</string>
+    <string name="severe_battery_notification_title">剩餘電量 <xliff:g id="percentage" example="5%">%s</xliff:g></string>
+    <string name="severe_battery_notification_text">開啟超級省電模式。這會暫停所有非必要應用程式</string>
+    <string name="severe_battery_notification_switch_text">要切換至超級省電模式嗎？\n\n這會暫停所有非必要應用程式及其通知</string>
+    <string name="severe_low_battery_dialog_switch_action_text">切換</string>
+    <string name="extreme_low_battery_notification_title">電量極低</string>
+    <string name="extreme_low_battery_notification_text">如未盡快充電，手機即將關機</string>
+    <string name="saver_confirmation_dialog_title">歡迎使用省電模式</string>
+    <string name="saver_confirmation_dialog_subtitle">選擇要使用的模式</string>
+    <string name="saver_confirmation_dialog_title_standard_mode">標準省電模式</string>
+    <string name="saver_confirmation_dialog_summary_standard_mode">限制視覺效果和背景活動，並開啟深色主題（如尚未開啟）。</string>
+    <string name="saver_confirmation_dialog_title_extreme_mode">超級省電模式</string>
+    <string name="saver_confirmation_dialog_summary_extreme_mode">包含上述所有變更，並暫停非必要應用程式及其通知。</string>
+    <string name="saver_confirmation_dialog_setup_action">設定</string>
+    <string name="app_volume">應用程式音量</string>
+    <string name="app_volume_no_active_apps">目前沒有播放中的音訊</string>
     <!-- VPN tethering QS tile -->
     <string name="vpn_tethering_label">VPN 網路共用</string>
     <string name="vpn_tethering_changed_off">VPN 網路共用已關閉。</string>
@@ -180,4 +216,109 @@
     <string name="quick_settings_volume_label">音量</string>
     <string name="qs_volume_dialog_title">音量控制</string>
     <string name="qs_volume_dialog_mute">靜音</string>
+    <string name="ax_dynamic_bar_timer">計時器</string>
+    <string name="ax_dynamic_bar_stopwatch">碼錶</string>
+    <string name="ax_dynamic_bar_alarm">鬧鐘</string>
+    <string name="ax_dynamic_bar_flashlight">手電筒</string>
+    <string name="ax_dynamic_bar_hotspot">熱點</string>
+    <string name="ax_dynamic_bar_hotspot_active">熱點已開啟</string>
+    <string name="ax_dynamic_bar_vpn_active">VPN 已連線</string>
+    <string name="ax_dynamic_bar_screen_recording">螢幕錄影</string>
+    <string name="ax_dynamic_bar_now_playing">正在播放</string>
+    <string name="ax_dynamic_bar_media_output">媒體輸出</string>
+    <string name="ax_dynamic_bar_sound_mode">響鈴模式</string>
+    <string name="ax_dynamic_bar_silent">靜音</string>
+    <string name="ax_dynamic_bar_vibrate">震動</string>
+    <string name="ax_dynamic_bar_ring">響鈴</string>
+    <string name="ax_dynamic_bar_charging">充電中</string>
+    <string name="ax_dynamic_bar_wireless">無線</string>
+    <string name="ax_dynamic_bar_saver">省電</string>
+    <string name="ax_dynamic_bar_music">音樂</string>
+    <string name="ax_dynamic_bar_copied">已複製</string>
+    <string name="ax_dynamic_bar_copied_feedback">已複製！</string>
+    <string name="ax_dynamic_bar_image_copied">已複製圖片</string>
+    <string name="ax_dynamic_bar_copy_image">複製圖片</string>
+    <string name="ax_dynamic_bar_clipboard_image_desc">剪貼簿圖片</string>
+    <string name="ax_dynamic_bar_image">圖片</string>
+    <string name="ax_dynamic_bar_dismiss">關閉</string>
+    <string name="ax_dynamic_bar_open">開啟</string>
+    <string name="ax_dynamic_bar_stop">停止</string>
+    <string name="ax_dynamic_bar_stop_recording">停止錄影</string>
+    <string name="ax_dynamic_bar_reset">重設</string>
+    <string name="ax_dynamic_bar_clear_all">全部清除</string>
+    <string name="ax_dynamic_bar_show_more">顯示更多</string>
+    <string name="ax_dynamic_bar_show_less">顯示較少內容</string>
+    <string name="ax_dynamic_bar_play">播放</string>
+    <string name="ax_dynamic_bar_pause">暫停</string>
+    <string name="ax_dynamic_bar_paused">已暫停</string>
+    <string name="ax_dynamic_bar_saved">已儲存</string>
+    <string name="ax_dynamic_bar_recording">錄製中</string>
+    <string name="ax_dynamic_bar_done">完成</string>
+    <string name="ax_dynamic_bar_ringing">鈴響中</string>
+    <string name="ax_dynamic_bar_running">執行中</string>
+    <string name="ax_dynamic_bar_on">開啟</string>
+    <string name="ax_dynamic_bar_recents">最近使用的應用程式</string>
+    <string name="ax_dynamic_bar_unlocked">已解鎖</string>
+    <string name="ax_dynamic_bar_device_unlocked">裝置已解鎖</string>
+    <string name="ax_dynamic_bar_progress">進度</string>
+    <string name="ax_dynamic_bar_casting_to">投放至</string>
+    <string name="ax_dynamic_bar_camera_mic">相機與麥克風</string>
+    <string name="ax_dynamic_bar_camera">相機</string>
+    <string name="ax_dynamic_bar_microphone">麥克風</string>
+    <string name="ax_dynamic_bar_camera_mic_short">相機與麥克風</string>
+    <string name="ax_dynamic_bar_hotspot_devices"><xliff:g id="count" example="3">%d</xliff:g> 部裝置</string>
+    <string name="ax_dynamic_bar_wireless_charging">無線充電</string>
+    <string name="ax_dynamic_bar_until_full">後充飽</string>
+    <string name="ax_dynamic_bar_battery_saver">省電模式</string>
+    <string name="ax_dynamic_bar_incoming_call">來電</string>
+    <string name="ax_dynamic_bar_connected">已連線</string>
+    <string name="ax_dynamic_bar_disconnect">中斷連線</string>
+    <string name="ax_dynamic_bar_no_devices">沒有裝置</string>
+    <string name="ax_dynamic_bar_one_device_connected">已連線 1 部裝置</string>
+    <string name="ax_dynamic_bar_devices_connected">已連線 <xliff:g id="count" example="3">%d</xliff:g> 部裝置</string>
+    <string name="ax_dynamic_bar_vpn_connected">VPN 已連線</string>
+    <string name="ax_dynamic_bar_secured">已保護</string>
+    <string name="ax_dynamic_bar_connecting">連線中…</string>
+    <string name="ax_dynamic_bar_one_device">1 部裝置</string>
+    <string name="ax_dynamic_bar_bluetooth_device">藍牙裝置</string>
+    <string name="ax_dynamic_bar_left_earbud">左耳耳機</string>
+    <string name="ax_dynamic_bar_right_earbud">右耳耳機</string>
+    <string name="ax_dynamic_bar_earbuds_case">充電盒</string>
+    <string name="ax_dynamic_bar_apps_count"><xliff:g id="count" example="2">%d</xliff:g> 個應用程式</string>
+    <string name="ax_dynamic_bar_just_now">剛剛</string>
+    <string name="ax_dynamic_bar_mins_ago"><xliff:g id="count" example="5">%d</xliff:g> 分鐘前</string>
+    <string name="ax_dynamic_bar_hours_ago"><xliff:g id="count" example="2">%d</xliff:g> 小時前</string>
+    <string name="ax_dynamic_bar_days_ago"><xliff:g id="count" example="3">%d</xliff:g> 天前</string>
+    <string name="ax_dynamic_bar_weeks_ago"><xliff:g id="count" example="1">%d</xliff:g> 週前</string>
+    <string name="ax_dynamic_bar_resume">繼續</string>
+    <string name="ax_dynamic_bar_clipboard">剪貼簿</string>
+    <string name="ax_dynamic_bar_previous">上一首</string>
+    <string name="ax_dynamic_bar_next">下一首</string>
+    <string name="ax_dynamic_bar_shuffle">隨機播放</string>
+    <string name="ax_dynamic_bar_output">輸出</string>
+    <string name="ax_dynamic_bar_rec_short">錄影</string>
+    <string name="ax_dynamic_bar_cast_short">投放</string>
+    <string name="ax_dynamic_bar_active">使用中</string>
+    <string name="ax_dynamic_bar_biometric">生物辨識</string>
+    <string name="ax_dynamic_bar_trust">信任</string>
+    <string name="ax_dynamic_bar_alignment">對齊</string>
+    <string name="ax_dynamic_bar_cam_short">相機</string>
+    <string name="ax_dynamic_bar_mic_short">麥克風</string>
+    <string name="ax_dynamic_bar_recent_apps">最近使用的應用程式</string>
+    <string name="ax_dynamic_bar_count_running"><xliff:g id="count" example="3">%d</xliff:g> 個執行中</string>
+    <string name="ax_dynamic_bar_sports_vs">對上</string>
+    <string name="ax_dynamic_bar_sports_live">進行中</string>
+    <string name="ax_dynamic_bar_sports_final">終場</string>
+    <string name="ax_dynamic_bar_sports_halftime">中場休息</string>
+    <string name="ax_dynamic_bar_sports_upcoming">即將開始</string>
+    <string name="ax_dynamic_bar_call">通話</string>
+    <string name="ax_dynamic_bar_kill_app">強制停止應用程式</string>
+    <string name="keyguard_indication_dash_charging_time"><xliff:g id="percentage">%2$s</xliff:g> • Dash 閃充（將於 <xliff:g id="charging_time_left" example="4 hours and 2 minutes">%1$s</xliff:g> 後充飽）</string>
+    <string name="keyguard_plugged_in_dash_charging"><xliff:g id="percentage">%s</xliff:g> • Dash 閃充</string>
+    <string name="keyguard_indication_warp_charging_time"><xliff:g id="percentage">%2$s</xliff:g> • Warp 閃充（將於 <xliff:g id="charging_time_left" example="4 hours and 2 minutes">%1$s</xliff:g> 後充飽）</string>
+    <string name="keyguard_plugged_in_warp_charging"><xliff:g id="percentage">%s</xliff:g> • Warp 閃充</string>
+    <string name="keyguard_indication_vooc_charging_time"><xliff:g id="percentage">%2$s</xliff:g> • VOOC 閃充（將於 <xliff:g id="charging_time_left" example="4 hours and 2 minutes">%1$s</xliff:g> 後充飽）</string>
+    <string name="keyguard_plugged_in_vooc_charging"><xliff:g id="percentage">%s</xliff:g> • VOOC 閃充</string>
+    <string name="keyguard_indication_turbo_power_time"><xliff:g id="percentage">%2$s</xliff:g> • Turbo 快充（將於 <xliff:g id="charging_time_left" example="4 hours and 2 minutes">%1$s</xliff:g> 後充飽）</string>
+    <string name="keyguard_plugged_in_turbo_charging"><xliff:g id="percentage">%s</xliff:g> • Turbo 快充</string>
 </resources>

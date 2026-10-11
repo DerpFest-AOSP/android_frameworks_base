@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="service_name">Intent 篩選器驗證服務</string>
+</resources>

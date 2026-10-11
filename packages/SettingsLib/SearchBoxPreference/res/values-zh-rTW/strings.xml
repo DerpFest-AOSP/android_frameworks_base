@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="search_input_description">搜尋</string>
+    <string name="settingslib_clear_search_query">清除搜尋查詢</string>
+</resources>
