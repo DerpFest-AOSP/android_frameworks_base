@@ -263,7 +263,7 @@ fun AxDynamicBarKeyguardChip(
                 val actualMediaEnabled = isLockscreenMediaEnabled && !isDozing
                 val chipBody: @Composable () -> Unit = {
                     if (displayEvent is IslandEvent.Media && !actualMediaEnabled) {
-                        Spacer(modifier = Modifier.height(ChipHeight))
+                        Box(Modifier)
                     } else {
                         AnimatedContent(
                             targetState = displayEvent,
