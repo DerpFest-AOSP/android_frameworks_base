@@ -6316,6 +6316,14 @@ class DisplayContent extends RootDisplayArea implements WindowManagerPolicy.Disp
 
             if (w.isImplicitlyExcludingAllSystemGestures()) {
                 local.set(touchableRegion);
+                if (w.mAttrs.type == TYPE_INPUT_METHOD
+                        || w.mAttrs.type == TYPE_INPUT_METHOD_DIALOG) {
+                    final Region edges = Region.obtain();
+                    edges.set(mSystemGestureFrameLeft);
+                    edges.op(mSystemGestureFrameRight, Op.UNION);
+                    local.op(edges, Op.INTERSECT);
+                    edges.recycle();
+                }
             } else {
                 rectListToRegion(w.getSystemGestureExclusion(), local);
 

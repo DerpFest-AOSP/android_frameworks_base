@@ -16,6 +16,7 @@
 
 package com.android.systemui.shade.ui.composable
 
+import android.view.Surface
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ScrollState
@@ -57,8 +58,13 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.booleanResource
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
@@ -117,6 +123,7 @@ import com.android.systemui.res.R
 import com.android.systemui.scene.session.ui.composable.SaveableSession
 import com.android.systemui.scene.shared.model.Scenes
 import com.android.systemui.scene.ui.composable.Scene
+import com.android.systemui.shade.LandscapeSplitShadeCutout
 import com.android.systemui.shade.shared.model.ShadeMode
 import com.android.systemui.shade.ui.composable.ShadeScene.Companion.SplitShadeInternalScenes.Edit
 import com.android.systemui.shade.ui.composable.ShadeScene.Companion.SplitShadeInternalScenes.QS
@@ -579,6 +586,32 @@ private fun ContentScope.SplitShade(
         }
 
     val notificationStackPadding = dimensionResource(id = R.dimen.notification_side_paddings_split)
+    val layoutDirection = LocalLayoutDirection.current
+    val display = LocalContext.current.display
+    val (cutoutLeftPx, cutoutRightPx) =
+        LandscapeSplitShadeCutout.horizontalInsets(
+            cutout = display?.cutout,
+            rotation = display?.rotation ?: Surface.ROTATION_0,
+            reverseDefaultRotation =
+                booleanResource(com.android.internal.R.bool.config_reverseDefaultRotation),
+        )
+    val cutoutStart =
+        with(LocalDensity.current) {
+            (if (layoutDirection == LayoutDirection.Rtl) cutoutRightPx else cutoutLeftPx).toDp()
+        }
+    val cutoutEnd =
+        with(LocalDensity.current) {
+            (if (layoutDirection == LayoutDirection.Rtl) cutoutLeftPx else cutoutRightPx).toDp()
+        }
+    val qsTopPadding =
+        if (
+            LocalConfiguration.current.smallestScreenWidthDp >= 600 &&
+                booleanResource(R.bool.config_use_large_screen_shade_header)
+        ) {
+            dimensionResource(R.dimen.qs_panel_padding_top)
+        } else {
+            0.dp
+        }
     val navBarBottomHeight = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     val brightnessMirrorShowing = qsContainerViewModel.brightnessSliderViewModel.showMirror
@@ -618,6 +651,7 @@ private fun ContentScope.SplitShade(
                     // unfoldTranslationXForStartSide may be updated every frame, so only read value
                     // in the layout phase by using lambda.
                     Modifier.element(Shade.Elements.ShadeHeader)
+                        .padding(start = cutoutStart, end = cutoutEnd)
                         .padding(
                             horizontal = { viewModel.unfoldTranslationXForStartSide.roundToInt() }
                         ),
@@ -637,7 +671,7 @@ private fun ContentScope.SplitShade(
                                 translationX = viewModel.unfoldTranslationXForStartSide
                             }
                             .fillMaxSize()
-                            .padding(bottom = navBarBottomHeight)
+                            .padding(start = cutoutStart, bottom = navBarBottomHeight)
                 ) {
                     if (viewModel.isQsEnabled) {
                         val sceneState =
@@ -714,6 +748,7 @@ private fun ContentScope.SplitShade(
                                                 QuickSettingsContent(
                                                     qsContainerViewModel,
                                                     mediaInRow = false,
+                                                    modifier = Modifier.padding(top = qsTopPadding),
                                                     mediaSquishiness = { tileSquishiness },
                                                 )
                                             }
@@ -767,7 +802,9 @@ private fun ContentScope.SplitShade(
                             .fillMaxHeight()
                             .padding(
                                 end =
-                                    dimensionResource(R.dimen.notification_panel_margin_horizontal),
+                                    dimensionResource(
+                                        R.dimen.notification_panel_margin_horizontal
+                                    ) + cutoutEnd,
                                 bottom = navBarBottomHeight,
                             ),
                 )

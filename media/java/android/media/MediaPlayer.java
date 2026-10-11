@@ -1112,10 +1112,11 @@ public class MediaPlayer extends PlayerBase
             if (attemptDataSource(resolver, cacheUri)) {
                 return;
             } else if (RingtoneManager.getDefaultType(uri) == RingtoneManager.TYPE_RINGTONE
-                    && attemptDataSource(resolver, RingtoneManager.getCacheForType(
-                            RingtoneManager.TYPE_RINGTONE, context.getUserId()))) {
-                // For TYPE_RINGTONE, if the cache for targeted Settings Uri
-                // is not available, try to use the default ringtone cache.
+                    && attemptDataSource(resolver, RingtoneManager.getCacheForTypeBySlot(
+                            RingtoneManager.TYPE_RINGTONE, context.getUserId(),
+                            RingtoneManager.getRingtoneSlotId(uri)))) {
+                // Per-account cache is optional. Use the slot ringtone cache, which is
+                // ringtone2_cache for SIM2.
                 return;
             } else if (attemptDataSource(resolver, actualUri)) {
                 return;

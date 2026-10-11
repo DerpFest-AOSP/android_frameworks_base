@@ -363,7 +363,11 @@ internal fun AccordMediaSurface(
 }
 
 @Composable
-internal fun MediaCard(event: IslandEvent.Media, interactor: IslandActions) {
+internal fun MediaCard(
+    event: IslandEvent.Media,
+    interactor: IslandActions,
+    contentTopInset: Dp = 0.dp,
+) {
     val colors = rememberMediaColors(event)
     val accent = colors.accent
     val onCard = Color.White
@@ -372,7 +376,9 @@ internal fun MediaCard(event: IslandEvent.Media, interactor: IslandActions) {
     AccordMediaSurface(event, Modifier.fillMaxWidth().wrapContentHeight()) {
         Column(
             modifier =
-                Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 16.dp),
+                Modifier.fillMaxWidth()
+                    .padding(horizontal = 14.dp)
+                    .padding(top = 16.dp + contentTopInset, bottom = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(

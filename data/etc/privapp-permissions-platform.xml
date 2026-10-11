@@ -778,6 +778,9 @@ applications that come with the platform
         <permission name="android.permission.READ_SYSTEM_GRAMMATICAL_GENDER"/>
         <permission name="android.permission.CONTROL_SIM_AUTO_PIN_MANAGEMENT"/>
         <permission name="android.permission.UPDATE_FONTS"/>
+        <permission name="android.permission.READ_WALLPAPER_INTERNAL"/>
+        <permission name="android.permission.BIND_WALLPAPER"/>
+        <permission name="android.permission.READ_FRAME_BUFFER"/>
     </privapp-permissions>
 
     <privapp-permissions package="com.android.bips">

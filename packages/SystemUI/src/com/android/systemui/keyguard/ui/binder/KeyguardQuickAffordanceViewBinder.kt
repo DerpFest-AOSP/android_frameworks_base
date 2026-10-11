@@ -30,7 +30,6 @@ import androidx.core.animation.CycleInterpolator
 import androidx.core.animation.ObjectAnimator
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
-import androidx.core.view.doOnDetach
 import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
@@ -55,6 +54,7 @@ import com.android.systemui.util.doOnEnd
 import com.android.systemui.window.domain.interactor.WindowRootViewBlurInteractor
 import com.google.android.msdl.domain.MSDLPlayer
 import javax.inject.Inject
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -114,18 +114,6 @@ constructor(
                     val surfaceDrawable = view.background
                     view.background = LayerDrawable(arrayOf(blurDrawable, surfaceDrawable))
                 }
-                if (enableLockscreenBlur()) {
-                    // The blur region only knows the drawable's own alpha: follow the alpha the
-                    // button is really drawn with (keyguard root fade on unlock, shade drag) so
-                    // the blur does not outlive the button.
-                    val blurAlphaSync =
-                        BackgroundBlurAlphaSync(view) {
-                                (view.background as? LayerDrawable)?.getDrawable(0)
-                                    as? BackgroundBlurDrawable
-                            }
-                            .start()
-                    view.doOnDetach { blurAlphaSync.dispose() }
-                }
                 repeatOnLifecycle(Lifecycle.State.STARTED) {
                     launch {
                         viewModel.collect { buttonModel ->
@@ -154,12 +142,32 @@ constructor(
                     if (enableLockscreenBlur()) {
                         launch {
                             combine(
-                                windowRootViewBlurInteractor.isBlurCurrentlySupported,
-                                viewModel,
-                                { isSupported, viewModel ->
-                                    updateBackground(viewModel, view, isSupported)
-                                },
-                            )
+                                    windowRootViewBlurInteractor.isBlurCurrentlySupported,
+                                    viewModel,
+                                    { isSupported, viewModel ->
+                                        updateBackground(viewModel, view, isSupported)
+                                    },
+                                )
+                                .collect {}
+                        }
+
+                        // The blur region only knows the drawable's own alpha: follow the alpha
+                        // (and visibility) the button is really drawn with - its own/dimmed alpha,
+                        // keyguard root fade on unlock, shade drag - so the blur does not outlive
+                        // the button. This is the only writer of the blur drawable's alpha.
+                        // Tied to this scope, so it also stops on destroy() while still attached.
+                        launch {
+                            val blurAlphaSync =
+                                BackgroundBlurAlphaSync(view) {
+                                        (view.background as? LayerDrawable)?.getDrawable(0)
+                                            as? BackgroundBlurDrawable
+                                    }
+                                    .start()
+                            try {
+                                awaitCancellation()
+                            } finally {
+                                blurAlphaSync.dispose()
+                            }
                         }
                     }
                 }
@@ -319,9 +327,8 @@ constructor(
                 if (isDimmed) DIM_ALPHA else alpha
             }
             .collect {
-                if (enableLockscreenBlur() && view.background is LayerDrawable) {
-                    (view.background as LayerDrawable).getDrawable(0).alpha = (it * 255).toInt()
-                }
+                // With lockscreen blur, BackgroundBlurAlphaSync folds the view alpha into the
+                // blur drawable on the next frame.
                 view.alpha = it
             }
     }

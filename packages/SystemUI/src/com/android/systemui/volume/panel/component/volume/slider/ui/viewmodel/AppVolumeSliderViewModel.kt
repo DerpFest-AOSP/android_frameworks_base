@@ -18,17 +18,20 @@
 package com.android.systemui.volume.panel.component.volume.slider.ui.viewmodel
 
 import android.content.Context
+import android.media.AppVolume
 import com.android.settingslib.volume.domain.interactor.AudioVolumeInteractor
-import com.android.systemui.common.shared.model.ContentDescription
 import com.android.systemui.common.shared.model.Icon
 import com.android.systemui.common.shared.model.asIcon
 import com.android.systemui.dagger.qualifiers.UiBackground
 import com.android.systemui.haptics.slider.SliderHapticFeedbackFilter
 import com.android.systemui.haptics.slider.compose.ui.SliderHapticsViewModel
+import com.android.systemui.res.R
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import kotlin.coroutines.CoroutineContext
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterNotNull
@@ -40,7 +43,7 @@ import kotlinx.coroutines.withContext
 class AppVolumeSliderViewModel
 @AssistedInject
 constructor(
-    @Assisted private val packageName: String,
+    @Assisted val packageName: String,
     @Assisted private val coroutineScope: CoroutineScope,
     @UiBackground private val uiBackgroundContext: CoroutineContext,
     private val context: Context,
@@ -50,48 +53,82 @@ constructor(
 
     private val volumeChanges = MutableStateFlow<Float?>(null)
     private val muteChanges = MutableStateFlow<Boolean?>(null)
+    private val sliderLock = Any()
 
     private val appLabel: String by lazy { resolveAppLabel() }
-    private val appIcon: Icon.Loaded? by lazy { resolveAppIcon() }
+    val appIcon = MutableStateFlow<Icon.Loaded?>(null)
+    private val volumeOnIcon: Icon.Loaded by lazy { loadTrackIcon(R.drawable.ic_volume_media) }
+    private val volumeOffIcon: Icon.Loaded by lazy {
+        loadTrackIcon(R.drawable.ic_volume_media_mute)
+    }
 
     override val slider = MutableStateFlow<SliderState>(SliderState.Empty)
 
     init {
         volumeChanges
             .filterNotNull()
-            .onEach {
-                slider.value = (slider.value as State).copy(value = it)
-                audioVolumeInteractor.setAppVolume(packageName, it)
+            .onEach { newValue ->
+                synchronized(sliderLock) {
+                    val current = slider.value as? State
+                    if (current != null) {
+                        slider.value =
+                            current.copy(
+                                value = newValue,
+                                icon = trackIcon(current.isMuted, newValue),
+                                a11yStateDescription = describe(newValue, current.isMuted),
+                            )
+                    }
+                }
+                audioVolumeInteractor.setAppVolume(packageName, newValue)
             }
             .launchIn(coroutineScope)
 
         muteChanges
             .filterNotNull()
-            .onEach {
-                slider.value = (slider.value as State).copy(isMuted = it)
-                audioVolumeInteractor.setAppMuted(packageName, it)
+            .onEach { isMuted ->
+                synchronized(sliderLock) {
+                    val current = slider.value as? State
+                    if (current != null) {
+                        val shown = if (isMuted) 0f else current.value
+                        slider.value =
+                            current.copy(
+                                value = shown,
+                                isMuted = isMuted,
+                                icon = trackIcon(isMuted, shown),
+                                a11yStateDescription = describe(shown, isMuted),
+                            )
+                    }
+                }
+                audioVolumeInteractor.setAppMuted(packageName, isMuted)
             }
             .launchIn(coroutineScope)
 
-        audioVolumeInteractor.getAppVolume(packageName)
+        audioVolumeInteractor
+            .getAppVolume(packageName)
             .filterNotNull()
-            .onEach {
-                withContext(uiBackgroundContext) {
-                    slider.value = State(
-                        value = if (it.isMuted) 0f else it.volume,
-                        isMuted = it.isMuted,
-                        icon = appIcon,
-                        label = appLabel,
-                    )
+            .onEach { appVolume ->
+                val remoteState =
+                    withContext(uiBackgroundContext) {
+                        if (appIcon.value == null) {
+                            appIcon.value = resolveAppIcon()
+                        }
+                        remoteState(appVolume)
+                    }
+                synchronized(sliderLock) {
+                    if (isRequestInFlight(appVolume)) return@onEach
+                    clearCaughtUpRequests(appVolume)
+                    slider.value = remoteState
                 }
             }
             .launchIn(coroutineScope)
     }
 
     override fun onValueChanged(state: SliderState, newValue: Float) {
-        volumeChanges.tryEmit(newValue)
-        if (newValue > 0f && (state as? State)?.isMuted == true) {
-            muteChanges.tryEmit(false)
+        synchronized(sliderLock) {
+            volumeChanges.tryEmit(newValue)
+            if (newValue > 0f && (state as? State)?.isMuted == true) {
+                muteChanges.tryEmit(false)
+            }
         }
     }
 
@@ -99,11 +136,56 @@ constructor(
 
     override fun toggleMuted(state: SliderState) {
         val appState = state as? State ?: return
-        muteChanges.tryEmit(!appState.isMuted)
+        synchronized(sliderLock) { muteChanges.tryEmit(!appState.isMuted) }
     }
 
     override fun getSliderHapticsViewModelFactory(): SliderHapticsViewModel.Factory? =
         if (slider.value != SliderState.Empty) hapticsViewModelFactory else null
+
+    /**
+     * A poll can still be carrying the volume from before this drag. Keep the thumb where the user
+     * put it until [AppVolume] reports that value, then accept later changes again.
+     */
+    private fun isRequestInFlight(appVolume: AppVolume): Boolean {
+        val requestedVolume = volumeChanges.value
+        val requestedMute = muteChanges.value
+        if (requestedVolume != null && !volumesMatch(requestedVolume, appVolume.volume)) {
+            return true
+        }
+        return requestedMute != null && requestedMute != appVolume.isMuted
+    }
+
+    private fun clearCaughtUpRequests(appVolume: AppVolume) {
+        val requestedVolume = volumeChanges.value
+        if (requestedVolume != null && volumesMatch(requestedVolume, appVolume.volume)) {
+            volumeChanges.value = null
+        }
+        val requestedMute = muteChanges.value
+        if (requestedMute != null && requestedMute == appVolume.isMuted) {
+            muteChanges.value = null
+        }
+    }
+
+    private fun volumesMatch(requested: Float, actual: Float): Boolean =
+        abs(requested - actual) < VOLUME_EPSILON
+
+    private fun remoteState(appVolume: AppVolume): State {
+        val value = if (appVolume.isMuted) 0f else appVolume.volume
+        return State(
+            value = value,
+            isMuted = appVolume.isMuted,
+            icon = trackIcon(appVolume.isMuted, value),
+            label = appLabel,
+            a11yStateDescription = describe(value, appVolume.isMuted),
+        )
+    }
+
+    private fun describe(value: Float, isMuted: Boolean): String =
+        if (isMuted) {
+            context.getString(R.string.volume_panel_hint_muted)
+        } else {
+            context.getString(R.string.app_volume_percent, (value * 100).roundToInt())
+        }
 
     private fun resolveAppLabel(): String =
         runCatching {
@@ -117,15 +199,23 @@ constructor(
     private fun resolveAppIcon(): Icon.Loaded =
         runCatching { context.packageManager.getApplicationIcon(packageName) }
             .getOrElse { context.packageManager.getDefaultActivityIcon() }
-            .asIcon(
-                contentDescription = ContentDescription.Loaded(appLabel),
-                isBitmapImage = true
-            )
+            .asIcon(isBitmapImage = true)
+
+    private fun trackIcon(isMuted: Boolean, value: Float): Icon.Loaded =
+        if (isMuted || value == 0f) volumeOffIcon else volumeOnIcon
+
+    private fun loadTrackIcon(resId: Int): Icon.Loaded =
+        Icon.Loaded(
+            drawable = requireNotNull(context.getDrawable(resId)),
+            contentDescription = null,
+            resId = resId,
+        )
 
     private data class State(
         override val value: Float,
         override val icon: Icon.Loaded?,
         override val label: String,
+        override val a11yStateDescription: String,
         val isMuted: Boolean,
     ) : SliderState {
         override val valueRange: ClosedFloatingPointRange<Float> = 0f..1f
@@ -136,11 +226,14 @@ constructor(
         override val isMutable: Boolean = true
         override val a11yContentDescription: String = label
         override val a11yClickDescription: String? = null
-        override val a11yStateDescription: String? = null
     }
 
     @AssistedFactory
     interface Factory {
         fun create(packageName: String, coroutineScope: CoroutineScope): AppVolumeSliderViewModel
+    }
+
+    private companion object {
+        const val VOLUME_EPSILON = 0.001f
     }
 }

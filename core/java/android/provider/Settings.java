@@ -23921,6 +23921,20 @@ public final class Settings {
             if (DeviceConfigUtils.shouldDenyDeviceConfigControl(namespace, name)) {
                 return true;
             }
+            return putStringOverride(namespace, name, value, makeDefault);
+        }
+
+        /**
+         * Write a ROM device-config override.
+         * <p>
+         * {@link #putString} refuses flags listed in {@code global_device_configs_override} so
+         * Play services cannot change them. Boot and post-sync restore must use this method,
+         * or those flags are never written and stay at the unset server default.
+         *
+         * @hide
+         */
+        public static boolean putStringOverride(@NonNull String namespace,
+                @NonNull String name, @Nullable String value, boolean makeDefault) {
             ContentResolver resolver = getContentResolver();
             return sNameValueCache.putStringForUser(resolver, createCompositeName(namespace, name),
                     value, null, makeDefault, resolver.getUserId(),

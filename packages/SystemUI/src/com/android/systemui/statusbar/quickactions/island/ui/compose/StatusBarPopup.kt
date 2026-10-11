@@ -19,6 +19,8 @@ package com.android.systemui.statusbar.quickactions.island.ui.compose
 import android.graphics.drawable.BitmapDrawable
 import android.view.View
 import android.view.ViewTreeObserver
+import android.view.WindowManager
+import android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
@@ -56,8 +58,12 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import com.android.systemui.axdynamicbar.model.IslandEvent
 import com.android.systemui.axdynamicbar.shared.IslandActions
@@ -85,8 +91,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
 /**
- * Displays a popup in the status bar area. The offset is calculated to draw the popup below the
- * status bar.
+ * Expanded card for the status-bar island. It grows from the pill's top edge, over the status
+ * bar, instead of dropping in below it. Content inside the card is inset past the front camera.
  */
 @Composable
 fun StatusBarPopup(
@@ -97,22 +103,94 @@ fun StatusBarPopup(
 ) {
     val context = LocalContext.current
     val density = Density(context)
+    val anchorView = LocalView.current
+    val statusBarHeightPx =
+        with(density) { dimensionResource(R.dimen.status_bar_height).roundToPx() }
+    val edgePaddingPx = with(density) { PopupEdgePadding.roundToPx() }
+    val chipBounds = chipBoundsInScreen
+    val popupTopPx = chipBounds?.top?.toInt()
+    val chipCenterX = chipBounds?.center?.x
+    val cameraBottomPx =
+        (anchorView.rootWindowInsets?.displayCutout ?: anchorView.display?.cutout)
+            ?.topBoundingRectOrNull()
+            ?.bottom
+    // Distance from the pill's top to the bottom of the camera hole. The card background fills
+    // that region; the controls start below it.
+    val cameraClearance =
+        if (popupTopPx != null && cameraBottomPx != null) {
+            with(density) { (cameraBottomPx - popupTopPx).coerceAtLeast(0).toDp() }
+        } else {
+            0.dp
+        }
+    val positionProvider =
+        remember(popupTopPx, chipCenterX, statusBarHeightPx, edgePaddingPx) {
+            object : PopupPositionProvider {
+                override fun calculatePosition(
+                    anchorBounds: IntRect,
+                    windowSize: IntSize,
+                    layoutDirection: LayoutDirection,
+                    popupContentSize: IntSize,
+                ): IntOffset {
+                    val centerX = chipCenterX
+                    val x =
+                        if (centerX != null) {
+                            (centerX - popupContentSize.width / 2f).toInt()
+                        } else {
+                            anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2
+                        }
+                    val y =
+                        if (popupTopPx != null) {
+                            popupTopPx - edgePaddingPx
+                        } else {
+                            anchorBounds.top + statusBarHeightPx
+                        }
+                    return IntOffset(x, y.coerceAtLeast(0))
+                }
+            }
+        }
     Popup(
-        alignment = Alignment.TopCenter,
+        popupPositionProvider = positionProvider,
         properties =
             PopupProperties(
                 focusable = true,
                 dismissOnBackPress = true,
                 dismissOnClickOutside = true,
             ),
-        offset =
-            IntOffset(
-                x = 0,
-                y = with(density) { dimensionResource(R.dimen.status_bar_height).roundToPx() },
-            ),
         onDismissRequest = { viewModel.hidePopup() },
     ) {
         val popupView = LocalView.current
+        DisposableEffect(popupView) {
+            // The popup window otherwise avoids the status bar and the camera cutout, which
+            // pushes the card back down below the pill.
+            fun applyWindowLayout() {
+                val root = popupView.rootView
+                val lp = root.layoutParams as? WindowManager.LayoutParams ?: return
+                var changed = false
+                if (lp.layoutInDisplayCutoutMode != LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS) {
+                    lp.layoutInDisplayCutoutMode = LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                    changed = true
+                }
+                if (lp.fitInsetsTypes != 0) {
+                    lp.setFitInsetsTypes(0)
+                    changed = true
+                }
+                if (!changed || !root.isAttachedToWindow) return
+                root.context
+                    .getSystemService(WindowManager::class.java)
+                    ?.updateViewLayout(root, lp)
+            }
+            applyWindowLayout()
+            val listener =
+                object : View.OnAttachStateChangeListener {
+                    override fun onViewAttachedToWindow(v: View) {
+                        applyWindowLayout()
+                    }
+
+                    override fun onViewDetachedFromWindow(v: View) = Unit
+                }
+            popupView.addOnAttachStateChangeListener(listener)
+            onDispose { popupView.removeOnAttachStateChangeListener(listener) }
+        }
         var mediaColor by remember { mutableIntStateOf(0) }
         val mediaSessionManager = islandActions.mediaSessionManager
         DisposableEffect(viewModel.popupContent, mediaSessionManager) {
@@ -169,14 +247,12 @@ fun StatusBarPopup(
         val scaleX = remember { Animatable(initialScaleFromChip.x) }
         val scaleY = remember { Animatable(initialScaleFromChip.y) }
         val alpha = remember { Animatable(0f) }
-        val translationY = remember { Animatable(-24f) }
 
         LaunchedEffect(isVisible, popupBoundsInScreen != null) {
             if (isVisible && popupBoundsInScreen != null) {
                 scaleX.snapTo(initialScaleFromChip.x)
                 scaleY.snapTo(initialScaleFromChip.y)
                 alpha.snapTo(0f)
-                translationY.snapTo(-24f)
                 coroutineScope {
                     launch {
                         scaleX.animateTo(
@@ -190,16 +266,6 @@ fun StatusBarPopup(
                             targetValue = 1f,
                             animationSpec =
                                 spring(dampingRatio = 0.65f, stiffness = Spring.StiffnessLow),
-                        )
-                    }
-                    launch {
-                        translationY.animateTo(
-                            targetValue = 0f,
-                            animationSpec =
-                                spring(
-                                    dampingRatio = 0.7f,
-                                    stiffness = Spring.StiffnessMediumLow,
-                                ),
                         )
                     }
                     launch { alpha.animateTo(1f, animationSpec = tween(180)) }
@@ -224,12 +290,6 @@ fun StatusBarPopup(
                                     dampingRatio = 0.8f,
                                     stiffness = Spring.StiffnessMediumLow,
                                 ),
-                        )
-                    }
-                    launch {
-                        translationY.animateTo(
-                            -16f,
-                            animationSpec = spring(stiffness = Spring.StiffnessMedium),
                         )
                     }
                     launch { alpha.animateTo(0f, animationSpec = tween(160)) }
@@ -323,7 +383,7 @@ fun StatusBarPopup(
         ) {
             Box(
                 modifier =
-                    Modifier.padding(8.dp)
+                    Modifier.padding(PopupEdgePadding)
                         .wrapContentSize()
                         .onGloballyPositioned { coordinates ->
                             popupBoundsInScreen = coordinates.boundsInScreen(popupView)
@@ -332,7 +392,6 @@ fun StatusBarPopup(
                             this.scaleX = scaleX.value
                             this.scaleY = scaleY.value
                             this.alpha = alpha.value
-                            this.translationY = translationY.value
                             this.transformOrigin = transformOrigin
                         }
             ) {
@@ -377,7 +436,11 @@ fun StatusBarPopup(
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 Box(modifier = Modifier.widthIn(min = 320.dp, max = 400.dp)) {
-                                    MediaCard(event = eventMedia, interactor = popupActions)
+                                    MediaCard(
+                                        event = eventMedia,
+                                        interactor = popupActions,
+                                        contentTopInset = cameraClearance,
+                                    )
                                 }
                                 AccordMediaSurface(
                                     event = eventMedia,
@@ -389,11 +452,19 @@ fun StatusBarPopup(
                             }
                         } else {
                             Box(modifier = Modifier.widthIn(min = 320.dp, max = 400.dp)) {
-                                MediaCard(event = eventMedia, interactor = popupActions)
+                                MediaCard(
+                                    event = eventMedia,
+                                    interactor = popupActions,
+                                    contentTopInset = cameraClearance,
+                                )
                             }
                         }
                     }
-                    is PopupContentModel.ScreenRecord -> ScreenRecordPopup(model = popupContent.model)
+                    is PopupContentModel.ScreenRecord ->
+                        ScreenRecordPopup(
+                            model = popupContent.model,
+                            contentTopInset = cameraClearance,
+                        )
                     is PopupContentModel.LiveScore -> {
                         val model = popupContent.model
                         val eventSports =
@@ -418,7 +489,7 @@ fun StatusBarPopup(
                                 )
                             }
                         Box(modifier = Modifier.widthIn(min = 280.dp, max = 340.dp)) {
-                            PrimaryCard {
+                            PrimaryCard(contentTopInset = cameraClearance) {
                                 SportsExpanded(event = eventSports, interactor = popupActions)
                             }
                         }
@@ -430,7 +501,7 @@ fun StatusBarPopup(
                                 IslandEvent.Torch(level = model.levelPercent ?: -1, maxLevel = 100)
                             }
                         Box(modifier = Modifier.widthIn(min = 280.dp, max = 340.dp)) {
-                            PrimaryCard {
+                            PrimaryCard(contentTopInset = cameraClearance) {
                                 TorchExpanded(
                                     event = eventTorch,
                                     interactor = popupActions,
@@ -439,11 +510,16 @@ fun StatusBarPopup(
                             }
                         }
                     }
-                    is PopupContentModel.Stopwatch -> StopwatchPopup(model = popupContent.model)
-                    is PopupContentModel.Alarm -> AlarmPopup(model = popupContent.model)
+                    is PopupContentModel.Stopwatch ->
+                        StopwatchPopup(
+                            model = popupContent.model,
+                            contentTopInset = cameraClearance,
+                        )
+                    is PopupContentModel.Alarm ->
+                        AlarmPopup(model = popupContent.model, contentTopInset = cameraClearance)
                     is PopupContentModel.PromotedOngoing -> {
                         Box(modifier = Modifier.widthIn(min = 320.dp, max = 400.dp)) {
-                            PrimaryCard {
+                            PrimaryCard(contentTopInset = cameraClearance) {
                                 PromotedOngoingExpanded(
                                     event = popupContent.event,
                                     interactor = popupActions,
@@ -453,7 +529,7 @@ fun StatusBarPopup(
                     }
                     is PopupContentModel.OngoingCall -> {
                         Box(modifier = Modifier.widthIn(min = 320.dp, max = 400.dp)) {
-                            PrimaryCard {
+                            PrimaryCard(contentTopInset = cameraClearance) {
                                 CallExpanded(event = popupContent.event, interactor = popupActions)
                             }
                         }
@@ -491,6 +567,8 @@ internal fun LayoutCoordinates.boundsInScreen(view: View): Rect {
     view.getLocationOnScreen(location)
     return boundsInRoot().translate(Offset(location[0].toFloat(), location[1].toFloat()))
 }
+
+private val PopupEdgePadding = 8.dp
 
 private fun unsupportedHapticsFactory(): SliderHapticsViewModel.Factory {
     return object : SliderHapticsViewModel.Factory {

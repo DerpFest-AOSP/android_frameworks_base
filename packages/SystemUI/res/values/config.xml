@@ -463,7 +463,10 @@
 
     <!-- Whether or not a view containing child notifications will have a custom background when
          it has been expanded to reveal its children. -->
-    <bool name="config_showGroupNotificationBgWhenExpanded">false</bool>
+    <!-- Keep the summary background when a group is expanded so the stack stays
+         one rounded card. Per-child cards leave a square header bottom and gaps
+         after a notification is swiped away. -->
+    <bool name="config_showGroupNotificationBgWhenExpanded">true</bool>
 
     <!-- Should we vibrate on an icon animation of the shelf. This should only be active if the
      vibrator is capable of subtle vibrations -->

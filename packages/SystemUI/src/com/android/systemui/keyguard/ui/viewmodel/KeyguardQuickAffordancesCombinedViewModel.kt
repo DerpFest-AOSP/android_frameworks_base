@@ -328,7 +328,7 @@ constructor(
                     useLongPress = useLongPress,
                     isDimmed = isDimmed,
                     slotId = slotId,
-                    singleTap = useSingleTap(),
+                    singleTap = useSingleTap() && configKey != "now_playing",
                 )
             is KeyguardQuickAffordanceModel.Hidden ->
                 KeyguardQuickAffordanceViewModel(slotId = slotId)

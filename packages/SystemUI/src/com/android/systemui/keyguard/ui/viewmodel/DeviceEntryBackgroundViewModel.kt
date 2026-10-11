@@ -150,6 +150,20 @@ constructor(
                             )
                         )
                     }
+                    .let { alpha ->
+                        if (SceneContainerFlag.isEnabled) {
+                            combine(alpha, sceneInteractor.get().currentScene) { a, scene ->
+                                if (scene == Scenes.Gone) 0f else a
+                            }
+                        } else {
+                            combine(
+                                alpha,
+                                keyguardTransitionInteractor.currentKeyguardState,
+                            ) { a, state ->
+                                if (state == KeyguardState.GONE) 0f else a
+                            }
+                        }
+                    }
             } else {
                 flowOf(0f)
             }

@@ -263,7 +263,7 @@ fun AxDynamicBarKeyguardChip(
                 val actualMediaEnabled = isLockscreenMediaEnabled && !isDozing
                 val chipBody: @Composable () -> Unit = {
                     if (displayEvent is IslandEvent.Media && !actualMediaEnabled) {
-                        Spacer(modifier = Modifier.height(ChipHeight))
+                        Box(Modifier)
                     } else {
                         AnimatedContent(
                             targetState = displayEvent,
@@ -873,10 +873,7 @@ private fun KeyguardPrimaryText(event: IslandEvent, color: Color, modifier: Modi
             )
         }
         is IslandEvent.Alarm -> MarqueeText(event.label.ifEmpty { stringResource(R.string.ax_dynamic_bar_alarm) }, color, modifier)
-        is IslandEvent.Call -> {
-            if (event.callStartTimeMs > 0) PillEventText(event, modifier, overrideColor = color)
-            else MarqueeText(event.callType ?: stringResource(R.string.ax_dynamic_bar_call), color, modifier)
-        }
+        is IslandEvent.Call -> PillEventText(event, modifier, overrideColor = color)
         is IslandEvent.Torch -> MarqueeText(
             if (event.supportsLevel) "${(event.level.toFloat() / event.maxLevel * 100).toInt()}%"
             else stringResource(R.string.ax_dynamic_bar_flashlight),

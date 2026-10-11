@@ -59,6 +59,10 @@ import kotlin.math.min
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DisposableHandle
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -91,9 +95,18 @@ object DeviceEntryIconViewBinder {
         msdlPlayer: MSDLPlayer,
         overrideColor: Color? = null,
     ): DisposableHandle {
+        val disposables = DisposableHandles()
+
         val packageInstalled = derpUtils.isPackageInstalled(
             view.context, "org.derpfest.udfps.icons"
         )
+
+        val tunerScope =
+            CoroutineScope(
+                applicationScope.coroutineContext +
+                    SupervisorJob(applicationScope.coroutineContext[Job])
+            )
+        disposables += DisposableHandle { tunerScope.cancel() }
 
         val shouldUseCustomUdfpsIcon: StateFlow<Boolean> = callbackFlow {
             fun readValue(): Boolean =
@@ -118,12 +131,11 @@ object DeviceEntryIconViewBinder {
             trySend(readValue())
             awaitClose { view.context.contentResolver.unregisterContentObserver(observer) }
         }.stateIn(
-            scope = applicationScope,
+            scope = tunerScope,
             started = SharingStarted.Eagerly,
             initialValue = false
         )
 
-        val disposables = DisposableHandles()
         val touchHandlingView = view.touchHandlingView
         val fgIconView = view.iconView
         val bgView = view.bgView
@@ -164,7 +176,7 @@ object DeviceEntryIconViewBinder {
                 if (height <= 0 || width <= 0) {
                     return@OnLayoutChangeListener
                 }
-                if (height == oldBottom - oldTop && width == oldLeft - oldRight) {
+                if (height == oldBottom - oldTop && width == oldRight - oldLeft) {
                     return@OnLayoutChangeListener
                 }
                 v?.background?.let {
@@ -361,17 +373,26 @@ object DeviceEntryIconViewBinder {
                                 setVisible(false, false)
                             }
                         bgView.addOnLayoutChangeListener(layoutChangeListener)
-                        // The blur region only knows the drawable's own alpha: follow the alpha
-                        // the icon is really drawn with (keyguard root fade on unlock, shade
-                        // drag) so the blur does not outlive the icon.
-                        val blurAlphaSync =
-                            BackgroundBlurAlphaSync(bgView) {
-                                    bgView.background as? BackgroundBlurDrawable
-                                }
-                                .start()
                         bgView.doOnDetach {
                             bgView.removeOnLayoutChangeListener(layoutChangeListener)
-                            blurAlphaSync.dispose()
+                        }
+
+                        // The blur region only knows the drawable's own alpha: follow the alpha
+                        // (and visibility) the background is really drawn with - keyguard root
+                        // fade on unlock, shade drag, bgViewModel alpha, custom UDFPS icon hiding
+                        // the background - so the blur never outlives the view. This is the only
+                        // writer of the blur drawable's alpha.
+                        launch("$TAG#blurAlphaSync") {
+                            val blurAlphaSync =
+                                BackgroundBlurAlphaSync(bgView) {
+                                        bgView.background as? BackgroundBlurDrawable
+                                    }
+                                    .start()
+                            try {
+                                awaitCancellation()
+                            } finally {
+                                blurAlphaSync.dispose()
+                            }
                         }
 
                         launch("$TAG#windowRootViewBlurInteractor.isBlurCurrentlySupported") {
@@ -384,10 +405,9 @@ object DeviceEntryIconViewBinder {
 
                     launch("$TAG#bgViewModel.alpha") {
                         bgViewModel.alpha.collect { alpha ->
+                            // With lockscreen blur, BackgroundBlurAlphaSync folds this into the
+                            // blur drawable on the next frame.
                             bgView.alpha = alpha
-                            if (enableLockscreenBlur()) {
-                                bgView.background?.alpha = (255 * alpha).toInt()
-                            }
                         }
                     }
                     launch("$TAG#bgViewModel.color") {

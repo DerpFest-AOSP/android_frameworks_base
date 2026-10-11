@@ -228,7 +228,14 @@
 
     <!-- Per-app volume panel -->
     <string name="app_volume">App volume</string>
+    <string name="app_volume_subtitle_idle">Adjust volume for each app playing audio</string>
+    <plurals name="app_volume_subtitle_active">
+        <item quantity="one"><xliff:g id="count" example="1">%d</xliff:g> app playing audio</item>
+        <item quantity="other"><xliff:g id="count" example="3">%d</xliff:g> apps playing audio</item>
+    </plurals>
     <string name="app_volume_no_active_apps">No active audio playback</string>
+    <!-- Accessibility state description of an app volume slider [CHAR LIMIT=NONE] -->
+    <string name="app_volume_percent"><xliff:g id="percent" example="50">%d</xliff:g> percent</string>
 
     <!-- VPN tethering QS tile -->
     <string name="vpn_tethering_label">VPN tethering</string>

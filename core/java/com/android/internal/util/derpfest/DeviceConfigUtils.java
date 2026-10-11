@@ -61,26 +61,31 @@ public class DeviceConfigUtils {
     public static void setDefaultProperties(String filterNamespace, String filterProperty) {
         if (DEBUG) Log.d(TAG, "setDefaultProperties");
         for (String p : getDeviceConfigsOverride()) {
-            String[] kv = p.split("=");
-            String fullKey = kv[0];
-            String[] nsKey = fullKey.split("/");
+            int eq = p.indexOf('=');
+            if (eq <= 0) {
+                continue;
+            }
+            String fullKey = p.substring(0, eq);
+            String value = p.substring(eq + 1);
+            String[] nsKey = fullKey.split("/", 2);
+            if (nsKey.length < 2) {
+                continue;
+            }
 
             String namespace = nsKey[0];
             String key = nsKey[1];
 
-            if (filterNamespace != null && filterNamespace.equals(namespace)){
+            if (filterNamespace != null && !filterNamespace.equals(namespace)) {
                 continue;
             }
 
-            if (filterProperty != null && filterProperty.equals(key)){
+            if (filterProperty != null && !filterProperty.equals(key)) {
                 continue;
             }
 
-            String value = "";
-            if (kv.length > 1) {
-                value = kv[1];
+            if (!Settings.Config.putStringOverride(namespace, key, value, false)) {
+                Log.w(TAG, "Failed to apply device config override " + fullKey);
             }
-            Settings.Config.putString(namespace, key, value, false);
         }
     }
 }
