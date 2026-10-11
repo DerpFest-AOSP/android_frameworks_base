@@ -173,11 +173,14 @@ constructor(
                         .maxOrNull()
                         ?.toInt() ?: -1
                 val ambientMarginPx = with(LocalDensity.current) { 8.dp.roundToPx() }
+                val ambientIconGapPx = with(LocalDensity.current) { 24.dp.roundToPx() }
                 with(scopeFactory.create(contentScope, innerContext)) {
                     LockscreenSceneLayout(
                         contentBottomPx = contentBottom,
                         expandedAmbient = expandedAmbient,
                         ambientMarginPx = ambientMarginPx,
+                        pinAboveIcon = smallClockBottom > 0f,
+                        ambientIconGapPx = ambientIconGapPx,
                     )
                 }
             }
@@ -262,6 +265,8 @@ private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
     contentBottomPx: Int,
     expandedAmbient: Boolean,
     ambientMarginPx: Int,
+    pinAboveIcon: Boolean,
+    ambientIconGapPx: Int,
     modifier: Modifier = Modifier,
 ) {
     Layout(
@@ -357,6 +362,8 @@ private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
                         obstacle = lockIconBounds,
                         cardHeight = ambientIndicationPlaceable.measuredHeight,
                         margin = ambientMarginPx,
+                        pinAboveIcon = pinAboveIcon,
+                        iconGap = ambientIconGapPx,
                     )
                 }
             if (ambientTop != null) {
@@ -386,8 +393,11 @@ private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
 }
 
 /**
- * Y of a card centered between the lock icon and the shortcuts when that gap can hold it. When it
- * cannot, centers the card in the gap above the icon. Returns null when neither gap fits.
+ * Y of a card centered between the lock icon and the shortcuts when that gap can hold it.
+ *
+ * When it cannot, a large clock still centers the card between the clock cluster and the icon. A
+ * small clock pins the card [iconGap] above the icon instead, so it does not float in the middle
+ * of the tall gap. Returns null when the card would cover other content.
  */
 private fun ambientSlotTop(
     contentBottom: Int,
@@ -395,6 +405,8 @@ private fun ambientSlotTop(
     obstacle: IntRect,
     cardHeight: Int,
     margin: Int,
+    pinAboveIcon: Boolean,
+    iconGap: Int,
 ): Int? {
     if (contentBottom <= 0 || cardHeight <= 0) return null
     val needed = cardHeight + margin * 2
@@ -403,6 +415,10 @@ private fun ambientSlotTop(
         return belowTop + (shortcutsTop - belowTop - cardHeight) / 2
     }
     val aboveBottom = min(obstacle.top, shortcutsTop)
+    if (pinAboveIcon) {
+        val cardTop = aboveBottom - iconGap - cardHeight
+        return if (cardTop >= contentBottom + margin) cardTop else null
+    }
     if (aboveBottom - contentBottom >= needed) {
         return contentBottom + (aboveBottom - contentBottom - cardHeight) / 2
     }
