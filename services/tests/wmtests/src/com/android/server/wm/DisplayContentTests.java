@@ -145,6 +145,7 @@ import android.view.IDisplayChangeWindowCallback;
 import android.view.IDisplayChangeWindowController;
 import android.view.ISystemGestureExclusionListener;
 import android.view.IWindowManager;
+import android.view.InsetsSource;
 import android.view.InsetsState;
 import android.view.Surface;
 import android.view.SurfaceControl;
@@ -1684,7 +1685,7 @@ public class DisplayContentTests extends WindowTestsBase {
     }
 
     @Test
-    public void testCalculateSystemGestureExclusion_imeExcludesTouchableRegion() {
+    public void testCalculateSystemGestureExclusion_imeExcludesEdgeBackStripsOnly() {
         final DisplayContent dc = createNewDisplay();
         final var imeWin = newWindowBuilder("imeWin", TYPE_INPUT_METHOD).setDisplay(dc).build();
         imeWin.mAttrs.flags |= FLAG_LAYOUT_IN_SCREEN | FLAG_LAYOUT_INSET_DECOR;
@@ -1694,9 +1695,34 @@ public class DisplayContentTests extends WindowTestsBase {
         performLayout(dc);
         imeWin.setHasSurface(true);
 
+        final int edge = 40;
+        final Rect bounds = dc.getBounds();
+        final Object owner = new Object();
+        final InsetsState state = dc.getInsetsStateController().getRawInsetsState();
+        state.getOrCreateSource(InsetsSource.createId(owner, 0, WindowInsets.Type.systemGestures()),
+                        WindowInsets.Type.systemGestures())
+                .setFrame(bounds.left, bounds.top, bounds.left + edge, bounds.bottom)
+                .setVisible(true);
+        state.getOrCreateSource(InsetsSource.createId(owner, 1, WindowInsets.Type.systemGestures()),
+                        WindowInsets.Type.systemGestures())
+                .setFrame(bounds.right - edge, bounds.top, bounds.right, bounds.bottom)
+                .setVisible(true);
+
+        final Region touchable = Region.obtain();
+        imeWin.getEffectiveTouchableRegion(touchable);
         final Region expected = Region.obtain();
-        imeWin.getEffectiveTouchableRegion(expected);
-        assertEquals(expected, calculateSystemGestureExclusion(dc));
+        expected.set(touchable);
+        final Region edges = Region.obtain();
+        edges.set(bounds.left, bounds.top, bounds.left + edge, bounds.bottom);
+        edges.op(new Rect(bounds.right - edge, bounds.top, bounds.right, bounds.bottom),
+                Region.Op.UNION);
+        expected.op(edges, Region.Op.INTERSECT);
+
+        final Region actual = calculateSystemGestureExclusion(dc);
+        assertEquals(expected, actual);
+        final Rect touchableBounds = touchable.getBounds();
+        assertFalse(actual.contains(touchableBounds.centerX(), touchableBounds.centerY()));
+        assertTrue(actual.contains(touchableBounds.left + edge / 2, touchableBounds.centerY()));
 
         imeWin.setHasSurface(false);
     }
