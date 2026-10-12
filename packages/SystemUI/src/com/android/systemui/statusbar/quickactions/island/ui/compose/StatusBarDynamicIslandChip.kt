@@ -441,7 +441,7 @@ fun rememberDynamicIslandCutoutSpec(): DynamicIslandCutoutSpec {
  * match their cutout (phone2 reports 454-540 for a camera drawn at 511-569), and the island has
  * to sit on the camera itself.
  */
-internal fun DisplayCutout.topBoundingRectOrNull(): Rect? {
+private fun DisplayCutout.topBoundingRectOrNull(): Rect? {
     val top = getBoundingRectTop().takeUnless { it.isEmpty } ?: return null
     val path = cutoutPath ?: return top
     val bounds = RectF()

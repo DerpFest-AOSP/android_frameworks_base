@@ -36,7 +36,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import com.android.systemui.res.R
@@ -50,7 +49,6 @@ private val PopupShape = RoundedCornerShape(32.dp)
 fun ScreenRecordPopup(
     model: ScreenRecordPopupModel,
     modifier: Modifier = Modifier,
-    contentTopInset: Dp = 0.dp,
 ) {
     val accent = Color(0xFFFF5A5F)
     Surface(
@@ -61,10 +59,7 @@ fun ScreenRecordPopup(
         modifier = modifier.widthIn(min = 280.dp, max = 360.dp),
     ) {
         Column(
-            modifier =
-                Modifier.fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .padding(top = 18.dp + contentTopInset, bottom = 18.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 18.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Row(
