@@ -62,7 +62,7 @@ constructor(
                 ) { isDeviceUnlocked, isCommunalAvailable, shadeMode ->
                     buildList {
                             if (isCommunalAvailable) {
-                                add(Swipe.End to Scenes.Communal)
+                                add(Swipe.Start to Scenes.Communal)
                             }
 
                             if (isDeviceUnlocked) {
