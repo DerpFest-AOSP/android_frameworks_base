@@ -342,8 +342,10 @@ constructor(
                             if (shadeMode is Single) {
                                 marginHorizontal to marginHorizontal
                             } else if (shadeMode is Split) {
-                                // Notifications are the end column. A camera on the start edge is
-                                // cleared by the QS column, so only an end-side cutout belongs here.
+                                // Notifications are the end column. Match the split-shade scrim:
+                                // only the camera inset on this edge. defaultVisible also includes
+                                // the back-gesture inset, which stays on the right in both
+                                // landscape rotations and leaves an empty strip beside the cards.
                                 val display = context.display
                                 val (cutoutLeft, cutoutRight) =
                                     LandscapeSplitShadeCutout.horizontalInsets(
@@ -356,11 +358,7 @@ constructor(
                                             ),
                                     )
                                 val cutoutEnd = if (isRtl) cutoutLeft else cutoutRight
-                                val rawCutout = getInsetsOf(context, displayCutout())
-                                val rawCutoutEnd = if (isRtl) rawCutout.left else rawCutout.right
-                                val nonCutoutEnd = (insetEnd - rawCutoutEnd).coerceAtLeast(0)
-                                0 to
-                                    marginHorizontal.coerceAtLeast(maxOf(nonCutoutEnd, cutoutEnd))
+                                0 to marginHorizontal.coerceAtLeast(cutoutEnd)
                             } else {
                                 when (horizontalAlignment) {
                                     Alignment.Start ->
