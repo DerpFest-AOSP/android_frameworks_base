@@ -59,9 +59,9 @@ fun TransitionBuilder.verticalContainerReveal(
     useMechanics: Boolean = VerticalContainerRevealFlag.isEnabled,
 ) {
     // Make the swipe distance be exactly the target height of the container.
-    // TODO(b/376438969): Make sure that this works correctly when the target size of the element
-    // is changing during the transition (e.g. a notification was added). At the moment, the user
-    // action distance is only called until it returns a value > 0f, which is then cached.
+    // While the finger is down, SwipeAnimation keeps reading this as the target size changes
+    // (for example tiles replacing their placeholders). The distance is fixed once the finger
+    // lifts.
     distance = UserActionDistance { fromContent, toContent, _ ->
         val targetSizeInFromContent = container.targetSize(fromContent)
         val targetSizeInToContent = container.targetSize(toContent)

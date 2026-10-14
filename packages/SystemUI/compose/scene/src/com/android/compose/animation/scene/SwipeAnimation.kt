@@ -58,13 +58,15 @@ internal fun createSwipeAnimation(
     distance: Float = DistanceUnspecified,
 ): SwipeAnimation<*> {
     var lastDistance = distance
+    val distanceIsFixed = distance != DistanceUnspecified
     var gestureSpec =
         // For predictive-back, the distance is hard-coded to 1; Use the Identity gesture spec
         // initially, since the lastDistance initialization below is be skipped in this case.
         if (distance == DistanceUnspecified) MotionSpec.InitiallyUndefined else MotionSpec.Identity
 
     fun distance(animation: SwipeAnimation<*>): Float {
-        if (lastDistance != DistanceUnspecified) {
+        val refreshDuringDrag = !distanceIsFixed && animation.isUserInputOngoing
+        if (!refreshDuringDrag && lastDistance != DistanceUnspecified) {
             return lastDistance
         }
 
@@ -79,24 +81,36 @@ internal fun createSwipeAnimation(
             }
 
         if (absoluteDistance <= 0f) {
-            return DistanceUnspecified
+            return if (lastDistance != DistanceUnspecified) lastDistance else DistanceUnspecified
         }
 
+        if (
+            lastDistance != DistanceUnspecified &&
+                (absoluteDistance - lastDistance.absoluteValue).absoluteValue <= 1f
+        ) {
+            return lastDistance
+        }
+
+        val firstSample = lastDistance == DistanceUnspecified
         // Compute the signed distance and make sure that the offset is always coerced in the right
         // range.
-        val distance =
+        val signedDistance =
             if (isUpOrLeft) {
-                gestureContext.dragOffset =
-                    gestureContext.dragOffset.fastCoerceIn(-absoluteDistance, 0f)
+                val coerced = gestureContext.dragOffset.fastCoerceIn(-absoluteDistance, 0f)
+                if (coerced != gestureContext.dragOffset) {
+                    gestureContext.dragOffset = coerced
+                }
                 -absoluteDistance
             } else {
-                gestureContext.dragOffset =
-                    gestureContext.dragOffset.fastCoerceIn(0f, absoluteDistance)
+                val coerced = gestureContext.dragOffset.fastCoerceIn(0f, absoluteDistance)
+                if (coerced != gestureContext.dragOffset) {
+                    gestureContext.dragOffset = coerced
+                }
                 absoluteDistance
             }
-        lastDistance = distance
+        lastDistance = signedDistance
 
-        if (UserActionGestureFlag.isEnabled) {
+        if (firstSample && UserActionGestureFlag.isEnabled) {
             gestureSpec =
                 (userActionDistance as? UserActionGesture)?.run {
                     layoutImpl.userActionGestureScope.gestureSpec(
@@ -108,7 +122,7 @@ internal fun createSwipeAnimation(
                 } ?: MotionSpec.Identity
         }
 
-        return distance
+        return signedDistance
     }
 
     return createSwipeAnimation(

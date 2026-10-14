@@ -17,9 +17,16 @@
 package com.android.systemui.qs.panels.ui.compose
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import com.android.compose.animation.scene.ContentScope
 import com.android.systemui.qs.panels.ui.viewmodel.TileGridViewModel
+
+/**
+ * When true, the infinite grid keeps its final size on the first frame and composes real tiles
+ * over the following frames. A pull-down can move before the whole grid has been composed.
+ */
+val LocalDeferQsTileContent = staticCompositionLocalOf { false }
 
 /**
  * Displays a grid of tiles with an optional reveal animation.

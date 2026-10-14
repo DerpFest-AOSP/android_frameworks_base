@@ -35,6 +35,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -89,6 +90,7 @@ import com.android.systemui.qs.composefragment.ui.GridAnchor
 import com.android.systemui.qs.flags.QsDetailedView
 import com.android.systemui.qs.footer.ui.viewmodel.FooterActionsDataUsageViewModel
 import com.android.systemui.qs.panels.ui.compose.EditMode
+import com.android.systemui.qs.panels.ui.compose.LocalDeferQsTileContent
 import com.android.systemui.qs.panels.ui.compose.QsShadeComponentsColumn
 import com.android.systemui.qs.panels.ui.compose.TileDetails
 import com.android.systemui.qs.panels.ui.compose.TileGrid
@@ -471,11 +473,13 @@ private fun ContentScope.QuickSettingsLayout(
                 },
                 tiles = {
                     GridAnchor()
-                    TileGrid(
-                        viewModel = qsContainerViewModel.tileGridViewModel,
-                        modifier = Modifier.fillMaxWidth(),
-                        enableRevealEffect = TileRevealFlag.isEnabled,
-                    )
+                    CompositionLocalProvider(LocalDeferQsTileContent provides true) {
+                        TileGrid(
+                            viewModel = qsContainerViewModel.tileGridViewModel,
+                            modifier = Modifier.fillMaxWidth(),
+                            enableRevealEffect = TileRevealFlag.isEnabled,
+                        )
+                    }
                 },
                 media = {
                     if (qsContainerViewModel.showMedia) {

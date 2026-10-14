@@ -17,18 +17,24 @@
 package com.android.systemui.qs.panels.ui.compose.infinitegrid
 
 import android.media.AudioManager
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.toMutableStateList
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
@@ -54,6 +60,7 @@ import com.android.systemui.shade.domain.interactor.ShadeModeInteractor
 import com.android.systemui.shade.shared.model.ShadeMode
 import com.android.systemui.qs.panels.shared.model.SizedTileImpl
 import com.android.systemui.qs.panels.ui.compose.EditTileListState
+import com.android.systemui.qs.panels.ui.compose.LocalDeferQsTileContent
 import com.android.systemui.qs.panels.ui.compose.PaginatableGridLayout
 import com.android.systemui.qs.panels.ui.compose.TileListener
 import com.android.systemui.qs.panels.ui.compose.bounceableInfo
@@ -141,6 +148,28 @@ constructor(
         val bounceables =
             remember(sizedTiles) { List(sizedTiles.size) { BounceableTileViewModel() } }
         val spans by remember(sizedTiles) { derivedStateOf { sizedTiles.fastMap { it.width } } }
+        val deferTileContent = LocalDeferQsTileContent.current
+        var readyTileCount by remember {
+            mutableIntStateOf(if (deferTileContent) 0 else Int.MAX_VALUE)
+        }
+        if (deferTileContent) {
+            LaunchedEffect(sizedTiles.size) {
+                var shown = readyTileCount
+                while (shown < sizedTiles.size) {
+                    withFrameNanos {}
+                    shown = minOf(shown + TilesComposedPerFrame, sizedTiles.size)
+                    readyTileCount = shown
+                }
+            }
+        }
+        val placeholderHeight =
+            if (!deferTileContent) {
+                0.dp
+            } else if (classicStyle && !rememberQSTileLabelHide()) {
+                CommonTileDefaults.TileHeight + 8.dp
+            } else {
+                CommonTileDefaults.TileHeight
+            }
         VerticalSpannedGrid(
             columns = columns,
             columnSpacing = dimensionResource(R.dimen.qs_tile_margin_horizontal),
@@ -152,26 +181,30 @@ constructor(
             val it = sizedTiles[spanIndex]
 
             Element(it.tile.spec.toElementKey(), Modifier) {
-                Tile(
-                    tile = it.tile,
-                    iconOnly = classicStyle || iconTilesViewModel.isIconTile(it.tile.spec),
-                    squishiness = { squishiness },
-                    tileHapticsViewModelFactory = tileHapticsViewModelFactory,
-                    coroutineScope = scope,
-                    bounceableInfo =
-                        bounceables.bounceableInfo(
-                            it,
-                            index = spanIndex,
-                            column = column,
-                            columns = columns,
-                            isFirstInRow = isFirstInColumn,
-                            isLastInRow = isLastInColumn,
-                        ),
-                    detailsViewModel = detailsViewModel,
-                    isVisible = listening,
-                    requestToggleTextFeedback = textFeedbackViewModel::requestShowFeedback,
-                    enableRevealEffect = enableRevealEffect,
-                )
+                if (!deferTileContent || spanIndex < readyTileCount) {
+                    Tile(
+                        tile = it.tile,
+                        iconOnly = classicStyle || iconTilesViewModel.isIconTile(it.tile.spec),
+                        squishiness = { squishiness },
+                        tileHapticsViewModelFactory = tileHapticsViewModelFactory,
+                        coroutineScope = scope,
+                        bounceableInfo =
+                            bounceables.bounceableInfo(
+                                it,
+                                index = spanIndex,
+                                column = column,
+                                columns = columns,
+                                isFirstInRow = isFirstInColumn,
+                                isLastInRow = isLastInColumn,
+                            ),
+                        detailsViewModel = detailsViewModel,
+                        isVisible = listening,
+                        requestToggleTextFeedback = textFeedbackViewModel::requestShowFeedback,
+                        enableRevealEffect = enableRevealEffect,
+                    )
+                } else {
+                    Spacer(Modifier.fillMaxWidth().height(placeholderHeight))
+                }
             }
         }
 
@@ -351,3 +384,6 @@ constructor(
         }
     }
 }
+
+/** How many real tiles to compose on each frame while a pull-down is opening the grid. */
+private const val TilesComposedPerFrame = 4
