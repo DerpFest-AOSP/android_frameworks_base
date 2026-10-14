@@ -143,7 +143,7 @@ constructor(
 
     override val userActions: Flow<Map<UserAction, UserActionResult>> = actionsViewModel.actions
 
-    override val alwaysCompose: Boolean = false
+    override val alwaysCompose: Boolean = true
 
     override suspend fun activate(): Nothing {
         actionsViewModel.activate()
