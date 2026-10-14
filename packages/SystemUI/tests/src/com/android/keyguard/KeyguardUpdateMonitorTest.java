@@ -1170,6 +1170,24 @@ public class KeyguardUpdateMonitorTest extends SysuiTestCase {
     }
 
     @Test
+    public void opticalUdfpsDoesNotListenWhileGoingToSleep() {
+        when(mAuthController.isOpticalUdfpsSupported()).thenReturn(true);
+        mKeyguardUpdateMonitor.dispatchStartedWakingUp(PowerManager.WAKE_REASON_POWER_BUTTON);
+        mTestableLooper.processAllMessages();
+        keyguardIsVisible();
+
+        assertThat(mKeyguardUpdateMonitor.shouldListenForFingerprint(true)).isTrue();
+
+        mKeyguardUpdateMonitor.dispatchStartedGoingToSleep(0 /* why */);
+        mTestableLooper.processAllMessages();
+        assertThat(mKeyguardUpdateMonitor.shouldListenForFingerprint(true)).isFalse();
+
+        mKeyguardUpdateMonitor.dispatchFinishedGoingToSleep(0 /* why */);
+        mTestableLooper.processAllMessages();
+        assertThat(mKeyguardUpdateMonitor.shouldListenForFingerprint(true)).isTrue();
+    }
+
+    @Test
     @EnableFlags(FLAG_GLANCEABLE_HUB_V2)
     public void udfpsStopsListeningWhenCommunalShowing() {
         // GIVEN keyguard showing

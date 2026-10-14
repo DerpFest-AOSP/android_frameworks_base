@@ -207,11 +207,13 @@ class UdfpsControllerOverlayTest : SysuiTestCase() {
                 controllerOverlay.show(overlayParams)
                 runCurrent()
 
-                // THEN view isn't added yet
-                verify(windowManager, never()).addView(any(), any())
-
-                // we hide to end the job that listens for the finishedGoingToSleep signal
-                controllerOverlay.hide()
+                // Optical keyguard attaches as soon as the device is asleep, so the
+                // illumination surface exists before the HAL UI-ready timeout.
+                try {
+                    verify(windowManager).addView(any(), any())
+                } finally {
+                    controllerOverlay.hide()
+                }
             }
         }
 

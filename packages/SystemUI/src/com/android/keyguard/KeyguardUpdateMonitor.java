@@ -3191,6 +3191,9 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener, CoreSt
         boolean shouldListen = shouldListenKeyguardState && shouldListenUserState
                 && shouldListenBouncerState && shouldListenUdfpsState && !mBiometricPromptShowing
                 && shouldListenSecureLockDeviceState && shouldListenFpsState && !mIsDeviceInPocket;
+        if (shouldListen && isUdfps && mGoingToSleep && isOpticalUdfpsSupported()) {
+            shouldListen = false;
+        }
         logListenerModelData(
                 new KeyguardFingerprintListenModel(
                     System.currentTimeMillis(),
