@@ -70,11 +70,10 @@ class PulseViewController @Inject constructor(
         get() = settingsRepository.getPulseHapticsMode()
 
     var pulseRunning: Boolean = false
-        set(value) {
-            if (value == field) return
-            field = value
-            updatePulse(value)
-        }
+        private set
+
+    private var appliedShow: Boolean? = null
+    private var appliedKeepCapture: Boolean? = null
 
     init {
         INSTANCE = this
@@ -97,6 +96,7 @@ class PulseViewController @Inject constructor(
                 && isCollapsed
                 && ((keyguardShowing && !isDozing && !isScreenOff)
                 || (isDozing && ambientEnabled))
+        updatePulse(pulseRunning)
     }
 
     private fun onSettingsChanged() {
@@ -110,25 +110,28 @@ class PulseViewController @Inject constructor(
             mediaSessionManager.removeListener(this)
             listenersRegistered = false
             pulseRunning = false
-            mainScope.launch {
-                view.setVisibility(false)
-                audioProcessor.stopCapture()
-                bassHaptics.reset()
-            }
         }
         updateState()
-        // Force update so always-on haptics mode can keep capture running
-        updatePulse(pulseRunning)
+        // Re-apply even when show state is unchanged so always-on haptics can keep capture alive.
+        // Turning pulse off hides immediately; show and hide otherwise fade.
+        updatePulse(pulseRunning, animated = enabled)
     }
 
-    private fun updatePulse(show: Boolean) {
+    private fun updatePulse(show: Boolean, animated: Boolean = true) {
+        val keepCapture = pulseEnabled && (show || hapticsMode > 1)
+        if (show == appliedShow && keepCapture == appliedKeepCapture) return
+        appliedShow = show
+        appliedKeepCapture = keepCapture
+
         mainScope.launch {
-            view.setVisibility(show)
-            if (pulseEnabled && (show || hapticsMode > 1)) {
+            if (show || keepCapture) {
                 audioProcessor.startCapture()
-            } else {
-                audioProcessor.stopCapture()
-                bassHaptics.reset()
+            }
+            view.setShown(shown = show, animated = animated) {
+                if (appliedShow != true && appliedKeepCapture != true) {
+                    audioProcessor.stopCapture()
+                    bassHaptics.reset()
+                }
             }
         }
     }
@@ -137,7 +140,8 @@ class PulseViewController @Inject constructor(
         if (hapticsMode > 0) {
             bassHaptics.process(data.fftBytes)
         }
-        if (pulseRunning) {
+        // Keep feeding frames through fade-out. pulseRunning is already false by then.
+        if (view.isRendering) {
             mainScope.launch {
                 view.updateVisualizerData(data)
             }
@@ -191,7 +195,6 @@ class PulseViewController @Inject constructor(
     }
 
     override fun onScreenTurnedOff() {
-        pulseRunning = false
         isScreenOff = true
         updateState()
     }
@@ -209,6 +212,10 @@ class PulseViewController @Inject constructor(
 
     fun destroy() {
         pulseRunning = false
+        appliedShow = false
+        appliedKeepCapture = false
+        mainScope.cancel()
+        view.setShown(shown = false, animated = false)
         settingsRepository.stopObserving()
         if (listenersRegistered) {
             ScrimUtils.get().removeListener(this)
@@ -217,7 +224,6 @@ class PulseViewController @Inject constructor(
         }
         audioProcessor.cleanup()
         bassHaptics.reset()
-        mainScope.cancel()
         if (INSTANCE === this) {
             INSTANCE = null
         }
