@@ -237,19 +237,19 @@ fun AxDynamicBarChip(
 
                 val progress = chipProgressFor(event, includeMediaProgress = useCircleStyle)
 
-                if (useCircleStyle) {
-                    CircleChip(
-                        event = event,
-                        accent = fillColor,
-                        contentColor = contentColor,
-                        progress = progress,
-                        modifier = Modifier.squishAnimation(toggleCount),
-                    )
-                } else {
                 Box(
                     modifier = Modifier.fillMaxHeight(),
                     contentAlignment = Alignment.Center,
                 ) {
+                    if (useCircleStyle) {
+                        CircleChip(
+                            event = event,
+                            accent = fillColor,
+                            contentColor = contentColor,
+                            progress = progress,
+                            modifier = Modifier.squishAnimation(toggleCount),
+                        )
+                    } else {
                     Row(
                         modifier =
                             Modifier.height(ChipHeight)
