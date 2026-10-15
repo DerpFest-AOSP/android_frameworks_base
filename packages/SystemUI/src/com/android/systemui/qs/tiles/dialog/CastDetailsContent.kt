@@ -21,6 +21,7 @@ import android.database.DataSetObserver
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.text.Spanned
 import android.widget.LinearLayout
 import android.widget.ListAdapter
 import android.widget.ListView
@@ -181,51 +182,58 @@ fun CastControllerDisconnectButton(contentManager: MediaRouteControllerContentMa
 }
 
 private fun customizeView(listView: ListView) {
-    val context = listView.context
+    val adapter = listView.adapter ?: return
+    if (adapter is ContrastingRouteAdapter) {
+        return
+    }
+    // Style inside getView. A one-shot layout pass misses rows that are created later, and the
+    // route subtitle (textAppearanceSmall / textColorTertiary) stays too close to the row fill.
+    listView.adapter = ContrastingRouteAdapter(adapter)
+}
 
-    // This code will run after the ListView has had a chance to complete its layout.
-    listView.post {
-        val visibleChildCount = listView.childCount
-        val adapter = listView.adapter
-        val totalItemCount = adapter?.count ?: 0
-
-        if (adapter == null || totalItemCount == 0) {
-            return@post
-        }
-
-        for (i in 0 until visibleChildCount) {
-            val child = listView.getChildAt(i) as LinearLayout
-            val adapterPosition = listView.getPositionForView(child)
-            if (adapterPosition != ListView.INVALID_POSITION) {
-                val entry = child.getChildAt(0) as LinearLayout
-                entry.background =
-                    when {
-                        totalItemCount == 1 ->
-                            context.getDrawable(SystemUiR.drawable.settingslib_entry_bg_off)
-                        adapterPosition == 0 ->
-                            context.getDrawable(SystemUiR.drawable.settingslib_entry_bg_off_start)
-                        adapterPosition == totalItemCount - 1 ->
-                            context.getDrawable(SystemUiR.drawable.settingslib_entry_bg_off_end)
-                        else ->
-                            context.getDrawable(SystemUiR.drawable.settingslib_entry_bg_off_middle)
-                    }
-
-                setPadding(context, child)
-
-                val titleTextView = entry.requireViewById<TextView>(R.id.text1)
-                titleTextView.setTextAppearance(
-                    SystemUiR.style.TextAppearance_TileDetailsEntryTitle
-                )
-                val subTitleTextView = entry.requireViewById<TextView>(R.id.text2)
-                subTitleTextView.setTextAppearance(
-                    SystemUiR.style.TextAppearance_TileDetailsEntrySubTitle
-                )
-            }
-        }
+private class ContrastingRouteAdapter(private val base: ListAdapter) : ListAdapter by base {
+    override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+        val view = base.getView(position, convertView, parent)
+        styleCastRouteRow(view, position, base.count)
+        return view
     }
 }
 
-private fun setPadding(context: Context, targetBackgroundView: LinearLayout) {
+private fun styleCastRouteRow(row: View, position: Int, itemCount: Int) {
+    val context = row.context
+    val entry = (row as? LinearLayout)?.getChildAt(0) ?: row
+    entry.background =
+        when {
+            itemCount == 1 -> context.getDrawable(SystemUiR.drawable.settingslib_entry_bg_off)
+            position == 0 -> context.getDrawable(SystemUiR.drawable.settingslib_entry_bg_off_start)
+            position == itemCount - 1 ->
+                context.getDrawable(SystemUiR.drawable.settingslib_entry_bg_off_end)
+            else -> context.getDrawable(SystemUiR.drawable.settingslib_entry_bg_off_middle)
+        }
+    setPadding(context, row)
+
+    val contentColor =
+        readableColorOn(context, context.getColor(R.color.materialColorPrimaryContainer))
+    row.findViewById<TextView>(R.id.text1)?.useReadableColor(
+        SystemUiR.style.TextAppearance_TileDetailsEntryTitle,
+        contentColor,
+    )
+    // Device model, for example "Google Nest Mini", is the small second line.
+    row.findViewById<TextView>(R.id.text2)?.useReadableColor(
+        SystemUiR.style.TextAppearance_TileDetailsEntrySubTitle,
+        contentColor,
+    )
+}
+
+private fun TextView.useReadableColor(appearance: Int, color: Int) {
+    if (text is Spanned) {
+        text = text.toString()
+    }
+    setTextAppearance(appearance)
+    setTextColor(color)
+}
+
+private fun setPadding(context: Context, targetBackgroundView: View) {
     val horizontalPadding = context.resources.getDimensionPixelSize(TILE_DETAILS_HORIZONTAL_PADDING)
     targetBackgroundView.setPadding(
         horizontalPadding,

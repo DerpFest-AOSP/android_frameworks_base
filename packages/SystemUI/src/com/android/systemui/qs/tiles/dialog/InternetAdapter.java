@@ -274,9 +274,21 @@ public class InternetAdapter extends RecyclerView.Adapter<InternetAdapter.Intern
             if (mIsInDetailsView) {
                 mWifiTitleText.setTextAppearance(R.style.TextAppearance_TileDetailsEntryTitle);
                 mWifiSummaryText.setTextAppearance(R.style.TextAppearance_TileDetailsEntrySubTitle);
+                // List rows sit on the primary-container fill. onSurface can be too close to that
+                // fill, so pick a color that stays readable for both the name and the summary.
+                int contentColor = TileDetailsColorsKt.readableColorOn(mContext,
+                        mContext.getColor(
+                                com.android.internal.R.color.materialColorPrimaryContainer));
+                mWifiTitleText.setTextColor(contentColor);
+                mWifiSummaryText.setTextColor(contentColor);
                 if (mWifiIcon.getDrawable() != null) {
-                    mWifiIcon.setColorFilter(
-                            mContext.getColor(com.android.internal.R.color.materialColorOnSurface));
+                    mWifiIcon.setColorFilter(contentColor);
+                }
+                if (mFirstWifiEndIcon.getDrawable() != null) {
+                    mFirstWifiEndIcon.setColorFilter(contentColor);
+                }
+                if (mSecondWifiEndIcon.getDrawable() != null) {
+                    mSecondWifiEndIcon.setColorFilter(contentColor);
                 }
             }
 

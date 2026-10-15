@@ -62,6 +62,7 @@ import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.MutableLiveData
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.android.internal.R as InternalR
 import com.android.internal.logging.UiEvent
 import com.android.internal.logging.UiEventLogger
 import com.android.internal.telephony.flags.Flags as telephonyFlags
@@ -826,11 +827,6 @@ constructor(
         } else {
             mobileSummaryTextView.visibility = View.GONE
         }
-        backgroundExecutor.execute {
-            val drawable = getSignalStrengthDrawable(defaultDataSubId)
-            handler.post { signalIcon.setImageDrawable(drawable) }
-        }
-
         mobileDataToggle.visibility = if (canConfigMobileData) View.VISIBLE else View.INVISIBLE
 
         if (isFlagEnabledAndInDialog) {
@@ -852,6 +848,19 @@ constructor(
         val secondaryRes =
             if (isNetworkConnected) R.style.TextAppearance_TileDetailsEntrySubTitle_Active
             else R.style.TextAppearance_TileDetailsEntrySubTitle
+        // The default-data row is the idle (primary container) row while a non-DDS SIM is the
+        // active one. Its text has to contrast with that fill, not with the connected primary.
+        val entryContentColor =
+            readableEntryContentColor(
+                active = isNetworkConnected && nonDdsVisibility != View.VISIBLE
+            )
+        backgroundExecutor.execute {
+            val drawable = getSignalStrengthDrawable(defaultDataSubId)
+            handler.post {
+                signalIcon.setImageDrawable(drawable)
+                signalIcon.setColorFilter(entryContentColor)
+            }
+        }
         if (nonDdsVisibility == View.VISIBLE) {
             // non DDS is the currently active sub, set primary visual for it
             setNonDDSActive(autoSwitchNonDdsSubId)
@@ -863,6 +872,7 @@ constructor(
                 else R.style.TextAppearance_TileDetailsEntryTitle
             )
             mobileSummaryTextView.setTextAppearance(secondaryRes)
+            applyEntryContentColor(entryContentColor)
         } else if (isFlagEnabledAndInDialog) {
             mobileNetworkLayout.background =
                 if (isNetworkConnected) entryBackgroundActive else entryBackgroundInactive
@@ -871,6 +881,7 @@ constructor(
                 else R.style.TextAppearance_TileDetailsEntryTitle
             )
             mobileSummaryTextView.setTextAppearance(secondaryRes)
+            applyEntryContentColor(entryContentColor)
         }
 
         secondaryMobileNetworkLayout?.visibility = nonDdsVisibility
@@ -881,10 +892,28 @@ constructor(
                 visibility = View.VISIBLE
                 text = context.getText(R.string.airplane_mode)
                 setTextAppearance(secondaryRes)
+                setTextColor(entryContentColor)
             }
         } else {
             airplaneModeSummaryTextView.visibility = View.GONE
         }
+    }
+
+    /** Color that stays readable on the connected (primary) or idle (primary container) row. */
+    private fun readableEntryContentColor(active: Boolean): Int {
+        return readableColorOn(
+            context,
+            context.getColor(
+                if (active) InternalR.color.materialColorPrimary
+                else InternalR.color.materialColorPrimaryContainer
+            ),
+        )
+    }
+
+    private fun applyEntryContentColor(color: Int) {
+        mobileTitleTextView.setTextColor(color)
+        mobileSummaryTextView.setTextColor(color)
+        signalIcon.setColorFilter(color)
     }
 
     private fun setNonDDSActive(autoSwitchNonDdsSubId: Int) {
@@ -903,9 +932,11 @@ constructor(
         }
         secondaryMobileNetworkLayout?.background = entryBackgroundActive
 
+        val activeContentColor = readableEntryContentColor(active = true)
         contentView.requireViewById<TextView>(R.id.secondary_mobile_title).apply {
             text = getMobileNetworkTitle(autoSwitchNonDdsSubId)
             setTextAppearance(R.style.TextAppearance_TileDetailsEntryTitle_Active)
+            setTextColor(activeContentColor)
         }
 
         val secondarySummaryTextView =
@@ -919,6 +950,7 @@ constructor(
                             text = Html.fromHtml(summary, Html.FROM_HTML_MODE_LEGACY)
                             breakStrategy = Layout.BREAK_STRATEGY_SIMPLE
                             setTextAppearance(R.style.TextAppearance_TileDetailsEntryTitle_Active)
+                            setTextColor(activeContentColor)
                         }
                     }
                 }
@@ -929,6 +961,7 @@ constructor(
                     text = Html.fromHtml(summary, Html.FROM_HTML_MODE_LEGACY)
                     breakStrategy = Layout.BREAK_STRATEGY_SIMPLE
                     setTextAppearance(R.style.TextAppearance_TileDetailsEntryTitle_Active)
+                    setTextColor(activeContentColor)
                 }
             }
         }
@@ -936,11 +969,14 @@ constructor(
         val secondarySignalIcon: ImageView = contentView.requireViewById(R.id.secondary_signal_icon)
         backgroundExecutor.execute {
             val drawable = getSignalStrengthDrawable(autoSwitchNonDdsSubId)
-            handler.post { secondarySignalIcon.setImageDrawable(drawable) }
+            handler.post {
+                secondarySignalIcon.setImageDrawable(drawable)
+                secondarySignalIcon.setColorFilter(activeContentColor)
+            }
         }
 
         contentView.requireViewById<ImageView>(R.id.secondary_settings_icon).apply {
-            setColorFilter(context.getColor(R.color.connected_network_primary_color))
+            setColorFilter(activeContentColor)
             if (Flags.internetDialogDelegateLegacyDeprecation()) {
                 visibility = if (canConfigMobileData) View.VISIBLE else View.INVISIBLE
             }
@@ -955,7 +991,7 @@ constructor(
 
         mobileTitleTextView.setTextAppearance(R.style.TextAppearance_TileDetailsEntryTitle)
         mobileSummaryTextView.setTextAppearance(R.style.TextAppearance_TileDetailsEntrySubTitle)
-        signalIcon.setColorFilter(context.getColor(R.color.connected_network_secondary_color))
+        applyEntryContentColor(readableEntryContentColor(active = false))
     }
 
     @MainThread
@@ -1032,9 +1068,14 @@ constructor(
         connectedWifiListLayout.visibility = View.VISIBLE
         connectedWifiTitleTextView.text = connectedWifiEntry!!.title
         connectedWifiSummaryTextView.text = connectedWifiEntry!!.getSummary(false)
+        val connectedWifiColor = readableEntryContentColor(active = true)
+        connectedWifiTitleTextView.setTextColor(connectedWifiColor)
+        connectedWifiSummaryTextView.setTextColor(connectedWifiColor)
         connectedWifiIcon.setImageDrawable(
             internetDetailsContentController.getInternetWifiDrawable(connectedWifiEntry!!)
         )
+        connectedWifiIcon.setColorFilter(connectedWifiColor)
+        wifiSettingsIcon.setColorFilter(connectedWifiColor)
 
         val canShareWifi =
             internetDetailsContentController.getConfiguratorQrCodeGeneratorIntentOrNull(

@@ -328,6 +328,7 @@ private fun ContentScope.QuickSettingsContainer(
                     modifier = modifier,
                     containerViewModel.detailsViewModel,
                     initialHeight = { currentHeight },
+                    clearPanelBottomCorner = true,
                 )
             }
 

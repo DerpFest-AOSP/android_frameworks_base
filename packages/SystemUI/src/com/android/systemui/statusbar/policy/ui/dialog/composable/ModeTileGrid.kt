@@ -66,7 +66,9 @@ fun ModeTileGrid(
                 beyondViewportPageCount = 1,
             ) { page ->
                 Column(
-                    modifier = Modifier.fillMaxWidth().fillMaxHeight(),
+                    modifier =
+                        Modifier.fillMaxWidth()
+                            .then(if (inDetailsView) Modifier else Modifier.fillMaxHeight()),
                     verticalArrangement =
                         Arrangement.spacedBy(verticalSpacing, alignment = Alignment.Top),
                 ) {
@@ -95,6 +97,25 @@ fun ModeTileGrid(
                 modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp),
             )
         }
+    } else if (inDetailsView) {
+        Column(
+            modifier = modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(verticalSpacing),
+        ) {
+            tiles.forEachIndexed { index, tile ->
+                ModeTile(
+                    viewModel = tile,
+                    modifier = Modifier.fillMaxWidth(),
+                    type = getModeTileType(inDetailsView = true, index, tiles.size),
+                    dimension =
+                        if (DesktopSizing.isEnabled) {
+                            ModeTileDimension.DesktopSizingDimens
+                        } else {
+                            ModeTileDimension.Default
+                        },
+                )
+            }
+        }
     } else {
         LazyVerticalGrid(
             columns = GridCells.Fixed(1),
@@ -111,12 +132,7 @@ fun ModeTileGrid(
                 ModeTile(
                     viewModel = tiles[index],
                     type = getModeTileType(inDetailsView, index, tiles.size),
-                    dimension =
-                        if (inDetailsView && DesktopSizing.isEnabled) {
-                            ModeTileDimension.DesktopSizingDimens
-                        } else {
-                            ModeTileDimension.Default
-                        },
+                    dimension = ModeTileDimension.Default,
                 )
             }
         }

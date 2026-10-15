@@ -48,6 +48,7 @@ import com.android.systemui.Prefs
 import com.android.systemui.animation.DialogTransitionAnimator
 import com.android.systemui.bluetooth.ui.viewModel.BluetoothDetailsContentViewModel
 import com.android.systemui.dagger.qualifiers.Main
+import com.android.systemui.qs.tiles.dialog.readableColorOn
 import com.android.systemui.plugins.ActivityStarter
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.phone.SystemUIDialog
@@ -648,7 +649,8 @@ constructor(
                         uiEventLogger.log(BluetoothTileDialogUiEvent.DEVICE_CLICKED)
                     }
 
-                    // updating icon colors
+                    // Connected rows are filled with the dynamic primary. Pick a color that stays
+                    // readable on that fill instead of assuming on-primary contrasts.
                     val tintColor =
                         if (isInDialog) {
                             context.getColor(
@@ -656,10 +658,12 @@ constructor(
                                 else InternalR.color.materialColorOnSurface
                             )
                         } else {
-                            context.getColor(
-                                if (isDeviceConnected)
-                                    InternalR.color.materialColorOnPrimaryContainer
-                                else InternalR.color.materialColorOnSurface
+                            readableColorOn(
+                                context,
+                                context.getColor(
+                                    if (isDeviceConnected) InternalR.color.materialColorPrimary
+                                    else InternalR.color.materialColorPrimaryContainer
+                                ),
                             )
                         }
 
@@ -699,6 +703,9 @@ constructor(
                                 R.style.TextAppearance_TileDetailsEntrySubTitle_Active
                             else R.style.TextAppearance_TileDetailsEntrySubTitle
                         )
+                        nameView.setTextColor(tintColor)
+                        summaryView.setTextColor(tintColor)
+                        iconView.setColorFilter(tintColor)
                     }
 
                     accessibilityDelegate =
