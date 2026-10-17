@@ -20,6 +20,7 @@ import android.graphics.Rect
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.text.BasicText
@@ -103,7 +104,8 @@ fun BatteryWithPercent(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (viewModel.batteryIconStyle != BatteryRepository.ICON_STYLE_TEXT) {
+        val isTextStyle = viewModel.batteryIconStyle == BatteryRepository.ICON_STYLE_TEXT
+        if (!isTextStyle) {
             UnifiedBattery(
                 viewModel = viewModel,
                 isDarkProvider = isDarkProvider,
@@ -112,7 +114,36 @@ fun BatteryWithPercent(
             )
         }
 
-        if (showPercent) {
+        if (isTextStyle) {
+            val percent = if (showPercent) viewModel.batteryPercent else null
+            val attribution = viewModel.attribution
+            if (percent != null || attribution != null) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (percent != null) {
+                        BasicText(
+                            text = percent,
+                            color = colorProducer,
+                            style = textStyle,
+                            maxLines = 1,
+                        )
+                    }
+                    if (attribution != null) {
+                        val glyphHeight =
+                            with(LocalDensity.current) { textStyle.fontSize.toDp() }
+                        TextModeAttributionGlyph(
+                            attr = attribution,
+                            color = colorProducer,
+                            modifier =
+                                Modifier.height(glyphHeight)
+                                    .aspectRatio(attribution.width / attribution.height),
+                        )
+                    }
+                }
+            }
+        } else if (showPercent) {
             viewModel.batteryPercent?.let {
                 BasicText(
                     text = it,

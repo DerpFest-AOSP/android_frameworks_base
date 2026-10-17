@@ -50,6 +50,7 @@ import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.layout.onLayoutRectChanged
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
@@ -759,6 +760,22 @@ fun BatteryCap(
 
         val s = pathSpec.scaleTo(size.width, size.height)
         scale(s, pivot = Offset.Zero) { drawPath(pathSpec.path, color = color) }
+    }
+}
+
+/**
+ * Attribution glyph drawn beside the percentage when the battery style is text-only.
+ * Hidden from accessibility so it is not announced separately from the percentage.
+ */
+@Composable
+fun TextModeAttributionGlyph(
+    attr: BatteryGlyph,
+    color: () -> Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier = modifier.clearAndSetSemantics {}) {
+        val s = attr.scaleTo(size.width, size.height)
+        scale(s, pivot = Offset.Zero) { drawPath(attr.path, color()) }
     }
 }
 

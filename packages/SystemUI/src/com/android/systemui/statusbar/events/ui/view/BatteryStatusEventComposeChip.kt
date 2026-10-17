@@ -24,6 +24,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material3.MaterialTheme
@@ -44,6 +45,7 @@ import com.android.systemui.statusbar.pipeline.battery.domain.interactor.Battery
 import com.android.systemui.statusbar.pipeline.battery.shared.ui.BatteryColors
 import com.android.systemui.statusbar.pipeline.battery.shared.ui.BatteryGlyph
 import com.android.systemui.statusbar.pipeline.battery.ui.composable.BatteryLayout
+import com.android.systemui.statusbar.pipeline.battery.ui.composable.TextModeAttributionGlyph
 import com.android.systemui.statusbar.pipeline.battery.ui.viewmodel.BatteryViewModel
 import com.android.systemui.statusbar.pipeline.battery.ui.viewmodel.BatteryViewModel.Companion.glyphRepresentation
 import java.text.NumberFormat
@@ -158,11 +160,34 @@ private fun BatteryAndPercentChip(
             )
         }
         if (isText || showPercentNextToIcon) {
-            Text(
-                text = NumberFormat.getPercentInstance().format(level / 100f),
-                color = BatteryColors.DarkTheme.Default.fill,
-                style = MaterialTheme.typography.labelLargeEmphasized,
-            )
+            val percentStyle = MaterialTheme.typography.labelLargeEmphasized
+            val percentColor = BatteryColors.DarkTheme.Default.fill
+            if (isText) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = NumberFormat.getPercentInstance().format(level / 100f),
+                        color = percentColor,
+                        style = percentStyle,
+                    )
+                    val glyphHeight = with(LocalDensity.current) { percentStyle.fontSize.toDp() }
+                    TextModeAttributionGlyph(
+                        attr = BatteryGlyph.Bolt,
+                        color = { percentColor },
+                        modifier =
+                            Modifier.height(glyphHeight)
+                                .aspectRatio(BatteryGlyph.Bolt.width / BatteryGlyph.Bolt.height),
+                    )
+                }
+            } else {
+                Text(
+                    text = NumberFormat.getPercentInstance().format(level / 100f),
+                    color = percentColor,
+                    style = percentStyle,
+                )
+            }
         }
     }
 }
