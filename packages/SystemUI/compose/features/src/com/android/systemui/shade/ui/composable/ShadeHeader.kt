@@ -28,7 +28,6 @@ import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -141,7 +140,6 @@ import com.android.systemui.statusbar.systemstatusicons.ui.compose.SystemStatusI
 import com.android.systemui.statusbar.systemstatusicons.ui.compose.SystemStatusIconsLegacy
 import com.android.systemui.util.composable.kairos.ActivatedKairosSpec
 import com.android.systemui.util.kotlin.toDp
-import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
@@ -523,9 +521,11 @@ fun ContentScope.OverlayShadeHeader(
     val horizontalPadding = overlayHeaderHorizontalPadding()
 
     // This layout assumes it is globally positioned at (0, 0) and is the same width as the screen.
+    // Double-tap is the outer pointer input so it observes the gesture before a shade-panel swipe
+    // consumes a drag. Taps are not consumed by that swipe.
     CutoutAwareShadeHeader(
         statusBarHeightPx = viewModel.statusBarHeightPx,
-        modifier = modifier.shadeHeaderDoubleTapToSleep(viewModel),
+        modifier = Modifier.shadeHeaderDoubleTapToSleep(viewModel).then(modifier),
         startContent = {
             Box(modifier = Modifier.layoutId(ShadeHeader.LayoutId.StartContent)) {
                 ShadeHighlightChip(
@@ -617,29 +617,6 @@ fun ContentScope.OverlayShadeHeader(
     )
 }
 
-/** Switches between dual-shade panels after a deliberate horizontal swipe on the header. */
-fun Modifier.switchShadeOnHorizontalSwipe(
-    swipeLeft: Boolean,
-    onSwipe: () -> Unit,
-): Modifier =
-    pointerInput(swipeLeft, onSwipe) {
-        var dragDistance = 0f
-        detectHorizontalDragGestures(
-            onDragStart = { dragDistance = 0f },
-            onDragEnd = {
-                val threshold = maxOf(size.width * 0.25f, viewConfiguration.touchSlop * 2)
-                if (abs(dragDistance) >= threshold && (dragDistance < 0) == swipeLeft) {
-                    onSwipe()
-                }
-            },
-            onDragCancel = { dragDistance = 0f },
-            onHorizontalDrag = { change, dragAmount ->
-                dragDistance += dragAmount
-                change.consume()
-            },
-        )
-    }
-
 /** The header that appears at the top of the Quick Settings shade overlay. */
 @Composable
 fun QuickSettingsOverlayHeader(viewModel: ShadeHeaderViewModel, modifier: Modifier = Modifier) {
@@ -654,8 +631,8 @@ fun QuickSettingsOverlayHeader(viewModel: ShadeHeaderViewModel, modifier: Modifi
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
         modifier =
-            modifier
-                .shadeHeaderDoubleTapToSleep(viewModel)
+            Modifier.shadeHeaderDoubleTapToSleep(viewModel)
+                .then(modifier)
                 .fillMaxWidth()
                 .padding(horizontal = extraHorizontalPadding),
     ) {

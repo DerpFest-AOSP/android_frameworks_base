@@ -55,7 +55,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onLayoutRectChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
@@ -63,7 +62,6 @@ import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.compose.animation.scene.ContentScope
@@ -112,7 +110,7 @@ import com.android.systemui.shade.ui.composable.OverlayShadeHeader
 import com.android.systemui.shade.ui.composable.QsHeaderImage
 import com.android.systemui.shade.ui.composable.QuickSettingsOverlayHeader
 import com.android.systemui.shade.ui.composable.QuickSettingsOverlayPrivacyChip
-import com.android.systemui.shade.ui.composable.switchShadeOnHorizontalSwipe
+import com.android.systemui.shade.ui.composable.shadePanelSwipe
 import com.android.systemui.statusbar.notification.stack.shared.model.ShadeScrimBounds
 import com.android.systemui.statusbar.notification.stack.shared.model.ShadeScrimShape
 import com.android.systemui.statusbar.notification.stack.ui.view.NotificationScrollView
@@ -200,6 +198,7 @@ constructor(
                     .thenIf(showBrightnessMirror) { Modifier.gesturesDisabled() }
         ) {
             OverlayShade(
+                slidingContentElement = OverlayShade.Elements.QuickSettingsSlidingContent,
                 panelElement = QuickSettingsShade.Elements.Panel,
                 alignmentOnWideScreens = Alignment.End,
                 statusBarHeightPx = contentViewModel.statusBarHeightPx,
@@ -224,12 +223,21 @@ constructor(
                 header = {
                     if (contentViewModel.showHeader) {
                         val headerViewModel = quickSettingsContainerViewModel.shadeHeaderViewModel
+                        val isEditing by
+                            quickSettingsContainerViewModel.editModeViewModel.isEditing
+                                .collectAsStateWithLifecycle()
                         OverlayShadeHeader(
                             viewModel = headerViewModel,
                             notificationsHighlight = headerViewModel.inactiveChipHighlight,
                             quickSettingsHighlight = ChipHighlightModel.Strong,
                             showClock = true,
-                            modifier = Modifier.element(QuickSettingsShade.Elements.StatusBar),
+                            modifier =
+                                Modifier.element(QuickSettingsShade.Elements.StatusBar)
+                                    .shadePanelSwipe(
+                                        enabled =
+                                            contentViewModel.shadeModeInteractor.isDualShade &&
+                                                !isEditing,
+                                    ),
                         )
                     }
                 },
@@ -341,7 +349,7 @@ private fun ContentScope.QuickSettingsContainer(
                     isTransparencyEnabled = contentViewModel.isTransparencyEnabled,
                     volumeSliderViewModel = contentViewModel.volumeSliderViewModel,
                     audioDetailsViewModelFactory = contentViewModel.audioDetailsViewModelFactory,
-                    isDualShade = contentViewModel.shadeModeInteractor.isDualShade,
+                    isDualShade = contentViewModel.shadeModeInteractor.isDualShade && !isEditing,
                     modifier = modifier.sysuiResTag("quick_settings_panel"),
                 )
             }
@@ -362,17 +370,6 @@ private fun ContentScope.QuickSettingsLayout(
     isDualShade: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    val switchToNotificationsModifier =
-        if (isDualShade) {
-            Modifier.switchShadeOnHorizontalSwipe(
-                swipeLeft = isRtl,
-                onSwipe = qsContainerViewModel.shadeHeaderViewModel::onNotificationIconChipClicked,
-            )
-        } else {
-            Modifier
-        }
-
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier.padding(horizontal = QuickSettingsShade.Dimensions.HorizontalPadding),
@@ -396,7 +393,7 @@ private fun ContentScope.QuickSettingsLayout(
                 Modifier.fillMaxWidth()
                     .requiredHeight(QuickSettingsShade.Dimensions.ToolbarHeight)
                     .sysuiResTag("quick_settings_toolbar")
-                    .then(switchToNotificationsModifier),
+                    .shadePanelSwipe(enabled = isDualShade),
             viewModel = toolbarViewModel,
             isFullyVisible = { layoutState.isIdle(contentKey) },
         )
@@ -408,7 +405,7 @@ private fun ContentScope.QuickSettingsLayout(
                 viewModel = qsContainerViewModel.shadeHeaderViewModel,
                 modifier =
                     Modifier.element(QuickSettingsShade.Elements.Header)
-                        .then(switchToNotificationsModifier),
+                        .shadePanelSwipe(enabled = isDualShade),
             )
             VerticalSeparator(QuickSettingsShade.Dimensions.ShortPadding)
         }
@@ -491,6 +488,13 @@ private fun ContentScope.QuickSettingsLayout(
                             onDismissed = qsContainerViewModel::onMediaSwipeToDismiss,
                             modifier = Modifier,
                             location = Media.Location.QS,
+                            headerGestureModifier = {
+                                Modifier.shadePanelSwipe(
+                                    enabled = isDualShade,
+                                    diagonalOnly = true,
+                                    blockVerticalScroll = true,
+                                )
+                            },
                         )
                     }
                 },
