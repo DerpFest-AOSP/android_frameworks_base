@@ -127,18 +127,21 @@ sealed class BatteryViewModel(
                     val accentColorInt = Utils.getColorAccentDefaultColor(context)
                     val (accentLight, accentDark) =
                         BatteryColors.createAccentThemes(context, accentColorInt)
-                    ColorProfile(dark = accentDark, light = accentLight)
+                    tintedProfile(baseProfile, accentLight, accentDark)
                 }
                 StatusBarIconTintHelper.MODE_CUSTOM -> {
                     val (accentLight, accentDark) =
                         BatteryColors.createAccentThemes(context, customArgb)
-                    ColorProfile(dark = accentDark, light = accentLight)
+                    tintedProfile(baseProfile, accentLight, accentDark)
                 }
                 else -> baseProfile
             }
         }
 
-    /** State colors, replaced by accent or custom tint when that status-bar setting is on. */
+    /**
+     * State colors, with accent or custom tint when that status-bar setting is on.
+     * Charging, power-save, and critical fills stay the untinted state colors.
+     */
     val colorProfile: ColorProfile by
         _colorProfile.hydratedStateOf(initialValue = DEFAULT_COLOR_PROFILE)
 
@@ -347,6 +350,24 @@ sealed class BatteryViewModel(
                 dark = BatteryColors.DarkTheme.Default,
                 light = BatteryColors.LightTheme.Default,
             )
+
+        /**
+         * Accent and custom tint recolor the frame. Charging, power-save, and critical fills stay
+         * the same colors the untinted battery uses.
+         */
+        private fun tintedProfile(
+            baseProfile: ColorProfile,
+            tintedLight: BatteryColors.LightTheme,
+            tintedDark: BatteryColors.DarkTheme,
+        ): ColorProfile {
+            if (baseProfile.dark is BatteryColors.DarkTheme.Default) {
+                return ColorProfile(dark = tintedDark, light = tintedLight)
+            }
+            return ColorProfile(
+                dark = BatteryColors.TintedDarkFill(tintedDark, baseProfile.dark.fill),
+                light = BatteryColors.TintedLightFill(tintedLight, baseProfile.light.fill),
+            )
+        }
 
         private fun colorProfileForState(
             attr: BatteryAttributionModel?,

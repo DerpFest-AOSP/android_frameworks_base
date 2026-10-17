@@ -801,14 +801,14 @@ fun BatteryAttribution(
     }
 }
 
-/** Charging, power-save, and critical fills stay visible when a chip asks to match icon tint. */
+/**
+ * Charging, power-save, and critical fills stay visible when a chip asks to match icon tint.
+ * Matched by fill color so an accent-tinted frame with a state fill is included.
+ */
 private fun BatteryColors.hasStateFill(): Boolean =
-    this is BatteryColors.DarkTheme.Charging ||
-        this is BatteryColors.LightTheme.Charging ||
-        this is BatteryColors.DarkTheme.PowerSave ||
-        this is BatteryColors.LightTheme.PowerSave ||
-        this is BatteryColors.DarkTheme.Error ||
-        this is BatteryColors.LightTheme.Error
+    fill == BatteryColors.DarkTheme.Charging.fill ||
+        fill == BatteryColors.DarkTheme.PowerSave.fill ||
+        fill == BatteryColors.DarkTheme.Error.fill
 
 /** Determines the correct color for the battery frame (body and cap) based on its state. */
 private fun getBatteryFrameColor(

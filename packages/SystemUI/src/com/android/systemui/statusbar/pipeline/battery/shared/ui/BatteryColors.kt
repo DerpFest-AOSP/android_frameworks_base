@@ -147,6 +147,28 @@ sealed interface BatteryColors {
     }
 
     /**
+     * [LightTheme] tint (accent or custom) whose [fill] stays the charging, power-save, or critical
+     * color used by the untinted battery.
+     */
+    class TintedLightFill(tinted: LightTheme, override val fill: Color) : LightTheme() {
+        override val attribution = tinted.attribution
+        override val glyph = tinted.glyph
+        override val backgroundOnly = tinted.backgroundOnly
+        override val backgroundWithGlyph = tinted.backgroundWithGlyph
+    }
+
+    /**
+     * [DarkTheme] tint (accent or custom) whose [fill] stays the charging, power-save, or critical
+     * color used by the untinted battery.
+     */
+    class TintedDarkFill(tinted: DarkTheme, override val fill: Color) : DarkTheme() {
+        override val attribution = tinted.attribution
+        override val glyph = tinted.glyph
+        override val backgroundOnly = tinted.backgroundOnly
+        override val backgroundWithGlyph = tinted.backgroundWithGlyph
+    }
+
+    /**
      * Copies [base] but paints fill and attribution with [tint], so the battery matches
      * neighboring status icons (e.g. on a shade highlight chip).
      */

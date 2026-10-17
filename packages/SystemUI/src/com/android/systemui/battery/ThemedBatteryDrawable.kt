@@ -30,7 +30,6 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import android.util.PathParser
-import android.util.TypedValue
 import androidx.compose.ui.graphics.asAndroidPath
 import com.android.settingslib.R
 import com.android.settingslib.Utils
@@ -65,8 +64,6 @@ open class ThemedBatteryDrawable(private val context: Context, frameColor: Int) 
 
     private var invertFillIcon = false
 
-    private var colorLevels: IntArray
-
     private var fillColor: Int = Color.WHITE
     private var backgroundColor: Int = Color.WHITE
     private var levelColor: Int = Color.WHITE
@@ -91,14 +88,14 @@ open class ThemedBatteryDrawable(private val context: Context, frameColor: Int) 
     var charging = false
         set(value) {
             field = value
-            levelColor = batteryColorForLevel(batteryLevel)
+            levelColor = batteryColorForLevel()
             postInvalidate()
         }
 
     var powerSaveEnabled = false
         set(value) {
             field = value
-            levelColor = batteryColorForLevel(batteryLevel)
+            levelColor = batteryColorForLevel()
             postInvalidate()
         }
 
@@ -197,22 +194,6 @@ open class ThemedBatteryDrawable(private val context: Context, frameColor: Int) 
         val density = res.displayMetrics.density
         intrinsicHeight = (height * density).toInt()
         intrinsicWidth = (width * density).toInt()
-
-        val levels = res.obtainTypedArray(R.array.batterymeter_color_levels)
-        val colors = res.obtainTypedArray(R.array.batterymeter_color_values)
-        val N = levels.length()
-        colorLevels = IntArray(2 * N)
-        for (i in 0 until N) {
-            colorLevels[2 * i] = levels.getInt(i, 0)
-            if (colors.getType(i) == TypedValue.TYPE_ATTRIBUTE) {
-                colorLevels[2 * i + 1] = Utils.getColorAttrDefaultColor(context,
-                        colors.getThemeAttributeId(i, 0))
-            } else {
-                colorLevels[2 * i + 1] = colors.getColor(i, 0)
-            }
-        }
-        levels.recycle()
-        colors.recycle()
 
         loadPaths()
     }
@@ -456,34 +437,11 @@ open class ThemedBatteryDrawable(private val context: Context, frameColor: Int) 
         glyphPaint.xfermode = null
     }
 
-    private fun batteryColorForLevel(level: Int): Int {
-        return when {
-            charging && (chargingFillColorOverride ushr 24) != 0 -> chargingFillColorOverride
-            powerSaveEnabled && (powerSaveFillColorOverride ushr 24) != 0 ->
-                    powerSaveFillColorOverride
-            charging || powerSaveEnabled -> fillColor
-            else -> getColorForLevel(level)
-        }
-    }
-
-    private fun getColorForLevel(level: Int): Int {
-        var thresh: Int
-        var color = 0
-        var i = 0
-        while (i < colorLevels.size) {
-            thresh = colorLevels[i]
-            color = colorLevels[i + 1]
-            if (level <= thresh) {
-                return if (i == colorLevels.size - 2) {
-                    fillColor
-                } else {
-                    color
-                }
-            }
-            i += 2
-        }
-        return color
-    }
+    /**
+     * Level color is the profile [fillColor], so charging, power-save, and critical match the
+     * regular battery icon. Accent tint does not replace those fills.
+     */
+    private fun batteryColorForLevel(): Int = fillColor
 
     override fun setAlpha(alpha: Int) {
     }
@@ -513,7 +471,7 @@ open class ThemedBatteryDrawable(private val context: Context, frameColor: Int) 
             else -> invertFillIcon
         }
         batteryLevel = l
-        levelColor = batteryColorForLevel(batteryLevel)
+        levelColor = batteryColorForLevel()
         invalidateSelf()
     }
 
@@ -567,7 +525,7 @@ open class ThemedBatteryDrawable(private val context: Context, frameColor: Int) 
         // level clip appears "always full" on dual-tone shapes (e.g. heart).
         dualToneBackgroundFill.color = bgColor
 
-        levelColor = batteryColorForLevel(batteryLevel)
+        levelColor = batteryColorForLevel()
 
         invalidateSelf()
     }
