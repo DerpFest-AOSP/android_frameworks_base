@@ -40,9 +40,7 @@ import androidx.compose.ui.unit.dp
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.phone.domain.interactor.IsAreaDark
 import com.android.systemui.statusbar.pipeline.battery.data.repository.BatteryRepository
-import com.android.systemui.statusbar.pipeline.battery.shared.ui.BatteryColors
 import com.android.systemui.statusbar.pipeline.battery.ui.viewmodel.BatteryViewModel
-import com.android.systemui.statusbar.pipeline.battery.ui.viewmodel.ColorProfile
 
 @Composable
 fun BatteryWithPercent(
@@ -78,13 +76,8 @@ fun BatteryWithPercent(
 
     var bounds by remember { mutableStateOf(Rect()) }
 
-    val defaultColorProfile =
-        ColorProfile(
-            dark = BatteryColors.DarkTheme.Default,
-            light = BatteryColors.LightTheme.Default,
-        )
     val effectiveColorProfile =
-        if (useAccentTintInContext) viewModel.colorProfile else defaultColorProfile
+        if (useAccentTintInContext) viewModel.colorProfile else viewModel.stateColorProfile
 
     // Use same color profile as the battery icon so text is tinted with accent when enabled
     val colorProducer = {

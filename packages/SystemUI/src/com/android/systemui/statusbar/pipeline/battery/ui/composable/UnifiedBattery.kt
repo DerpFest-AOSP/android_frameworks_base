@@ -69,7 +69,6 @@ import com.android.systemui.statusbar.pipeline.battery.shared.ui.BatteryFrame
 import com.android.systemui.statusbar.pipeline.battery.shared.ui.BatteryGlyph
 import com.android.systemui.statusbar.pipeline.battery.shared.ui.PathSpec
 import com.android.systemui.statusbar.pipeline.battery.ui.viewmodel.BatteryViewModel
-import com.android.systemui.statusbar.pipeline.battery.ui.viewmodel.ColorProfile
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 
@@ -184,13 +183,8 @@ fun UnifiedBattery(
 ) {
     var bounds by remember { mutableStateOf(Rect()) }
 
-    val defaultColorProfile =
-        ColorProfile(
-            dark = BatteryColors.DarkTheme.Default,
-            light = BatteryColors.LightTheme.Default,
-        )
     val effectiveColorProfile =
-        if (useAccentTintInContext) viewModel.colorProfile else defaultColorProfile
+        if (useAccentTintInContext) viewModel.colorProfile else viewModel.stateColorProfile
 
     val colorProvider = {
         val base =
@@ -199,7 +193,12 @@ fun UnifiedBattery(
             } else {
                 effectiveColorProfile.light
             }
-        if (iconTint != null) BatteryColors.MatchedIconTint(base, iconTint) else base
+        val tint = iconTint
+        if (tint != null && !base.hasStateFill()) {
+            BatteryColors.MatchedIconTint(base, tint)
+        } else {
+            base
+        }
     }
 
     BatteryLayout(
@@ -801,6 +800,15 @@ fun BatteryAttribution(
         }
     }
 }
+
+/** Charging, power-save, and critical fills stay visible when a chip asks to match icon tint. */
+private fun BatteryColors.hasStateFill(): Boolean =
+    this is BatteryColors.DarkTheme.Charging ||
+        this is BatteryColors.LightTheme.Charging ||
+        this is BatteryColors.DarkTheme.PowerSave ||
+        this is BatteryColors.LightTheme.PowerSave ||
+        this is BatteryColors.DarkTheme.Error ||
+        this is BatteryColors.LightTheme.Error
 
 /** Determines the correct color for the battery frame (body and cap) based on its state. */
 private fun getBatteryFrameColor(
