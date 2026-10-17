@@ -2,6 +2,7 @@ package com.android.systemui.axdynamicbar.data.source
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.Icon as DrawableIcon
@@ -77,8 +78,12 @@ constructor(
         }
 
         override fun onAlbumArtChanged(drawable: Drawable?) {
+            val current = _mediaEvent.value
+            if (sameArtwork(sessionAlbumArt, drawable) || sameArtwork(current?.albumArt, drawable)) {
+                return
+            }
             sessionAlbumArt = drawable
-            val current = _mediaEvent.value ?: return
+            if (current == null) return
             _mediaEvent.value = current.copy(albumArt = drawable)
         }
 
@@ -118,17 +123,24 @@ constructor(
         val artist = metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: ""
         val durationRaw = metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0L
         val duration = if (durationRaw > 0L) durationRaw else 0L
+        val pkg = controller.packageName
 
-        val albumArt = trackHelper.getMediaBitmap()?.let { BitmapDrawable(context.resources, it) }
-            ?: sessionAlbumArt
+        val previous = _mediaEvent.value
+        val trackChanged =
+            previous != null && (previous.track != track || previous.packageName != pkg)
+        val albumArt =
+            resolveAlbumArt(
+                bitmap = trackHelper.getMediaBitmap(),
+                previous = previous?.albumArt,
+                keepPrevious = !trackChanged,
+            )
 
-        val existingPos = _mediaEvent.value?.position ?: 0L
+        val existingPos = previous?.position ?: 0L
         val posMs = if (ps != null) computeAccuratePosition(ps) else existingPos
         val progress =
             if (duration > 0L) (posMs.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
             else 0f
         val outputDevice = getOutputDeviceName()
-        val pkg = controller.packageName
         val customActions =
             ps?.customActions?.take(2)?.mapNotNull { ca ->
                 val lbl =
@@ -170,7 +182,7 @@ constructor(
                     mediaColor = sessionMediaColor,
                 )
         } else {
-            val current = _mediaEvent.value
+            val current = previous
             if (current != null) {
                 _mediaEvent.value =
                     current.copy(
@@ -188,6 +200,55 @@ constructor(
                         packageName = pkg,
                     )
             }
+        }
+    }
+
+    /**
+     * YouTube and YouTube Music push playback-state and metadata updates every few seconds
+     * without changing the cover. A new [BitmapDrawable] around the same pixels still fails
+     * drawable equality, and the status-bar chip crossfades its icon on that identity change.
+     * Reuse the drawable already on screen unless the bitmap actually differs.
+     */
+    private fun resolveAlbumArt(
+        bitmap: Bitmap?,
+        previous: Drawable?,
+        keepPrevious: Boolean,
+    ): Drawable? {
+        if (bitmap != null) {
+            if (sameArtwork(previous, bitmap)) return previous
+            if (sameArtwork(sessionAlbumArt, bitmap)) return sessionAlbumArt
+            return BitmapDrawable(context.resources, bitmap).also { sessionAlbumArt = it }
+        }
+        if (keepPrevious) return previous ?: sessionAlbumArt
+        return sessionAlbumArt
+    }
+
+    private fun sameArtwork(drawable: Drawable?, bitmap: Bitmap): Boolean {
+        val existing = (drawable as? BitmapDrawable)?.bitmap ?: return false
+        return sameBitmap(existing, bitmap)
+    }
+
+    private fun sameArtwork(current: Drawable?, incoming: Drawable?): Boolean {
+        if (current === incoming) return true
+        if (current == null || incoming == null) return false
+        val currentBitmap = (current as? BitmapDrawable)?.bitmap
+        val incomingBitmap = (incoming as? BitmapDrawable)?.bitmap
+        if (currentBitmap != null && incomingBitmap != null) {
+            return sameBitmap(currentBitmap, incomingBitmap)
+        }
+        val state = current.constantState
+        return state != null && state == incoming.constantState
+    }
+
+    private fun sameBitmap(a: Bitmap, b: Bitmap): Boolean {
+        if (a === b) return true
+        if (a.isRecycled || b.isRecycled) return false
+        if (a.width != b.width || a.height != b.height) return false
+        if (a.width > 1024 || a.height > 1024) return false
+        return try {
+            a.sameAs(b)
+        } catch (_: Exception) {
+            false
         }
     }
 
