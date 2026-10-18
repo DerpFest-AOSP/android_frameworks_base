@@ -17,8 +17,10 @@
 
 package android.os;
 
+import android.annotation.FlaggedApi;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.os.vibrator.Flags;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -27,6 +29,7 @@ import android.util.Log;
  * <p>
  * This class allows creating vibration effects from JSON patterns.
  */
+@FlaggedApi(Flags.FLAG_RICHTAP)
 public final class DynamicEffect extends VibrationEffect implements Parcelable {
     public static final boolean DEBUG = true;
     public static final @NonNull Parcelable.Creator<DynamicEffect> CREATOR =
@@ -90,16 +93,19 @@ public final class DynamicEffect extends VibrationEffect implements Parcelable {
     }
 
     @Override
+    @Nullable
     public long[] computeCreateWaveformOffOnTimingsOrNull() {
         return new long[0];
     }
 
     @Override
+    @NonNull
     public VibrationEffect applyRepeatingIndefinitely(boolean wantRepeating, int loopDelayMs) {
-        return null;
+        return this;
     }
 
     @Override
+    @Nullable
     public VibrationEffect cropToLengthOrNull(int length) {
         return null;
     }
@@ -177,8 +183,9 @@ public final class DynamicEffect extends VibrationEffect implements Parcelable {
     }
 
     @Override
+    @NonNull
     public String toDebugString() {
-        return null;
+        return toString();
     }
 
     @Override

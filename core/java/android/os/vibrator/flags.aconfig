@@ -95,3 +95,14 @@ flag {
         purpose: PURPOSE_FEATURE
     }
 }
+
+flag {
+    namespace: "haptics"
+    name: "richtap"
+    is_exported: true
+    description: "Enables RichTap haptic effect APIs"
+    bug: "0"
+    metadata {
+        purpose: PURPOSE_FEATURE
+    }
+}

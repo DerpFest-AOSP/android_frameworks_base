@@ -17,11 +17,13 @@
 
 package android.os;
 
+import android.annotation.FlaggedApi;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SuppressLint;
 import android.app.ActivityThread;
 import android.content.Context;
+import android.os.vibrator.Flags;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -36,6 +38,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Class for playing dynamic haptic effects using RichTap vibration technology.
  */
+@FlaggedApi(Flags.FLAG_RICHTAP)
 @SuppressLint("NotCloseable")
 public class HapticPlayer {
     public static final int FORMAT_VERSION = 2;

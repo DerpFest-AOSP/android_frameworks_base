@@ -17,9 +17,11 @@
 
 package android.os;
 
+import android.annotation.FlaggedApi;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.content.res.Resources;
+import android.os.vibrator.Flags;
 import android.os.VibrationEffect;
 import android.util.Log;
 import android.util.Slog;
@@ -43,6 +45,7 @@ import java.util.Map;
  * These effects may be any number of things, from single shot vibrations to complex
  * waveforms, and to AAC extended effects.
  */
+@FlaggedApi(Flags.FLAG_RICHTAP)
 public final class RichTapVibrationEffect {
     private static final String TAG = RichTapVibrationEffect.class.getSimpleName();
 

@@ -35381,15 +35381,15 @@ package android.os {
     field @NonNull public static final android.os.Parcelable.Creator<android.os.DropBoxManager.Entry> CREATOR;
   }
 
-  public final class DynamicEffect extends android.os.VibrationEffect implements android.os.Parcelable {
+  @FlaggedApi("android.os.vibrator.richtap") public final class DynamicEffect extends android.os.VibrationEffect implements android.os.Parcelable {
     ctor public DynamicEffect(@NonNull String);
-    method public android.os.VibrationEffect applyRepeatingIndefinitely(boolean, int);
-    method public long[] computeCreateWaveformOffOnTimingsOrNull();
+    method @NonNull public android.os.VibrationEffect applyRepeatingIndefinitely(boolean, int);
+    method @Nullable public long[] computeCreateWaveformOffOnTimingsOrNull();
     method @Nullable public static android.os.DynamicEffect create(@Nullable String);
-    method public android.os.VibrationEffect cropToLengthOrNull(int);
+    method @Nullable public android.os.VibrationEffect cropToLengthOrNull(int);
     method public long getDuration();
     method @NonNull public String getPatternInfo();
-    method public String toDebugString();
+    method @NonNull public String toDebugString();
     method public void validate();
     method public void writeToParcel(@NonNull android.os.Parcel, int);
     field @NonNull public static final android.os.Parcelable.Creator<android.os.DynamicEffect> CREATOR;
@@ -35555,7 +35555,7 @@ package android.os {
     method public boolean quitSafely();
   }
 
-  public class HapticPlayer {
+  @FlaggedApi("android.os.vibrator.richtap") public class HapticPlayer {
     ctor public HapticPlayer(@NonNull android.os.DynamicEffect);
     method public void applyPatternHeParam(int, int, int);
     method public void applyPatternHeWithString(@Nullable String, int, int, int, int);
@@ -36304,7 +36304,7 @@ package android.os {
     field @NonNull public static final android.os.Parcelable.Creator<android.os.ResultReceiver> CREATOR;
   }
 
-  public final class RichTapVibrationEffect {
+  @FlaggedApi("android.os.vibrator.richtap") public final class RichTapVibrationEffect {
     method public static int checkIfRichTapSupport();
     method @NonNull public static android.os.VibrationEffect createEnvelope(@NonNull int[], @NonNull int[], @NonNull int[], boolean, int);
     method @NonNull public static android.os.VibrationEffect createExtPreBaked(int, int);

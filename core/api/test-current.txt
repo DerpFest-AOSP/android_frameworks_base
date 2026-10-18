@@ -2689,8 +2689,8 @@ package android.os {
     method @NonNull public String[] getSystemPowerWhitelistExceptIdle();
   }
 
-  public final class DynamicEffect extends android.os.VibrationEffect implements android.os.Parcelable {
-    method public long[] computeCreateWaveformOffOnTimingsOrNull();
+  @FlaggedApi("android.os.vibrator.richtap") public final class DynamicEffect extends android.os.VibrationEffect implements android.os.Parcelable {
+    method @Nullable public long[] computeCreateWaveformOffOnTimingsOrNull();
     method public long getDuration();
   }
 
