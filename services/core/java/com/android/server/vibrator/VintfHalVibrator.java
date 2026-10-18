@@ -323,8 +323,8 @@ class VintfHalVibrator {
             try {
                 synchronized (mLock) {
                     int result;
-                    if (mRichTapService != null) {
-                        mRichTapService.richTapVibratorOn(milliseconds);
+                    if (mRichTapService != null
+                            && mRichTapService.richTapVibratorOn(milliseconds)) {
                         result = (int) milliseconds;
                     } else if (mVibratorInfo.hasCapability(IVibrator.CAP_ON_CALLBACK)) {
                         // Delegate vibrate with callback to native, to avoid creating a new
@@ -392,10 +392,9 @@ class VintfHalVibrator {
                                     prebaked.getEffectId());
                     int[] pattern = useRichTap ? RichTapVibrationEffect.getPrebakedHeEffect(
                             prebaked.getEffectId(), prebaked.getEffectStrength()) : null;
-                    if (pattern != null) {
+                    if (pattern != null && mRichTapService.richTapVibratorOnRawPattern(pattern,
+                            RICHTAP_PREBAKED_HE_AMPLITUDE, 0)) {
                         result = RICHTAP_PREBAKED_DURATION_MS;
-                        mRichTapService.richTapVibratorOnRawPattern(pattern,
-                                RICHTAP_PREBAKED_HE_AMPLITUDE, 0);
                     }
                     if (result <= 0) {
                         int strength = useRichTap
@@ -405,9 +404,11 @@ class VintfHalVibrator {
                         if (strength > 0) {
                             int richTapEffectId = RichTapVibrationEffect.getInnerEffectId(
                                     prebaked.getEffectId());
-                            result = RICHTAP_PREBAKED_DURATION_MS;
-                            mRichTapService.richTapVibratorPerform(richTapEffectId,
+                            int played = mRichTapService.richTapVibratorPerform(richTapEffectId,
                                     (byte) strength);
+                            if (played > 0) {
+                                result = played;
+                            }
                         }
                     }
                     if (result <= 0 && mVibratorInfo.hasCapability(IVibrator.CAP_PERFORM_CALLBACK)) {

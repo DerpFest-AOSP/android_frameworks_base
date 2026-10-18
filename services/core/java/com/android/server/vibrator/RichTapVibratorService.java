@@ -101,14 +101,17 @@ public class RichTapVibratorService {
         return mRichTapVibratorService;
     }
 
-    private void runOnRichTapService(String errorMessage, RichTapOperation operation) {
+    private boolean runOnRichTapService(String errorMessage, RichTapOperation operation) {
         try {
             IRichtapVibrator service = getRichTapService();
-            if (service != null) {
-                operation.execute(service);
+            if (service == null) {
+                return false;
             }
+            operation.execute(service);
+            return true;
         } catch (Exception e) {
             Slog.e(TAG, errorMessage, e);
+            return false;
         }
     }
 
@@ -129,8 +132,8 @@ public class RichTapVibratorService {
      *
      * @param millis The duration in milliseconds
      */
-    public void richTapVibratorOn(long millis) {
-        runOnRichTapService("Failed to execute vibratorOn", service -> {
+    public boolean richTapVibratorOn(long millis) {
+        return runOnRichTapService("Failed to execute vibratorOn", service -> {
             if (DEBUG) Slog.d(TAG, "Executing vibratorOn");
             service.on((int) millis, mCallback);
         });
@@ -155,8 +158,8 @@ public class RichTapVibratorService {
      * @param amplitude The amplitude value
      * @param freq      The frequency value
      */
-    public void richTapVibratorOnRawPattern(@NonNull int[] pattern, int amplitude, int freq) {
-        runOnRichTapService("Failed to execute raw pattern", service -> {
+    public boolean richTapVibratorOnRawPattern(@NonNull int[] pattern, int amplitude, int freq) {
+        return runOnRichTapService("Failed to execute raw pattern", service -> {
             if (DEBUG) Slog.d(TAG, "Executing raw pattern with amplitude: " +
                     amplitude + ", freq: " + freq);
             service.performHe(1, 0, amplitude, freq, pattern, mCallback);

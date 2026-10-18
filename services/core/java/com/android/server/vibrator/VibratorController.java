@@ -252,9 +252,8 @@ final class VibratorController implements HalVibrator {
         try {
             synchronized (mLock) {
                 long duration = 0;
-                if (mRichTapService != null) {
+                if (mRichTapService != null && mRichTapService.richTapVibratorOn(milliseconds)) {
                     duration = milliseconds;
-                    mRichTapService.richTapVibratorOn(duration);
                 } else {
                     duration = mNativeWrapper.on(milliseconds, vibrationId, stepId);
                 }
@@ -300,10 +299,9 @@ final class VibratorController implements HalVibrator {
                         && RichTapVibrationEffect.isInnerEffectSupported(prebaked.getEffectId());
                 int[] pattern = useRichTap ? RichTapVibrationEffect.getPrebakedHeEffect(
                         prebaked.getEffectId(), prebaked.getEffectStrength()) : null;
-                if (pattern != null) {
+                if (pattern != null && mRichTapService.richTapVibratorOnRawPattern(pattern,
+                        RICHTAP_PREBAKED_HE_AMPLITUDE, 0)) {
                     duration = RICHTAP_PREBAKED_DURATION_MS;
-                    mRichTapService.richTapVibratorOnRawPattern(pattern,
-                            RICHTAP_PREBAKED_HE_AMPLITUDE, 0);
                 }
                 if (duration <= 0) {
                     int strength = useRichTap
@@ -313,8 +311,11 @@ final class VibratorController implements HalVibrator {
                     if (strength > 0) {
                         int richTapEffectId = RichTapVibrationEffect.getInnerEffectId(
                                 prebaked.getEffectId());
-                        duration = RICHTAP_PREBAKED_DURATION_MS;
-                        mRichTapService.richTapVibratorPerform(richTapEffectId, (byte) strength);
+                        int played = mRichTapService.richTapVibratorPerform(richTapEffectId,
+                                (byte) strength);
+                        if (played > 0) {
+                            duration = played;
+                        }
                     }
                     if (duration <= 0) {
                         duration = mNativeWrapper.perform(prebaked.getEffectId(),
