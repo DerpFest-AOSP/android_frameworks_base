@@ -326,6 +326,10 @@ class VintfHalVibrator {
                     if (mRichTapService != null
                             && mRichTapService.richTapVibratorOn(milliseconds)) {
                         result = (int) milliseconds;
+                        // RichTap does not signal the standard HAL callback. Without this, the
+                        // vibration thread waits CALLBACKS_EXTRA_TIMEOUT before releasing.
+                        mHandler.postDelayed(newVibrationCallback(vibrationId, stepId),
+                                milliseconds);
                     } else if (mVibratorInfo.hasCapability(IVibrator.CAP_ON_CALLBACK)) {
                         // Delegate vibrate with callback to native, to avoid creating a new
                         // callback instance for each call, overloading the GC.
@@ -387,6 +391,7 @@ class VintfHalVibrator {
             try {
                 synchronized (mLock) {
                     int result = 0;
+                    boolean richtapPlayed = false;
                     boolean useRichTap = mRichTapService != null
                             && RichTapVibrationEffect.isInnerEffectSupported(
                                     prebaked.getEffectId());
@@ -395,6 +400,7 @@ class VintfHalVibrator {
                     if (pattern != null && mRichTapService.richTapVibratorOnRawPattern(pattern,
                             RICHTAP_PREBAKED_HE_AMPLITUDE, 0)) {
                         result = RICHTAP_PREBAKED_DURATION_MS;
+                        richtapPlayed = true;
                     }
                     if (result <= 0) {
                         int strength = useRichTap
@@ -408,10 +414,14 @@ class VintfHalVibrator {
                                     (byte) strength);
                             if (played > 0) {
                                 result = played;
+                                richtapPlayed = true;
                             }
                         }
                     }
-                    if (result <= 0 && mVibratorInfo.hasCapability(IVibrator.CAP_PERFORM_CALLBACK)) {
+                    if (richtapPlayed) {
+                        mHandler.postDelayed(newVibrationCallback(vibrationId, stepId), result);
+                    } else if (result <= 0 && mVibratorInfo.hasCapability(
+                            IVibrator.CAP_PERFORM_CALLBACK)) {
                         // Delegate vibrate with callback to native, to avoid creating a new
                         // callback instance for each call, overloading the GC.
                         result = mNativeHandler.vibrateWithCallback(mVibratorId, vibrationId,
