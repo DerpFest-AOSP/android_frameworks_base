@@ -18,6 +18,7 @@ import com.android.systemui.statusbar.quickactions.island.media.ui.compose.Locks
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import kotlin.math.abs
+import kotlin.math.max
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -70,7 +71,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -86,12 +89,16 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.constrainHeight
+import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.android.systemui.axdynamicbar.model.IslandEvent
@@ -112,6 +119,7 @@ private val ActionSize = SpacePanel
 private val ActionIconSize = SizeBadge
 private val BatteryIconSize = ChipHeight - SpaceXxl
 private val CountBadgeHeight = ChipHeight / 2
+private val SpaceLyricsToChip = 12.dp
 private val LYRICS_TIMESTAMP_REGEX = Regex("\\[(\\d+):(\\d+)(?:[.:](\\d+))?\\]")
 
 @Composable
@@ -203,7 +211,8 @@ fun AxDynamicBarKeyguardChip(
             !mediaControlModel?.syncedLyrics.isNullOrBlank() &&
             LYRICS_TIMESTAMP_REGEX.containsMatchIn(mediaControlModel?.syncedLyrics ?: "")
 
-        val lyricsActuallyShowing = isOnKeyguard && canShowChipOnKeyguard && !isKeyguardExpanded && hasScrollableLyrics
+        var lyricsPlaced by remember { mutableStateOf(false) }
+        val lyricsActuallyShowing = isOnKeyguard && canShowChipOnKeyguard && !isKeyguardExpanded && hasScrollableLyrics && lyricsPlaced
 
         LaunchedEffect(lyricsActuallyShowing) {
             viewModel.interactor.settings.setAreLyricsShowingOnLockscreen(lyricsActuallyShowing)
@@ -323,17 +332,15 @@ fun AxDynamicBarKeyguardChip(
                     }
                 }
 
-                if (hasLyrics && mediaControlModel != null) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        LockscreenLyricsView(model = mediaControlModel!!)
-                        chipBody()
-                    }
-                } else {
-                    chipBody()
-                }
+                LyricsAboveChip(
+                    lyrics = {
+                        if (hasLyrics && mediaModel != null) {
+                            LockscreenLyricsView(model = mediaModel)
+                        }
+                    },
+                    chip = chipBody,
+                    onLyricsPlacedChanged = { lyricsPlaced = it },
+                )
             } else {
                 KeyguardBatteryChip(
                     batteryInfo,
@@ -342,6 +349,55 @@ fun AxDynamicBarKeyguardChip(
                     modifier,
                 )
             }
+        }
+    }
+}
+
+/**
+ * Stacks [lyrics] above [chip], centered. The chip always wins the height: when the incoming
+ * constraints cannot hold both, the lyrics are not placed, and when even the chip does not fit
+ * nothing is, so a host that hides oversized cards still does so.
+ */
+@Composable
+private fun LyricsAboveChip(
+    lyrics: @Composable () -> Unit,
+    chip: @Composable () -> Unit,
+    onLyricsPlacedChanged: (Boolean) -> Unit,
+) {
+    val currentOnLyricsPlacedChanged by rememberUpdatedState(onLyricsPlacedChanged)
+    Layout(contents = listOf(lyrics, chip)) { (lyricsMeasurables, chipMeasurables), constraints ->
+        val childConstraints =
+            constraints.copy(minWidth = 0, minHeight = 0, maxHeight = Constraints.Infinity)
+        val chipPlaceables = chipMeasurables.map { it.measure(childConstraints) }
+        val lyricsPlaceables = lyricsMeasurables.map { it.measure(childConstraints) }
+        val chipWidth = chipPlaceables.maxOfOrNull { it.width } ?: 0
+        val chipHeight = chipPlaceables.maxOfOrNull { it.height } ?: 0
+        val lyricsWidth = lyricsPlaceables.maxOfOrNull { it.width } ?: 0
+        val lyricsHeight = lyricsPlaceables.maxOfOrNull { it.height } ?: 0
+        val gap = SpaceLyricsToChip.roundToPx()
+
+        val chipFits = chipHeight <= constraints.maxHeight
+        val showLyrics =
+            chipFits && lyricsHeight > 0 &&
+                chipHeight + gap + lyricsHeight <= constraints.maxHeight
+        currentOnLyricsPlacedChanged(showLyrics)
+
+        if (!chipFits) return@Layout layout(constraints.minWidth, constraints.minHeight) {}
+        val width =
+            constraints.constrainWidth(if (showLyrics) max(chipWidth, lyricsWidth) else chipWidth)
+        val height =
+            constraints.constrainHeight(
+                if (showLyrics) lyricsHeight + gap + chipHeight else chipHeight
+            )
+        layout(width, height) {
+            val chipTop =
+                if (showLyrics) {
+                    lyricsPlaceables.forEach { it.placeRelative((width - it.width) / 2, 0) }
+                    lyricsHeight + gap
+                } else {
+                    0
+                }
+            chipPlaceables.forEach { it.placeRelative((width - it.width) / 2, chipTop) }
         }
     }
 }

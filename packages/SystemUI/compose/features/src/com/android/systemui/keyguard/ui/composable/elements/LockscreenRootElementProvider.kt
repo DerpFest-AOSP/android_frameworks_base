@@ -340,8 +340,23 @@ private fun LockscreenScope<ContentScope>.LockscreenSceneLayout(
                     Constraints.fixed(constraints.maxWidth, height)
                 )
             } else {
+                // Bounded so the card can drop optional content (lyrics) instead of being hidden
+                // by ambientSlotTop for not fitting.
                 ambientIndicationMeasurable.measure(
-                    constraints = Constraints.fixedWidth(constraints.maxWidth)
+                    Constraints(
+                        minWidth = constraints.maxWidth,
+                        maxWidth = constraints.maxWidth,
+                        minHeight = 0,
+                        maxHeight =
+                            ambientSlotMaxHeight(
+                                contentBottom = contentBottomPx,
+                                shortcutsTop = shortcutsTop,
+                                obstacle = lockIconBounds,
+                                margin = ambientMarginPx,
+                                pinAboveIcon = pinAboveIcon,
+                                iconGap = ambientIconGapPx,
+                            ),
+                    )
                 )
             }
 
@@ -423,6 +438,26 @@ private fun ambientSlotTop(
         return contentBottom + (aboveBottom - contentBottom - cardHeight) / 2
     }
     return null
+}
+
+/** Tallest card [ambientSlotTop] can place with the same inputs. */
+private fun ambientSlotMaxHeight(
+    contentBottom: Int,
+    shortcutsTop: Int,
+    obstacle: IntRect,
+    margin: Int,
+    pinAboveIcon: Boolean,
+    iconGap: Int,
+): Int {
+    val below = shortcutsTop - max(obstacle.bottom, contentBottom) - margin * 2
+    val aboveBottom = min(obstacle.top, shortcutsTop)
+    val above =
+        if (pinAboveIcon) {
+            aboveBottom - iconGap - contentBottom - margin
+        } else {
+            aboveBottom - contentBottom - margin * 2
+        }
+    return max(below, above).coerceAtLeast(0)
 }
 
 private fun BaseContentScope.isIdleWithOverlay(): Boolean {
