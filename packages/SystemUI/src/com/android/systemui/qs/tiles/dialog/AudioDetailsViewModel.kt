@@ -27,6 +27,11 @@ import com.android.systemui.plugins.qs.TileDetailsViewModel
 import com.android.systemui.qs.tiles.base.domain.actions.QSTileIntentUserInputHandler
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
+import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
@@ -36,6 +41,12 @@ constructor(
     private val qsTileIntentUserActionHandler: QSTileIntentUserInputHandler,
     defaultPageViewModelFactory: AudioDetailsDefaultPageViewModel.Factory,
 ) : TileDetailsViewModel, ExclusiveActivatable() {
+    private val activationScope by lazy {
+        CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    }
+    private val activationCount = AtomicInteger(0)
+    private var activationJob: Job? = null
+
     // Controls the current content that should be displayed
     var contentViewModel: ContentViewModel by mutableStateOf(defaultPageViewModelFactory.create())
 
@@ -54,6 +65,27 @@ constructor(
             /* expandable= */ null,
             Intent(Settings.ACTION_SOUND_SETTINGS),
         )
+    }
+
+    fun retainActivation() {
+        val count = activationCount.incrementAndGet()
+        val current = activationJob
+        if (count > 1 && current?.isActive == true) {
+            return
+        }
+        activationJob =
+            activationScope.launch {
+                current?.join()
+                if (activationCount.get() > 0) {
+                    activate()
+                }
+            }
+    }
+
+    fun releaseActivation() {
+        if (activationCount.decrementAndGet() == 0) {
+            activationJob?.cancel()
+        }
     }
 
     override suspend fun onActivated() {

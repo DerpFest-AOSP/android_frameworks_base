@@ -29,7 +29,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.dimensionResource
@@ -61,7 +61,10 @@ private val TILE_DETAILS_ENTRY_HORIZONTAL_GAP = R.dimen.tile_details_entry_horiz
 
 @Composable
 fun AudioDetailsContent(audioDetailsViewModel: AudioDetailsViewModel) {
-    LaunchedEffect(Unit) { audioDetailsViewModel.activate() }
+    DisposableEffect(audioDetailsViewModel) {
+        audioDetailsViewModel.retainActivation()
+        onDispose { audioDetailsViewModel.releaseActivation() }
+    }
     when (val currentViewModel = audioDetailsViewModel.contentViewModel) {
         is AudioDetailsDefaultPageViewModel -> {
             val accessibilityTitle = stringResource(R.string.accessibility_volume_settings)

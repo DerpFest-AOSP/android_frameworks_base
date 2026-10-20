@@ -85,7 +85,6 @@ import com.android.systemui.notifications.intelligence.rules.ui.viewmodel.Notifi
 import com.android.systemui.notifications.ui.composable.HeadsUpNotificationPlaceholder
 import com.android.systemui.notifications.ui.composable.ScrollingNotificationPanel
 import com.android.systemui.qs.composefragment.ui.GridAnchor
-import com.android.systemui.qs.flags.QsDetailedView
 import com.android.systemui.qs.footer.ui.compose.FooterActionsWithAnimatedVisibility
 import com.android.systemui.qs.panels.ui.compose.EditMode
 import com.android.systemui.qs.panels.ui.compose.TileDetails
@@ -412,14 +411,7 @@ private fun ContentScope.QuickSettingsContent(
         // ############# Media ###############
         val mediaInRow = viewModel.qsContainerViewModel.showMediaInRow
         val detailsViewModel = viewModel.qsContainerViewModel.detailsViewModel
-        // This scene is always-composed. Dual shade shows the same details in the overlay, so only
-        // compose them here when this scene is actually visible.
-        val tileDetails =
-            if (QsDetailedView.isEnabled && isAlwaysComposedContentVisible()) {
-                detailsViewModel.activeTileDetails
-            } else {
-                null
-            }
+        val tileDetails = activeTileDetailsWhileVisible(detailsViewModel)
 
         val isBouncyMotionEnabled = LocalBouncyMotionMechanicsEnabled.current
         val overscrollModifier =

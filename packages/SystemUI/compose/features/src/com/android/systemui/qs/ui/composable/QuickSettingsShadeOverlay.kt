@@ -84,6 +84,7 @@ import com.android.systemui.lifecycle.rememberViewModel
 import com.android.systemui.media.remedia.ui.compose.Media
 import com.android.systemui.media.remedia.ui.compose.MediaPresentationStyle
 import com.android.systemui.notifications.ui.composable.SnoozableHeadsUpNotificationPlaceholder
+import com.android.systemui.plugins.qs.TileDetailsViewModel
 import com.android.systemui.qs.composefragment.ui.GridAnchor
 import com.android.systemui.qs.flags.QsDetailedView
 import com.android.systemui.qs.footer.ui.viewmodel.FooterActionsDataUsageViewModel
@@ -94,6 +95,7 @@ import com.android.systemui.qs.panels.ui.compose.TileDetails
 import com.android.systemui.qs.panels.ui.compose.TileGrid
 import com.android.systemui.qs.panels.ui.compose.toolbar.Toolbar
 import com.android.systemui.qs.panels.ui.model.QsShadeComponent
+import com.android.systemui.qs.panels.ui.viewmodel.DetailsViewModel
 import com.android.systemui.qs.panels.ui.viewmodel.toolbar.ToolbarViewModel
 import com.android.systemui.qs.tiles.dialog.AudioDetailsViewModel
 import com.android.systemui.qs.ui.composable.QuickSettingsShade.systemGestureExclusionInShade
@@ -256,6 +258,23 @@ constructor(
     }
 }
 
+@Composable
+internal fun ContentScope.activeTileDetailsWhileVisible(
+    detailsViewModel: DetailsViewModel,
+): TileDetailsViewModel? {
+    if (!QsDetailedView.isEnabled || !isAlwaysComposedContentVisible()) {
+        return null
+    }
+    if (
+        contentKey != Overlays.QuickSettingsShade &&
+            (layoutState.isInCurrentOverlays(Overlays.QuickSettingsShade) ||
+                layoutState.isTransitioningFromOrTo(Overlays.QuickSettingsShade))
+    ) {
+        return null
+    }
+    return detailsViewModel.activeTileDetails
+}
+
 /** The possible states of the `ShadeBody`. */
 private sealed interface ShadeBodyState {
     data object Editing : ShadeBodyState
@@ -280,9 +299,7 @@ private fun ContentScope.QuickSettingsContainer(
     modifier: Modifier = Modifier,
 ) {
     val isEditing by containerViewModel.editModeViewModel.isEditing.collectAsStateWithLifecycle()
-    val tileDetails =
-        if (QsDetailedView.isEnabled) containerViewModel.detailsViewModel.activeTileDetails
-        else null
+    val tileDetails = activeTileDetailsWhileVisible(containerViewModel.detailsViewModel)
 
     val accessibilityTitle =
         when {

@@ -106,7 +106,6 @@ import com.android.systemui.notifications.intelligence.rules.ui.viewmodel.Notifi
 import com.android.systemui.notifications.ui.composable.NestedScrollingNotificationPanel
 import com.android.systemui.notifications.ui.composable.ScrollingNotificationPanel
 import com.android.systemui.qs.composefragment.ui.GridAnchor
-import com.android.systemui.qs.flags.QsDetailedView
 import com.android.systemui.qs.footer.ui.compose.FooterActionsWithAnimatedVisibility
 import com.android.systemui.qs.panels.ui.compose.EditMode
 import com.android.systemui.qs.panels.ui.compose.QqsShadeComponentsLayout
@@ -118,6 +117,7 @@ import com.android.systemui.qs.shared.ui.QuickSettings.Elements.SplitShadeQuickS
 import com.android.systemui.qs.ui.composable.QsVolumeSliderRow
 import com.android.systemui.qs.ui.composable.QuickSettingsContent
 import com.android.systemui.qs.ui.composable.QuickSettingsShade
+import com.android.systemui.qs.ui.composable.activeTileDetailsWhileVisible
 import com.android.systemui.qs.ui.composable.rememberQsVolumeSliderViewModel
 import com.android.systemui.res.R
 import com.android.systemui.scene.session.ui.composable.SaveableSession
@@ -724,11 +724,9 @@ private fun ContentScope.SplitShade(
 
                                 Element(QS.rootElementKey, Modifier) {
                                     val tileDetails =
-                                        if (QsDetailedView.isEnabled) {
-                                            qsContainerViewModel.detailsViewModel.activeTileDetails
-                                        } else {
-                                            null
-                                        }
+                                        activeTileDetailsWhileVisible(
+                                            qsContainerViewModel.detailsViewModel,
+                                        )
                                     Column {
                                         Box(
                                             Modifier.weight(1f)
