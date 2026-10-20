@@ -63,6 +63,7 @@ phony {
         "IconPackOOSLauncherOverlay",
         "IconPackOOSSettingsOverlay",
         "IconPackPUIAndroidOverlay",
+        "IconPackPUIAppIcons",
         "IconPackPUILauncherOverlay",
         "IconPackPUISettingsOverlay",
         "IconPackPUISystemUIOverlay",
