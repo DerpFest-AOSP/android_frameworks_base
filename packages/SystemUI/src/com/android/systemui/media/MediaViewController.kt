@@ -416,6 +416,7 @@ class MediaViewController @Inject constructor(
             .setListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
                     clearResources()
+                    coroutineScope.launch { onMediaStateChanged() }
                 }
             })
             .start()
@@ -432,9 +433,9 @@ class MediaViewController @Inject constructor(
     }
 
     override fun onPlaybackStateChanged(state: Int) {
-        isMediaPlaying = state == PlaybackState.STATE_PLAYING
+        isMediaPlaying = state == PlaybackState.STATE_PLAYING ||
+            state == PlaybackState.STATE_BUFFERING
         coroutineScope.launch {
-            if (!isMediaPlaying) artworkDrawable = null
             onMediaStateChanged()
         }
     }
