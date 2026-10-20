@@ -40,6 +40,12 @@ object KeyguardStatusBarViewBinder {
     fun bind(view: KeyguardStatusBarView, viewModel: KeyguardStatusBarViewModel) {
 
         val systemInfoView = view.requireViewById<View>(R.id.system_icons_container)
+        val chipAnimatedViews =
+            listOf(
+                systemInfoView,
+                view.requireViewById<View>(R.id.user_switcher_container),
+                view.requireViewById<View>(R.id.multi_user_avatar),
+            )
         val resources = view.resources
         val translationXIn =
             resources.getDimensionPixelSize(
@@ -88,8 +94,12 @@ object KeyguardStatusBarViewBinder {
                                     StatusBarSystemEventDefaultAnimator
                                         .getDefaultStatusBarAnimationForChipEnter(
                                             targetTranslation = translationXIn,
-                                            setX = { systemInfoView.translationX = it },
-                                            setAlpha = { systemInfoView.alpha = it },
+                                            setX = { x ->
+                                                chipAnimatedViews.forEach { it.translationX = x }
+                                            },
+                                            setAlpha = { a ->
+                                                chipAnimatedViews.forEach { it.alpha = a }
+                                            },
                                         )
                                         .apply { start() }
                             }
@@ -99,8 +109,12 @@ object KeyguardStatusBarViewBinder {
                                     StatusBarSystemEventDefaultAnimator
                                         .getDefaultStatusBarAnimationForChipExit(
                                             targetTranslation = translationXOut,
-                                            setX = { systemInfoView.translationX = it },
-                                            setAlpha = { systemInfoView.alpha = it },
+                                            setX = { x ->
+                                                chipAnimatedViews.forEach { it.translationX = x }
+                                            },
+                                            setAlpha = { a ->
+                                                chipAnimatedViews.forEach { it.alpha = a }
+                                            },
                                         )
                                         .apply { start() }
                             }
@@ -108,7 +122,7 @@ object KeyguardStatusBarViewBinder {
                             RunningChipAnim -> {
                                 // When the chip animation is running, the system info must remain
                                 // hidden.
-                                systemInfoView.alpha = 0f
+                                chipAnimatedViews.forEach { it.alpha = 0f }
                                 currentAnimator = null
                             }
 
@@ -118,8 +132,10 @@ object KeyguardStatusBarViewBinder {
                         // Idle State (Not animating):
                         // We must forcibly reset properties here because we might have just
                         // transitioned from RunningChipAnim (where alpha was 0).
-                        systemInfoView.alpha = 1f
-                        systemInfoView.translationX = 0f
+                        chipAnimatedViews.forEach {
+                            it.alpha = 1f
+                            it.translationX = 0f
+                        }
                     }
                     lastAnimState = animState
                 }
