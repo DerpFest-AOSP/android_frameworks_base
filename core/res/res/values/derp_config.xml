@@ -40,7 +40,7 @@
         <item>VERSION.INCREMENTAL:16091614</item>
         <item>TYPE:user</item>
         <item>TAGS:release-keys</item>
-        <item>VERSION.DEVICE_INITIAL_SDK_INT:32</item>
+        <item>VERSION.DEVICE_INITIAL_SDK_INT:36</item>
     </string-array>
 
     <!-- Build fingerprint from stock ROM -->

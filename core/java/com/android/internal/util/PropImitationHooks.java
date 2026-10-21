@@ -35,6 +35,7 @@ import android.util.Log;
 
 import com.android.internal.R;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -44,8 +45,8 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -113,8 +114,8 @@ public class PropImitationHooks {
         "PIXEL_2025_MIDYEAR_EXPERIENCE"
     );
 
-    private static volatile List<String> sCertifiedProps = new ArrayList<>();
     private static volatile String sStockFp, sNetflixModel;
+    private static volatile boolean sNativePropsApplied;
 
     private static volatile String sProcessName;
     private static volatile boolean sIsGms, sIsFinsky, sIsPhotos;
@@ -201,35 +202,18 @@ public class PropImitationHooks {
             return;
         }
 
-        String savedProps = Settings.Secure.getString(context.getContentResolver(), Settings.Secure.PIF_DATA);
-        if (savedProps == null || TextUtils.isEmpty(savedProps)) {
-            savedProps = Settings.Secure.getString(context.getContentResolver(), Settings.Secure.FETCHED_PIF);
-        }
-
-        if (savedProps == null || TextUtils.isEmpty(savedProps)) {
-            dlog("Parsing props locally - fetched pif / user provided pif unavailable");
-            sCertifiedProps = Arrays.asList(context.getResources().getStringArray(R.array.config_certifiedBuildProperties));
-        } else {
-            dlog("Parsing props fetched / provided by user");
-            try {
-                JSONObject parsedProps = new JSONObject(savedProps);
-                Iterator<String> keys = parsedProps.keys();
-                while (keys.hasNext()) {
-                    String key = keys.next();
-                    String value = parsedProps.getString(key);
-                    sCertifiedProps.add(key + ":" + value);
-                }
-            } catch (JSONException e) {
-                Log.e(TAG, "Error parsing JSON data", e);
-                dlog("Parsing props locally as fallback");
-                sCertifiedProps = Arrays.asList(context.getResources().getStringArray(R.array.config_certifiedBuildProperties));
-            }
-        }
-
-        if (sCertifiedProps.isEmpty()) {
+        Map<String, String> fields = new LinkedHashMap<>();
+        Map<String, String> nativeProps = new LinkedHashMap<>();
+        if (!loadCertifiedProps(context, fields, nativeProps)) {
             dlog("Certified props are not set");
             return;
         }
+
+        expandFingerprint(fields);
+        String initialSdk = resolveDeviceInitialSdk(fields.get("DEVICE"),
+                firstNonEmpty(fields.get("VERSION.DEVICE_INITIAL_SDK_INT"),
+                        fields.get("DEVICE_INITIAL_SDK_INT")));
+        fields.put("VERSION.DEVICE_INITIAL_SDK_INT", initialSdk);
 
         final boolean was = isGmsAddAccountActivityOnTop();
         final TaskStackListener taskStackListener = new TaskStackListener() {
@@ -246,7 +230,12 @@ public class PropImitationHooks {
 
         if (!was) {
             dlog("Spoofing build for GMS / Finsky");
-            setCertifiedProps();
+            for (Map.Entry<String, String> entry : fields.entrySet()) {
+                setPropValue(entry.getKey(), entry.getValue());
+            }
+            if (sIsGms) {
+                spoofNativeProperties(fields, nativeProps, initialSdk);
+            }
         } else {
             dlog("Skip spoofing build for GMS / Finsky, because GmsAddAccountActivityOnTop");
         }
@@ -258,17 +247,234 @@ public class PropImitationHooks {
         }
     }
 
-    private static void setCertifiedProps() {
-        for (String entry : sCertifiedProps) {
-            // Each entry must be of the format FIELD:value
-            final String[] fieldAndProp = entry.split(":", 2);
-            if (fieldAndProp.length != 2) {
-                Log.e(TAG, "Invalid entry in certified props: " + entry);
-                continue;
+    private static boolean loadCertifiedProps(Context context, Map<String, String> fields,
+            Map<String, String> nativeProps) {
+        String savedProps = Settings.Secure.getString(context.getContentResolver(),
+                Settings.Secure.PIF_DATA);
+        if (TextUtils.isEmpty(savedProps)) {
+            savedProps = Settings.Secure.getString(context.getContentResolver(),
+                    Settings.Secure.FETCHED_PIF);
+        }
+
+        if (TextUtils.isEmpty(savedProps)) {
+            dlog("Parsing props locally - fetched pif / user provided pif unavailable");
+            for (String entry : context.getResources().getStringArray(
+                    R.array.config_certifiedBuildProperties)) {
+                addCertifiedEntry(fields, nativeProps, entry);
             }
-            setPropValue(fieldAndProp[0], fieldAndProp[1]);
+            return !fields.isEmpty() || !nativeProps.isEmpty();
+        }
+
+        dlog("Parsing props fetched / provided by user");
+        try {
+            JSONObject parsedProps = new JSONObject(savedProps);
+            Iterator<String> keys = parsedProps.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                Object raw = parsedProps.opt(key);
+                if (raw == null || raw == JSONObject.NULL
+                        || raw instanceof JSONObject || raw instanceof JSONArray) {
+                    continue;
+                }
+                addCertifiedEntry(fields, nativeProps, key + ":" + raw);
+            }
+        } catch (JSONException e) {
+            Log.e(TAG, "Error parsing JSON data", e);
+            dlog("Parsing props locally as fallback");
+            fields.clear();
+            nativeProps.clear();
+            for (String entry : context.getResources().getStringArray(
+                    R.array.config_certifiedBuildProperties)) {
+                addCertifiedEntry(fields, nativeProps, entry);
+            }
+        }
+        return !fields.isEmpty() || !nativeProps.isEmpty();
+    }
+
+    private static void addCertifiedEntry(Map<String, String> fields,
+            Map<String, String> nativeProps, String entry) {
+        final String[] fieldAndProp = entry.split(":", 2);
+        if (fieldAndProp.length != 2 || fieldAndProp[0].isEmpty()) {
+            Log.e(TAG, "Invalid entry in certified props: " + entry);
+            return;
+        }
+        String key = fieldAndProp[0];
+        String value = fieldAndProp[1];
+        if (key.contains(".") || key.startsWith("*")) {
+            nativeProps.put(key, value);
+            return;
+        }
+        switch (key) {
+            case "DEVICE_INITIAL_SDK_INT":
+                fields.put("VERSION.DEVICE_INITIAL_SDK_INT", value);
+                break;
+            case "SECURITY_PATCH":
+                fields.put("VERSION.SECURITY_PATCH", value);
+                break;
+            case "RELEASE":
+                fields.put("VERSION.RELEASE", value);
+                break;
+            case "INCREMENTAL":
+                fields.put("VERSION.INCREMENTAL", value);
+                break;
+            default:
+                fields.put(key, value);
+                break;
         }
     }
+
+    /**
+     * Fills the individual build fields encoded in a fingerprint
+     * ({@code brand/product/device:release/id/incremental:type/tags}).
+     */
+    private static void expandFingerprint(Map<String, String> fields) {
+        String fingerprint = fields.get("FINGERPRINT");
+        if (TextUtils.isEmpty(fingerprint)) {
+            return;
+        }
+        List<String> parts = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        for (int i = 0; i < fingerprint.length(); i++) {
+            char ch = fingerprint.charAt(i);
+            if (ch == '/' || ch == ':') {
+                parts.add(current.toString());
+                current.setLength(0);
+            } else {
+                current.append(ch);
+            }
+        }
+        parts.add(current.toString());
+
+        String[] keys = {
+            "BRAND", "PRODUCT", "DEVICE", "VERSION.RELEASE", "ID",
+            "VERSION.INCREMENTAL", "TYPE", "TAGS"
+        };
+        for (int i = 0; i < keys.length && i < parts.size(); i++) {
+            if (!parts.get(i).isEmpty()) {
+                fields.put(keys[i], parts.get(i));
+            }
+        }
+    }
+
+    /**
+     * Launch SDK of known Pixel codenames. A configured value is only used when the
+     * device is not in this table, because a stale first-api-level fails the
+     * fingerprint cross-check (mustang is 36, not the previously shipped 32).
+     */
+    private static String resolveDeviceInitialSdk(String device, String configuredSdk) {
+        if (device != null) {
+            switch (device) {
+                case "oriole":
+                case "raven":
+                    return "31";
+                case "bluejay":
+                    return "32";
+                case "panther":
+                case "cheetah":
+                case "lynx":
+                case "felix":
+                case "tangorpro":
+                    return "33";
+                case "shiba":
+                case "husky":
+                case "akita":
+                case "tokay":
+                case "caiman":
+                case "komodo":
+                case "comet":
+                    return "34";
+                case "tegu":
+                case "stallion":
+                    return "35";
+                case "frankel":
+                case "blazer":
+                case "mustang":
+                case "rango":
+                    return "36";
+                case "cubs":
+                case "grizzly":
+                case "kodiak":
+                case "yogi":
+                    return "37";
+                default:
+                    break;
+            }
+        }
+        if (!TextUtils.isEmpty(configuredSdk)) {
+            return configuredSdk;
+        }
+        return "32";
+    }
+
+    private static void spoofNativeProperties(Map<String, String> fields,
+            Map<String, String> configured, String initialSdk) {
+        if (sNativePropsApplied) {
+            return;
+        }
+
+        Map<String, String> props = new LinkedHashMap<>();
+        if (configured != null) {
+            props.putAll(configured);
+        }
+        putIfAbsent(props, "init.svc.adbd", "stopped");
+        putIfAbsent(props, "sys.usb.state", "mtp");
+        putIfAbsent(props, "ro.boot.flash.locked", "1");
+        putIfAbsent(props, "ro.boot.vbmeta.device_state", "locked");
+        putIfAbsent(props, "ro.boot.verifiedbootstate", "green");
+        putIfAbsent(props, "ro.boot.veritymode", "enforcing");
+        putIfAbsent(props, "ro.debuggable", "0");
+        putIfAbsent(props, "ro.secure", "1");
+        putIfAbsent(props, "ro.build.type", fields.get("TYPE"));
+        putIfAbsent(props, "ro.build.tags", fields.get("TAGS"));
+        putIfAbsent(props, "ro.product.first_api_level", initialSdk);
+        putIfAbsent(props, "ro.board.first_api_level", initialSdk);
+        putIfAbsent(props, "ro.build.fingerprint", fields.get("FINGERPRINT"));
+        putIfAbsent(props, "ro.build.id", fields.get("ID"));
+        putIfAbsent(props, "ro.build.display.id", fields.get("ID"));
+        putIfAbsent(props, "ro.product.device", fields.get("DEVICE"));
+        putIfAbsent(props, "ro.product.name", fields.get("PRODUCT"));
+        putIfAbsent(props, "ro.build.product", fields.get("PRODUCT"));
+        putIfAbsent(props, "ro.product.brand", fields.get("BRAND"));
+        putIfAbsent(props, "ro.product.manufacturer", fields.get("MANUFACTURER"));
+        putIfAbsent(props, "ro.product.model", fields.get("MODEL"));
+        putIfAbsent(props, "ro.hardware", fields.get("HARDWARE"));
+        putIfAbsent(props, "ro.build.version.release", fields.get("VERSION.RELEASE"));
+        putIfAbsent(props, "ro.build.version.incremental", fields.get("VERSION.INCREMENTAL"));
+        putIfAbsent(props, "ro.build.version.security_patch",
+                firstNonEmpty(fields.get("VERSION.SECURITY_PATCH"), fields.get("SECURITY_PATCH")));
+
+        props.entrySet().removeIf(entry -> TextUtils.isEmpty(entry.getValue()));
+        if (props.isEmpty()) {
+            return;
+        }
+
+        String[] keys = props.keySet().toArray(new String[0]);
+        String[] values = props.values().toArray(new String[0]);
+        try {
+            boolean ok = nativeSpoofProperties(keys, values, DEBUG);
+            if (ok) {
+                sNativePropsApplied = true;
+                Log.i(TAG, "Property area virtualization active (" + keys.length + " rules)");
+            } else {
+                Log.w(TAG, "Property area virtualization returned false");
+            }
+        } catch (Throwable t) {
+            Log.e(TAG, "Failed to spoof native properties", t);
+        }
+    }
+
+    private static void putIfAbsent(Map<String, String> props, String key, String value) {
+        if (!TextUtils.isEmpty(value)) {
+            props.putIfAbsent(key, value);
+        }
+    }
+
+    private static String firstNonEmpty(String primary, String fallback) {
+        return !TextUtils.isEmpty(primary) ? primary : fallback;
+    }
+
+    private static native boolean nativeSpoofProperties(String[] keys, String[] values,
+            boolean debug);
 
     private static String readFromFile(File file) {
         StringBuilder content = new StringBuilder();

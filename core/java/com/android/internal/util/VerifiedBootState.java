@@ -17,12 +17,21 @@
 package com.android.internal.util;
 
 import android.os.SystemProperties;
+import android.security.keystore.KeyProperties;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.cert.Certificate;
+import java.util.List;
 
 public final class VerifiedBootState {
     private static final String REAL_VBMETA_DIGEST_PROP = "ro.boot.vbmeta.digest";
     private static final String REAL_VBMETA_PUBLIC_KEY_DIGEST_PROP =
             "ro.boot.vbmeta.public_key_digest";
     private static final int DIGEST_SIZE_BYTES = 32;
+
+    private static volatile String sDerivedBootHash;
+    private static volatile String sDerivedBootKey;
 
     private VerifiedBootState() {}
 
@@ -52,7 +61,58 @@ public final class VerifiedBootState {
             return primary.toLowerCase();
         }
 
+        String derived = deriveFromKeybox(property);
+        if (isValidDigestHex(derived)) {
+            return derived.toLowerCase();
+        }
+
         return "0".repeat(DIGEST_SIZE_BYTES * 2);
+    }
+
+    /**
+     * When the vbmeta properties are missing, derive a stable boot key and boot hash
+     * from the keybox leaf the way a hardware root of trust would be bound to it.
+     */
+    private static String deriveFromKeybox(String property) {
+        boolean bootHash = REAL_VBMETA_DIGEST_PROP.equals(property);
+        String cached = bootHash ? sDerivedBootHash : sDerivedBootKey;
+        if (isValidDigestHex(cached)) {
+            return cached;
+        }
+        try {
+            List<Certificate> chain = null;
+            try {
+                chain = KeyboxUtils.getCertificateChain(KeyProperties.KEY_ALGORITHM_EC);
+            } catch (Exception ignored) {
+            }
+            if (chain == null || chain.isEmpty()) {
+                chain = KeyboxUtils.getCertificateChain(KeyProperties.KEY_ALGORITHM_RSA);
+            }
+            if (chain == null || chain.isEmpty()) {
+                return null;
+            }
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            if (bootHash) {
+                digest.update("boothash".getBytes(StandardCharsets.UTF_8));
+            }
+            String hex = toHex(digest.digest(chain.get(0).getEncoded()));
+            if (bootHash) {
+                sDerivedBootHash = hex;
+            } else {
+                sDerivedBootKey = hex;
+            }
+            return hex;
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private static String toHex(byte[] bytes) {
+        StringBuilder hex = new StringBuilder(bytes.length * 2);
+        for (byte value : bytes) {
+            hex.append(String.format("%02x", value & 0xff));
+        }
+        return hex.toString();
     }
 
     private static boolean isValidDigestHex(String value) {
