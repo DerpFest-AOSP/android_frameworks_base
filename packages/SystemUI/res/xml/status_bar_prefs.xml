@@ -18,6 +18,28 @@
     android:key="status_bar"
     android:title="@string/status_bar">
 
+    <com.android.systemui.tuner.FeaturedThemePreference
+        android:key="system_icon_packs"
+        android:layout="@layout/preference_icon_packs_card"
+        android:persistent="false"
+        android:summary="@string/status_bar_icon_packs_summary"
+        android:title="@string/status_bar_icon_packs_title"
+        sysui:featuredActionText="@string/status_bar_icon_packs_action"
+        sysui:featuredPreviewIcon1="@drawable/ic_tuner_statusbar_wifi"
+        sysui:featuredPreviewIcon2="@drawable/ic_tuner_statusbar_bluetooth"
+        sysui:featuredPreviewIcon3="@drawable/ic_tuner_statusbar_battery"
+        sysui:featuredPreviewIcon4="@drawable/ic_tuner_statusbar_alarm"
+        sysui:singleLineTitle="false">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetClass="com.android.axion.axthemestore.MainActivity"
+            android:targetPackage="com.android.axion.axthemestore">
+            <extra
+                android:name="com.android.axion.axthemestore.extra.STORE_SECTION"
+                android:value="icon_packs" />
+        </intent>
+    </com.android.systemui.tuner.FeaturedThemePreference>
+
     <com.android.systemui.tuner.StatusBarSwitch
         android:icon="@drawable/ic_tuner_statusbar_auto_rotate"
         android:key="rotate"
@@ -147,29 +169,30 @@
         sysui:defValue="false" />
 
     <androidx.preference.PreferenceCategory
-        android:key="icon_packs_category"
-        android:title="@string/status_bar_icon_packs_category_title">
-
-        <androidx.preference.Preference
-            android:key="system_icon_packs"
-            android:icon="@drawable/ic_icon_pack"
-            android:title="@string/status_bar_icon_packs_title"
-            android:summary="@string/status_bar_icon_packs_summary">
-            <intent
-                android:action="android.intent.action.MAIN"
-                android:targetPackage="com.android.axion.axthemestore"
-                android:targetClass="com.android.axion.axthemestore.MainActivity">
-                <extra
-                    android:name="com.android.axion.axthemestore.extra.STORE_SECTION"
-                    android:value="icon_packs" />
-            </intent>
-        </androidx.preference.Preference>
-
-    </androidx.preference.PreferenceCategory>
-
-    <androidx.preference.PreferenceCategory
         android:key="network_icons_category"
         android:title="@string/status_bar_network_icons_category_title">
+
+        <com.android.systemui.tuner.FeaturedThemePreference
+            android:key="custom_system_theme"
+            android:layout="@layout/preference_icon_packs_card"
+            android:persistent="false"
+            android:summary="@string/custom_system_theme_summary"
+            android:title="@string/custom_system_theme_title"
+            sysui:featuredActionText="@string/status_bar_network_icon_themes_action"
+            sysui:featuredPreviewIcon1="@drawable/ic_tuner_statusbar_wifi"
+            sysui:featuredPreviewIcon2="@drawable/ic_tuner_statusbar_mobile_network"
+            sysui:featuredPreviewIcon3="@drawable/ic_tuner_statusbar_ethernet"
+            sysui:featuredPreviewIcon4="@drawable/ic_tuner_statusbar_airplanemode"
+            sysui:singleLineTitle="false">
+            <intent
+                android:action="android.intent.action.MAIN"
+                android:targetClass="com.android.axion.axthemestore.MainActivity"
+                android:targetPackage="com.android.axion.axthemestore">
+                <extra
+                    android:name="com.android.axion.axthemestore.extra.STORE_SECTION"
+                    android:value="network_icons" />
+            </intent>
+        </com.android.systemui.tuner.FeaturedThemePreference>
 
         <com.android.systemui.tuner.StatusBarSwitch
             android:icon="@drawable/ic_tuner_statusbar_wifi"
@@ -213,21 +236,6 @@
             android:icon="@drawable/ic_statusbar_roaming"
             android:key="roaming"
             android:title="@string/status_bar_roaming" />
-
-        <androidx.preference.Preference
-            android:key="custom_system_theme"
-            android:icon="@drawable/ic_asterisk"
-            android:title="@string/custom_system_theme_title"
-            android:summary="@string/custom_system_theme_summary">
-            <intent
-                android:action="android.intent.action.MAIN"
-                android:targetPackage="com.android.axion.axthemestore"
-                android:targetClass="com.android.axion.axthemestore.MainActivity">
-                <extra
-                    android:name="com.android.axion.axthemestore.extra.STORE_SECTION"
-                    android:value="network_icons" />
-            </intent>
-        </androidx.preference.Preference>
 
     </androidx.preference.PreferenceCategory>
 

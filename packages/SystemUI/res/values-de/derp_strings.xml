@@ -58,11 +58,13 @@
     <string name="status_bar_icon_packs_category_title">Icon-Pakete</string>
     <string name="status_bar_icon_packs_title">System-Icon-Pakete</string>
     <string name="status_bar_icon_packs_summary">System-Icons in Einstellungen, System UI und dem Launcher ersetzen</string>
+    <string name="status_bar_icon_packs_action">Icon-Pakete durchsuchen</string>
 
     <!-- Status bar tuner: network icons -->
     <string name="status_bar_network_icons_category_title">Netzwerk-Icons</string>
     <string name="custom_system_theme_title">Netzwerk-Icon-Themen</string>
     <string name="custom_system_theme_summary">Erscheinungsbild der Netzwerk-Icons anpassen</string>
+    <string name="status_bar_network_icon_themes_action">Netzwerk-Icons durchsuchen</string>
 
     <!-- WiFi standard numbering on statusbar -->
     <string name="status_bar_wifi_standard">WLAN-Standardnummer</string>

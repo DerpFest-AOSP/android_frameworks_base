@@ -74,11 +74,13 @@
     <string name="status_bar_icon_packs_category_title">Icon packs</string>
     <string name="status_bar_icon_packs_title">System icon packs</string>
     <string name="status_bar_icon_packs_summary">Replace system icons in Settings, System UI, and the launcher</string>
+    <string name="status_bar_icon_packs_action">Browse icon packs</string>
 
     <!-- Status bar tuner: network icons -->
     <string name="status_bar_network_icons_category_title">Network icons</string>
     <string name="custom_system_theme_title">Network icon themes</string>
     <string name="custom_system_theme_summary">Customize network icon appearance</string>
+    <string name="status_bar_network_icon_themes_action">Browse network icons</string>
 
     <!-- WiFi standard numbering on statusbar -->
     <string name="status_bar_wifi_standard">Wi-Fi standard number</string>

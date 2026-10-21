@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    SPDX-FileCopyrightText: DerpFest AOSP
+    SPDX-License-Identifier: Apache-2.0
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="@dimen/settingslib_expressive_space_small1"
+    android:paddingEnd="@dimen/settingslib_expressive_space_small1"
+    android:paddingTop="@dimen/settingslib_expressive_space_extrasmall4"
+    android:paddingBottom="@dimen/settingslib_expressive_space_small1">
+
+    <LinearLayout
+        android:id="@+id/icon_packs_card"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/status_bar_icon_packs_card_background"
+        android:duplicateParentState="true"
+        android:orientation="vertical"
+        android:padding="@dimen/settingslib_expressive_space_small4">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:importantForAccessibility="noHideDescendants"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:id="@+id/featured_theme_preview_1"
+                android:layout_width="@dimen/settingslib_expressive_space_medium4"
+                android:layout_height="@dimen/settingslib_expressive_space_medium4"
+                android:layout_marginEnd="@dimen/settingslib_expressive_space_extrasmall6"
+                android:background="@drawable/status_bar_icon_packs_preview_background"
+                android:backgroundTint="@color/settingslib_materialColorPrimaryContainer"
+                android:contentDescription="@null"
+                android:padding="@dimen/settingslib_expressive_space_extrasmall6"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_tuner_statusbar_wifi"
+                android:tint="@color/settingslib_materialColorOnPrimaryContainer" />
+
+            <ImageView
+                android:id="@+id/featured_theme_preview_2"
+                android:layout_width="@dimen/settingslib_expressive_space_medium4"
+                android:layout_height="@dimen/settingslib_expressive_space_medium4"
+                android:layout_marginEnd="@dimen/settingslib_expressive_space_extrasmall6"
+                android:background="@drawable/status_bar_icon_packs_preview_background"
+                android:backgroundTint="@color/settingslib_materialColorSecondaryContainer"
+                android:contentDescription="@null"
+                android:padding="@dimen/settingslib_expressive_space_extrasmall6"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_tuner_statusbar_bluetooth"
+                android:tint="@color/settingslib_materialColorOnSecondaryContainer" />
+
+            <ImageView
+                android:id="@+id/featured_theme_preview_3"
+                android:layout_width="@dimen/settingslib_expressive_space_medium4"
+                android:layout_height="@dimen/settingslib_expressive_space_medium4"
+                android:layout_marginEnd="@dimen/settingslib_expressive_space_extrasmall6"
+                android:background="@drawable/status_bar_icon_packs_preview_background"
+                android:backgroundTint="@color/settingslib_materialColorTertiaryContainer"
+                android:contentDescription="@null"
+                android:padding="@dimen/settingslib_expressive_space_extrasmall6"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_tuner_statusbar_battery"
+                android:tint="@color/settingslib_materialColorOnTertiaryContainer" />
+
+            <ImageView
+                android:id="@+id/featured_theme_preview_4"
+                android:layout_width="@dimen/settingslib_expressive_space_medium4"
+                android:layout_height="@dimen/settingslib_expressive_space_medium4"
+                android:background="@drawable/status_bar_icon_packs_preview_background"
+                android:backgroundTint="@color/settingslib_materialColorPrimaryFixedDim"
+                android:contentDescription="@null"
+                android:padding="@dimen/settingslib_expressive_space_extrasmall6"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_tuner_statusbar_alarm"
+                android:tint="@color/settingslib_materialColorOnPrimaryFixed" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@android:id/title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/settingslib_expressive_space_small1"
+            android:textAppearance="@style/TextAppearance.SettingsLib.TitleLarge.Emphasized"
+            android:textColor="@color/settingslib_text_color_primary" />
+
+        <TextView
+            android:id="@android:id/summary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/settingslib_expressive_space_extrasmall2"
+            android:maxLines="3"
+            android:textAppearance="@style/TextAppearance.SettingsLib.BodyMedium"
+            android:textColor="@color/settingslib_text_color_secondary" />
+
+        <TextView
+            android:id="@+id/featured_theme_action"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/settingslib_expressive_space_small1"
+            android:background="@drawable/settingslib_expressive_button_background_filled"
+            android:clickable="false"
+            android:focusable="false"
+            android:gravity="center"
+            android:minHeight="@dimen/settingslib_expressive_space_medium5"
+            android:text="@string/status_bar_icon_packs_action"
+            android:textAppearance="@style/TextAppearance.SettingsLib.LabelLarge"
+            android:textColor="@color/settingslib_materialColorOnPrimary" />
+    </LinearLayout>
+</LinearLayout>

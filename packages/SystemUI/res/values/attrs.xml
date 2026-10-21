@@ -105,6 +105,14 @@
         <attr name="metricsAction" format="integer" />
     </declare-styleable>
 
+    <declare-styleable name="FeaturedThemePreference">
+        <attr name="featuredActionText" format="string" />
+        <attr name="featuredPreviewIcon1" format="reference" />
+        <attr name="featuredPreviewIcon2" format="reference" />
+        <attr name="featuredPreviewIcon3" format="reference" />
+        <attr name="featuredPreviewIcon4" format="reference" />
+    </declare-styleable>
+
     <declare-styleable name="AutoReinflateContainer">
         <attr name="android:layout" />
     </declare-styleable>

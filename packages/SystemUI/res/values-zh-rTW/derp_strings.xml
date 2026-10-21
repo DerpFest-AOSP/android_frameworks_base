@@ -58,9 +58,11 @@
     <string name="status_bar_icon_packs_category_title">圖示套件</string>
     <string name="status_bar_icon_packs_title">系統圖示套件</string>
     <string name="status_bar_icon_packs_summary">變更設定、系統介面及啟動器中的系統圖示</string>
+    <string name="status_bar_icon_packs_action">瀏覽圖示套件</string>
     <string name="status_bar_network_icons_category_title">網路圖示</string>
     <string name="custom_system_theme_title">網路圖示主題</string>
     <string name="custom_system_theme_summary">自訂網路圖示外觀</string>
+    <string name="status_bar_network_icon_themes_action">瀏覽網路圖示</string>
     <!-- WiFi standard numbering on statusbar -->
     <string name="status_bar_wifi_standard">Wi-Fi 標準編號</string>
 
