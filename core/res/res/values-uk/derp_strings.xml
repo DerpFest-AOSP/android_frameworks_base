@@ -9,7 +9,7 @@
 
     <string name="aerr_copy">Скопіювати URL-адресу логу збою</string>
     <string name="url_copy_success">URL-адресу успішно скопійовано</string>
-    <string name="url_copy_failed">Виникла помилка під час завантаження журналу в mkr/bin</string>
+    <string name="url_copy_failed">Не вдалося завантажити журнал; необроблений журнал збою скопійовано до буфера обміну</string>
 
     <string name="gesture_locked_warning">Проведіть пальцем ще раз, щоб розблокувати жести</string>
 

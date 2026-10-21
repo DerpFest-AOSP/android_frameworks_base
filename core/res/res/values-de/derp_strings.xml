@@ -11,7 +11,7 @@
     <!-- Button that copies the url to the log of a crashed application -->
     <string name="aerr_copy">Crash-Log-URL kopieren</string>
     <string name="url_copy_success">URL erfolgreich kopiert</string>
-    <string name="url_copy_failed">Beim Hochladen des Logs zu mkr/bin ist ein Fehler aufgetreten</string>
+    <string name="url_copy_failed">Hochladen des Logs fehlgeschlagen; Roh-Crash-Log in die Zwischenablage kopiert</string>
 
     <!-- Lock gesture -->
     <string name="gesture_locked_warning">Erneut wischen, um Gesten zu entsperren</string>
