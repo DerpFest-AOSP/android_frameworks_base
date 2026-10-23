@@ -214,6 +214,9 @@ public class PropImitationHooks {
                 firstNonEmpty(fields.get("VERSION.DEVICE_INITIAL_SDK_INT"),
                         fields.get("DEVICE_INITIAL_SDK_INT")));
         fields.put("VERSION.DEVICE_INITIAL_SDK_INT", initialSdk);
+        // The attestation leaf and DroidGuard both compare this date to the
+        // fingerprint. A missing patch leaves the real device date in place.
+        ensureSecurityPatch(fields);
 
         final boolean was = isGmsAddAccountActivityOnTop();
         final TaskStackListener taskStackListener = new TaskStackListener() {
@@ -440,8 +443,12 @@ public class PropImitationHooks {
         putIfAbsent(props, "ro.hardware", fields.get("HARDWARE"));
         putIfAbsent(props, "ro.build.version.release", fields.get("VERSION.RELEASE"));
         putIfAbsent(props, "ro.build.version.incremental", fields.get("VERSION.INCREMENTAL"));
-        putIfAbsent(props, "ro.build.version.security_patch",
-                firstNonEmpty(fields.get("VERSION.SECURITY_PATCH"), fields.get("SECURITY_PATCH")));
+        String securityPatch = firstNonEmpty(fields.get("VERSION.SECURITY_PATCH"),
+                fields.get("SECURITY_PATCH"));
+        putIfAbsent(props, "ro.build.version.security_patch", securityPatch);
+        // Vendor, bootimage and system partitions each have their own patch prop.
+        // DroidGuard rejects the fingerprint when any of them still shows the device date.
+        putIfAbsent(props, "*security_patch", securityPatch);
 
         props.entrySet().removeIf(entry -> TextUtils.isEmpty(entry.getValue()));
         if (props.isEmpty()) {
@@ -471,6 +478,46 @@ public class PropImitationHooks {
 
     private static String firstNonEmpty(String primary, String fallback) {
         return !TextUtils.isEmpty(primary) ? primary : fallback;
+    }
+
+    /**
+     * Pixel build IDs encode the security patch as {@code YYMMDD}
+     * ({@code CP3A.260905.009} is 2026-09-05). Use that when the profile
+     * does not carry an explicit patch.
+     */
+    private static void ensureSecurityPatch(Map<String, String> fields) {
+        if (!TextUtils.isEmpty(fields.get("VERSION.SECURITY_PATCH"))
+                || !TextUtils.isEmpty(fields.get("SECURITY_PATCH"))) {
+            return;
+        }
+        String patch = securityPatchFromBuildId(fields.get("ID"));
+        if (patch != null) {
+            fields.put("VERSION.SECURITY_PATCH", patch);
+        }
+    }
+
+    private static String securityPatchFromBuildId(String buildId) {
+        if (TextUtils.isEmpty(buildId)) {
+            return null;
+        }
+        int firstDot = buildId.indexOf('.');
+        int secondDot = firstDot >= 0 ? buildId.indexOf('.', firstDot + 1) : -1;
+        if (firstDot < 0 || secondDot != firstDot + 7) {
+            return null;
+        }
+        String yymmdd = buildId.substring(firstDot + 1, secondDot);
+        for (int i = 0; i < yymmdd.length(); i++) {
+            if (!Character.isDigit(yymmdd.charAt(i))) {
+                return null;
+            }
+        }
+        int month = Integer.parseInt(yymmdd.substring(2, 4));
+        int day = Integer.parseInt(yymmdd.substring(4, 6));
+        if (month < 1 || month > 12 || day < 1 || day > 31) {
+            return null;
+        }
+        return "20" + yymmdd.substring(0, 2) + "-"
+                + yymmdd.substring(2, 4) + "-" + yymmdd.substring(4, 6);
     }
 
     private static native boolean nativeSpoofProperties(String[] keys, String[] values,

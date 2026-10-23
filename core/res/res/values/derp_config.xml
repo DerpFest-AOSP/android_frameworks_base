@@ -40,6 +40,7 @@
         <item>VERSION.INCREMENTAL:16091614</item>
         <item>TYPE:user</item>
         <item>TAGS:release-keys</item>
+        <item>VERSION.SECURITY_PATCH:2026-09-05</item>
         <item>VERSION.DEVICE_INITIAL_SDK_INT:36</item>
     </string-array>
 
