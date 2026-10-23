@@ -89,7 +89,7 @@ final class LyricTranslator {
             return fallback(lyrics, target);
         }
         List<LyricSource.Cue> cues = new ArrayList<>(lyrics.getCues());
-        List<String> translated = translate(context, source, target, cues);
+        List<String> translated = translate(context, modelLocale(source), modelLocale(target), cues);
         if (translated == null) {
             return fallback(lyrics, target);
         }
@@ -404,7 +404,7 @@ final class LyricTranslator {
                     new TranslationSpec(source, TranslationSpec.DATA_FORMAT_TEXT),
                     new TranslationSpec(target, TranslationSpec.DATA_FORMAT_TEXT)).build());
             if (translator == null) {
-                Log.w(TAG, "On-device translator unavailable");
+                Log.w(TAG, "On-device translator unavailable " + source + "->" + target);
                 return null;
             }
             ArrayList<String> translated = new ArrayList<>();
@@ -492,6 +492,21 @@ final class LyricTranslator {
             return true;
         }
         return isTraditionalChinese(first) == isTraditionalChinese(second);
+    }
+
+    /**
+     * The on-device translator matches language codes such as {@code de} and {@code zh_Hant}.
+     * A full default locale like {@code de_DE} is rejected.
+     */
+    private static ULocale modelLocale(ULocale locale) {
+        String language = languageCode(locale);
+        if (language.isEmpty()) {
+            return locale;
+        }
+        if ("zh".equals(language) && isTraditionalChinese(locale)) {
+            return ULocale.forLanguageTag("zh-Hant");
+        }
+        return new ULocale(language);
     }
 
     private static String languageCode(ULocale locale) {
