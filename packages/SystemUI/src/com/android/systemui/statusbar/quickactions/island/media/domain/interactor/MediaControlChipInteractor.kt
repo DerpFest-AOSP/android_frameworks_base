@@ -288,6 +288,26 @@ constructor(
                             1,
                             userId,
                         )
+                    val showTranslation =
+                        Settings.Secure.getIntForUser(
+                            context.contentResolver,
+                            Settings.Secure.STATUS_BAR_LYRIC_SHOW_TRANSLATION,
+                            0,
+                            userId,
+                        )
+                    val translationTarget =
+                        Settings.Secure.getStringForUser(
+                            context.contentResolver,
+                            Settings.Secure.STATUS_BAR_LYRIC_TRANSLATION_TARGET,
+                            userId,
+                        )
+                    val translationWifiOnly =
+                        Settings.Secure.getIntForUser(
+                            context.contentResolver,
+                            Settings.Secure.STATUS_BAR_LYRIC_TRANSLATION_WIFI_ONLY,
+                            1,
+                            userId,
+                        )
                     val key =
                         listOf(
                             track.packageName,
@@ -298,6 +318,9 @@ constructor(
                             track.durationMs,
                             sourceSetting,
                             wordTiming,
+                            showTranslation,
+                            translationTarget,
+                            translationWifiOnly,
                         ).joinToString("\u0000")
                     if (key == lastFetchedKey) {
                         return@collect
@@ -368,6 +391,7 @@ constructor(
                             text = word.text,
                         )
                     },
+                translation = line.translation.orEmpty(),
             )
         }
     }
@@ -388,6 +412,24 @@ constructor(
         )
         resolver.registerContentObserver(
             Settings.Secure.getUriFor(Settings.Secure.STATUS_BAR_LYRIC_WORD_TIMING),
+            false,
+            observer,
+            UserHandle.USER_ALL,
+        )
+        resolver.registerContentObserver(
+            Settings.Secure.getUriFor(Settings.Secure.STATUS_BAR_LYRIC_SHOW_TRANSLATION),
+            false,
+            observer,
+            UserHandle.USER_ALL,
+        )
+        resolver.registerContentObserver(
+            Settings.Secure.getUriFor(Settings.Secure.STATUS_BAR_LYRIC_TRANSLATION_TARGET),
+            false,
+            observer,
+            UserHandle.USER_ALL,
+        )
+        resolver.registerContentObserver(
+            Settings.Secure.getUriFor(Settings.Secure.STATUS_BAR_LYRIC_TRANSLATION_WIFI_ONLY),
             false,
             observer,
             UserHandle.USER_ALL,

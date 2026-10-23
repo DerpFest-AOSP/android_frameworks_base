@@ -31,6 +31,7 @@ data class LyricLine(
     val timestampMs: Long,
     val text: String,
     val words: List<LyricWord> = emptyList(),
+    val translation: String = "",
 )
 
 /** Model used to display and control media from the status bar island. */

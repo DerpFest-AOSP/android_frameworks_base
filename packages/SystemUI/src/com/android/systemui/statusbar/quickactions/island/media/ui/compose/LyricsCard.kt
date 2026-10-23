@@ -54,6 +54,8 @@ import com.android.systemui.statusbar.quickactions.island.media.shared.model.Med
 private val timestampRegex = Regex("\\[(\\d+):(\\d+)(?:[.:](\\d+))?\\]")
 private const val WORD_SWEEP_FRAME_MS = 16L
 private const val UNSUNG_ALPHA = 0.45f
+private const val TRANSLATION_SCALE = 0.7f
+private const val TRANSLATION_ALPHA = 0.4f
 
 @Composable
 fun LyricsCard(
@@ -103,6 +105,7 @@ fun LyricsCard(
                     val isActive = index == activeIndex
                     AnimatedLyricsLine(
                         text = line.text,
+                        translation = line.translation,
                         fontSize = 16.sp,
                         alpha = if (isActive) 1f else 0.4f,
                         scale = if (isActive) 1.04f else 0.96f,
@@ -241,6 +244,7 @@ private fun AnimatedLyricsLine(
     scale: Float,
     fontWeight: FontWeight,
     color: Color = Color.White,
+    translation: String = "",
     words: List<LyricWord> = emptyList(),
     lineStartMs: Long = 0L,
     positionMs: Long = 0L,
@@ -266,54 +270,69 @@ private fun AnimatedLyricsLine(
             scaleX = animScale
             scaleY = animScale
         }
-    if (words.isEmpty()) {
-        Text(
-            text = text,
-            color = color,
-            fontSize = fontSize,
-            fontWeight = fontWeight,
-            textAlign = TextAlign.Center,
-            maxLines = maxLines,
-            overflow = overflow,
-            modifier = lineModifier,
-        )
-        return
-    }
-
-    val textStyle = LocalTextStyle.current.merge(
-        TextStyle(fontSize = fontSize, fontWeight = fontWeight, textAlign = TextAlign.Center)
-    )
-    val alignedWords = remember(words, lineStartMs) { alignWordTimes(words, lineStartMs) }
-    val spans = remember(text, alignedWords) { wordSpans(text, alignedWords) }
-    val cursor = highlightCursor(spans, positionMs)
-    val rtl = remember(text) { Bidi.getBaseDirection(text) == Bidi.RTL }
-    var textLayout by remember(text) { mutableStateOf<TextLayoutResult?>(null) }
-    Box(lineModifier) {
-        Text(
-            text = text,
-            color = color.copy(alpha = color.alpha * UNSUNG_ALPHA),
-            style = textStyle,
-            maxLines = maxLines,
-            overflow = overflow,
-            onTextLayout = { textLayout = it },
-            modifier = Modifier.fillMaxWidth(),
-        )
-        if (cursor.exclusiveEnd > 0 || cursor.partialFraction > 0f) {
+    Column(lineModifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        if (words.isEmpty()) {
             Text(
                 text = text,
                 color = color,
-                style = textStyle,
+                fontSize = fontSize,
+                fontWeight = fontWeight,
+                textAlign = TextAlign.Center,
                 maxLines = maxLines,
                 overflow = overflow,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } else {
+            val textStyle = LocalTextStyle.current.merge(
+                TextStyle(fontSize = fontSize, fontWeight = fontWeight, textAlign = TextAlign.Center)
+            )
+            val alignedWords = remember(words, lineStartMs) { alignWordTimes(words, lineStartMs) }
+            val spans = remember(text, alignedWords) { wordSpans(text, alignedWords) }
+            val cursor = highlightCursor(spans, positionMs)
+            val rtl = remember(text) { Bidi.getBaseDirection(text) == Bidi.RTL }
+            var textLayout by remember(text) { mutableStateOf<TextLayoutResult?>(null) }
+            Box(Modifier.fillMaxWidth()) {
+                Text(
+                    text = text,
+                    color = color.copy(alpha = color.alpha * UNSUNG_ALPHA),
+                    style = textStyle,
+                    maxLines = maxLines,
+                    overflow = overflow,
+                    onTextLayout = { textLayout = it },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (cursor.exclusiveEnd > 0 || cursor.partialFraction > 0f) {
+                    Text(
+                        text = text,
+                        color = color,
+                        style = textStyle,
+                        maxLines = maxLines,
+                        overflow = overflow,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .drawWithContent {
+                                val layout = textLayout ?: return@drawWithContent
+                                val path = highlightPath(layout, cursor, rtl)
+                                if (!path.isEmpty) {
+                                    clipPath(path) { this@drawWithContent.drawContent() }
+                                }
+                            },
+                    )
+                }
+            }
+        }
+        if (translation.isNotBlank()) {
+            Text(
+                text = translation,
+                color = color.copy(alpha = color.alpha * TRANSLATION_ALPHA),
+                fontSize = fontSize * TRANSLATION_SCALE,
+                fontWeight = FontWeight.Normal,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .drawWithContent {
-                        val layout = textLayout ?: return@drawWithContent
-                        val path = highlightPath(layout, cursor, rtl)
-                        if (!path.isEmpty) {
-                            clipPath(path) { this@drawWithContent.drawContent() }
-                        }
-                    },
+                    .padding(top = 2.dp),
             )
         }
     }

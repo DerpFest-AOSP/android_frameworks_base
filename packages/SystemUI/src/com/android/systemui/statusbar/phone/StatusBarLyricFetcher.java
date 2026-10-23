@@ -38,11 +38,17 @@ public final class StatusBarLyricFetcher {
         public final long timestampMs;
         public final String text;
         public final List<TimedWord> words;
+        public final String translation;
 
         public TimedLine(long timestampMs, String text, List<TimedWord> words) {
+            this(timestampMs, text, words, null);
+        }
+
+        public TimedLine(long timestampMs, String text, List<TimedWord> words, String translation) {
             this.timestampMs = timestampMs;
             this.text = text;
             this.words = words == null ? Collections.emptyList() : words;
+            this.translation = translation;
         }
     }
 
@@ -116,6 +122,12 @@ public final class StatusBarLyricFetcher {
                     }
                 }
             }
+            if (lyrics != null && showTranslation(context, userId)
+                    && !Thread.currentThread().isInterrupted()) {
+                lyrics = LyricTranslator.apply(
+                        context, userId, lyrics, translationTarget(context, userId),
+                        translationWifiOnly(context, userId));
+            }
             return toResult(lyrics);
         } catch (Exception e) {
             if (Thread.currentThread().isInterrupted()) {
@@ -145,7 +157,8 @@ public final class StatusBarLyricFetcher {
                 synced.append('\n');
             }
             synced.append(formatLrcTimestamp(cue.timestampMs)).append(cue.text);
-            lines.add(new TimedLine(cue.timestampMs, cue.text, timedWords(cue)));
+            lines.add(new TimedLine(
+                    cue.timestampMs, cue.text, timedWords(cue), cue.translatedText));
         }
         if (plain.length() == 0) {
             String unsynced = lyrics.getUnsyncedLyrics();
@@ -155,6 +168,29 @@ public final class StatusBarLyricFetcher {
             return new Result(unsynced, null, Collections.emptyList());
         }
         return new Result(plain.toString(), synced.toString(), lines);
+    }
+
+    private static boolean showTranslation(Context context, int userId) {
+        return Settings.Secure.getIntForUser(
+                context.getContentResolver(),
+                Settings.Secure.STATUS_BAR_LYRIC_SHOW_TRANSLATION,
+                0,
+                userId) != 0;
+    }
+
+    private static String translationTarget(Context context, int userId) {
+        return Settings.Secure.getStringForUser(
+                context.getContentResolver(),
+                Settings.Secure.STATUS_BAR_LYRIC_TRANSLATION_TARGET,
+                userId);
+    }
+
+    private static boolean translationWifiOnly(Context context, int userId) {
+        return Settings.Secure.getIntForUser(
+                context.getContentResolver(),
+                Settings.Secure.STATUS_BAR_LYRIC_TRANSLATION_WIFI_ONLY,
+                1,
+                userId) != 0;
     }
 
     private static List<TimedWord> timedWords(LyricSource.Cue cue) {
