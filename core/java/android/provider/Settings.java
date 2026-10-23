@@ -15619,11 +15619,39 @@ public final class Settings {
          *    <li> 1 = shown </li>
          * </ul>
          *
+         * When enabled, lyrics are translated on device into
+         * {@link #STATUS_BAR_LYRIC_TRANSLATION_TARGET}. A translation supplied by the lyric source
+         * is used only when the target language is Chinese and on-device translation is
+         * unavailable.
+         *
          * @hide
          */
         @Readable
         public static final String STATUS_BAR_LYRIC_SHOW_TRANSLATION =
                 "status_bar_lyric_show_translation";
+
+        /**
+         * BCP-47 language tag for on-device lyric translation. {@code system} or an empty value
+         * uses the current system locale.
+         *
+         * @hide
+         */
+        @Readable
+        public static final String STATUS_BAR_LYRIC_TRANSLATION_TARGET =
+                "status_bar_lyric_translation_target";
+
+        /**
+         * Controls whether missing on-device translation models may be downloaded off Wi-Fi.
+         * <ul>
+         *    <li> 0 = download on any network </li>
+         *    <li> 1 = download only on Wi-Fi; use a model that is already on device otherwise </li>
+         * </ul>
+         *
+         * @hide
+         */
+        @Readable
+        public static final String STATUS_BAR_LYRIC_TRANSLATION_WIFI_ONLY =
+                "status_bar_lyric_translation_wifi_only";
 
         /**
          * Controls whether word-timed lyrics are requested when available.

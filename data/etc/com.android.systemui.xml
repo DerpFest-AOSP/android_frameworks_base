@@ -42,6 +42,7 @@
         <permission name="android.permission.MANAGE_SENSOR_PRIVACY"/>
         <permission name="android.permission.MANAGE_SERIAL_PORTS"/>
         <permission name="android.permission.MANAGE_USB"/>
+        <permission name="android.permission.MANAGE_UI_TRANSLATION"/>
         <permission name="android.permission.MANAGE_USERS"/>
         <permission name="android.permission.MASTER_CLEAR"/>
         <permission name="android.permission.MEDIA_CONTENT_CONTROL"/>

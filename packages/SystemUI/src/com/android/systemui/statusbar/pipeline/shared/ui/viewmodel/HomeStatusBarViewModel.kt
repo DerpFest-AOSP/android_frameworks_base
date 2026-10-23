@@ -235,6 +235,10 @@ interface HomeStatusBarViewModel : Activatable {
     val isLyricEnabled: Flow<Boolean>
     val isLyricClockRightMode: Flow<Boolean>
     val isLyricTranslationEnabled: Flow<Boolean>
+    val lyricTranslationTarget: Flow<String>
+        get() = flowOf("system")
+    val isLyricTranslationWifiOnly: Flow<Boolean>
+        get() = flowOf(true)
     val isLyricWordTimingEnabled: Flow<Boolean>
         get() = flowOf(true)
     val isLyricClockRightHideIcon: Flow<Boolean>
@@ -682,6 +686,18 @@ constructor(
     override val isLyricTranslationEnabled: Flow<Boolean> =
         secureSettingsRepository
             .boolSetting(Settings.Secure.STATUS_BAR_LYRIC_SHOW_TRANSLATION, false)
+            .flowOn(bgDispatcher)
+
+    override val lyricTranslationTarget: Flow<String> =
+        secureSettingsRepository
+            .stringSetting(Settings.Secure.STATUS_BAR_LYRIC_TRANSLATION_TARGET, "system")
+            .map { it ?: "system" }
+            .distinctUntilChanged()
+            .flowOn(bgDispatcher)
+
+    override val isLyricTranslationWifiOnly: Flow<Boolean> =
+        secureSettingsRepository
+            .boolSetting(Settings.Secure.STATUS_BAR_LYRIC_TRANSLATION_WIFI_ONLY, true)
             .flowOn(bgDispatcher)
 
     override val isLyricWordTimingEnabled: Flow<Boolean> =

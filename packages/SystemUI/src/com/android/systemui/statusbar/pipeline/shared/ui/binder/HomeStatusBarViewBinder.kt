@@ -513,8 +513,14 @@ constructor(
                 }
 
                 launch {
-                    viewModel.isLyricTranslationEnabled.collect {
-                        lyricController.setShowTranslation(it)
+                    combine(
+                        viewModel.isLyricTranslationEnabled,
+                        viewModel.lyricTranslationTarget,
+                        viewModel.isLyricTranslationWifiOnly,
+                    ) { enabled, target, wifiOnly ->
+                        Triple(enabled, target, wifiOnly)
+                    }.collect { (enabled, target, wifiOnly) ->
+                        lyricController.setTranslationOptions(enabled, target, wifiOnly)
                     }
                 }
 

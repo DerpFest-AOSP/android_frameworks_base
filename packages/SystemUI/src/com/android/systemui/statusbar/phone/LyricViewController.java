@@ -165,6 +165,8 @@ public abstract class LyricViewController implements DarkIconDispatcher.DarkRece
     private boolean mStarted;
     private boolean mShowOnClockRight;
     private boolean mShowTranslation;
+    private String mTranslationTarget = "system";
+    private boolean mTranslationWifiOnly = true;
     private volatile boolean mWordTimingEnabled = true;
     private boolean mHideIconOnClockRight;
     private boolean mTemporarilyHidden;
@@ -292,15 +294,29 @@ public abstract class LyricViewController implements DarkIconDispatcher.DarkRece
         postApplyTextTint();
     }
 
-    public void setShowTranslation(boolean showTranslation) {
-        if (mShowTranslation == showTranslation) {
+    public void setTranslationOptions(boolean showTranslation, String targetLanguage,
+            boolean wifiOnly) {
+        String target = TextUtils.isEmpty(targetLanguage) ? "system" : targetLanguage;
+        boolean changed = mShowTranslation != showTranslation
+                || !TextUtils.equals(mTranslationTarget, target)
+                || mTranslationWifiOnly != wifiOnly;
+        if (!changed) {
             return;
         }
         mShowTranslation = showTranslation;
-        CharSequence translatedText = getVisibleTranslatedText();
-        setSubtitle(mOverlayLyricViewHolder, translatedText);
-        if (mInlineLyricViewHolder != null) {
-            setSubtitle(mInlineLyricViewHolder, translatedText);
+        mTranslationTarget = target;
+        mTranslationWifiOnly = wifiOnly;
+        if (!showTranslation) {
+            setSubtitle(mOverlayLyricViewHolder, null);
+            if (mInlineLyricViewHolder != null) {
+                setSubtitle(mInlineLyricViewHolder, null);
+            }
+            return;
+        }
+        if (mEnabled) {
+            cancelPendingFetch();
+            mCurrentTrackKey = null;
+            updateCurrentSession();
         }
     }
 
@@ -462,7 +478,10 @@ public abstract class LyricViewController implements DarkIconDispatcher.DarkRece
                 Settings.Secure.STATUS_BAR_LYRIC_SOURCES, mUserTracker.getUserId());
         LyricSource.Track track = new LyricSource.Track(
                 packageName, mediaId, title, artist, album, durationMs);
-        String trackKey = track.getKey() + "\u0000" + sourceSetting;
+        String trackKey = track.getKey() + "\u0000" + sourceSetting
+                + (mShowTranslation
+                        ? "\u0000" + mTranslationTarget + "\u0000" + mTranslationWifiOnly
+                        : "");
         if (TextUtils.equals(mCurrentTrackKey, trackKey)) {
             updateDisplayedLyric();
             return;
@@ -480,6 +499,10 @@ public abstract class LyricViewController implements DarkIconDispatcher.DarkRece
         final MediaController requestedController = mCurrentMediaController;
         final LyricSource.Track requestedTrack = track;
         final String requestedSourceSetting = sourceSetting;
+        final boolean translateLyrics = mShowTranslation;
+        final String translationTarget = mTranslationTarget;
+        final boolean translationWifiOnly = mTranslationWifiOnly;
+        final int userId = mUserTracker.getUserId();
         final long fetchGeneration = mFetchGeneration;
         mPendingFetch = mLyricExecutor.submit(() -> {
             LyricSource.Lyrics lyrics = null;
@@ -506,6 +529,13 @@ public abstract class LyricViewController implements DarkIconDispatcher.DarkRece
                         break;
                     }
                 }
+            }
+            if (lyrics != null && translateLyrics && !Thread.currentThread().isInterrupted()) {
+                lyrics = LyricTranslator.apply(
+                        mContext, userId, lyrics, translationTarget, translationWifiOnly);
+            }
+            if (Thread.currentThread().isInterrupted()) {
+                return;
             }
             final LyricSource.Lyrics fetchedLyrics = lyrics;
             mHandler.post(() -> {
