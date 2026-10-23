@@ -6,7 +6,10 @@
 package com.android.systemui.statusbar.quickactions.island.media.ui.compose
 
 import android.icu.text.Bidi
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.LocalContentColor
@@ -29,8 +33,6 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
@@ -39,6 +41,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import kotlin.math.abs
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -56,6 +64,13 @@ private const val WORD_SWEEP_FRAME_MS = 16L
 private const val UNSUNG_ALPHA = 0.45f
 private const val TRANSLATION_SCALE = 0.7f
 private const val TRANSLATION_ALPHA = 0.4f
+private const val ENTRANCE_SCALE = 0.8f
+private const val ENTRANCE_RISE_DP = 12f
+private val LyricSettleSpring =
+    spring<Float>(
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = Spring.StiffnessMediumLow,
+    )
 
 @Composable
 fun LyricsCard(
@@ -91,7 +106,7 @@ fun LyricsCard(
 
             LaunchedEffect(activeIndex) {
                 if (activeIndex >= 0 && activeIndex < lyricLines.size) {
-                    lazyListState.animateScrollToItem(activeIndex)
+                    lazyListState.springScrollToCenter(activeIndex)
                 }
             }
 
@@ -109,6 +124,7 @@ fun LyricsCard(
                         fontSize = 16.sp,
                         alpha = if (isActive) 1f else 0.4f,
                         scale = if (isActive) 1.04f else 0.96f,
+                        emphasized = isActive,
                         fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
                         color = LocalContentColor.current,
                         words = if (isActive) line.words else emptyList(),
@@ -197,6 +213,7 @@ fun LockscreenLyricsView(
             fontSize = 16.sp,
             alpha = 1.0f,
             scale = 1.05f,
+            emphasized = true,
             fontWeight = FontWeight.SemiBold,
             words = currentLine?.words.orEmpty(),
             lineStartMs = currentLine?.timestampMs ?: 0L,
@@ -245,6 +262,7 @@ private fun AnimatedLyricsLine(
     fontWeight: FontWeight,
     color: Color = Color.White,
     translation: String = "",
+    emphasized: Boolean = false,
     words: List<LyricWord> = emptyList(),
     lineStartMs: Long = 0L,
     positionMs: Long = 0L,
@@ -258,17 +276,36 @@ private fun AnimatedLyricsLine(
         animationSpec = tween(animationMillis),
         label = "lyric_line_alpha",
     )
-    val animScale by animateFloatAsState(
-        targetValue = if (text.isEmpty()) 0.8f else scale,
-        animationSpec = tween(animationMillis),
-        label = "lyric_line_scale",
-    )
+    val scaleAnim = remember { Animatable(if (emphasized && text.isNotEmpty()) ENTRANCE_SCALE else scale) }
+    val riseAnim = remember { Animatable(if (emphasized && text.isNotEmpty()) ENTRANCE_RISE_DP else 0f) }
+    LaunchedEffect(emphasized, text) {
+        if (text.isEmpty()) {
+            scaleAnim.snapTo(ENTRANCE_SCALE)
+            riseAnim.snapTo(0f)
+            return@LaunchedEffect
+        }
+        if (emphasized) {
+            scaleAnim.snapTo(ENTRANCE_SCALE)
+            riseAnim.snapTo(ENTRANCE_RISE_DP)
+            coroutineScope {
+                launch { scaleAnim.animateTo(scale, LyricSettleSpring) }
+                launch { riseAnim.animateTo(0f, LyricSettleSpring) }
+            }
+        } else {
+            coroutineScope {
+                launch { scaleAnim.animateTo(scale, tween(animationMillis)) }
+                launch { riseAnim.animateTo(0f, tween(animationMillis)) }
+            }
+        }
+    }
+    val risePx = with(LocalDensity.current) { riseAnim.value.dp.toPx() }
     val lineModifier = modifier
         .fillMaxWidth()
         .graphicsLayer {
             this.alpha = animAlpha
-            scaleX = animScale
-            scaleY = animScale
+            scaleX = scaleAnim.value
+            scaleY = scaleAnim.value
+            translationY = risePx
         }
     Column(lineModifier, horizontalAlignment = Alignment.CenterHorizontally) {
         if (words.isEmpty()) {
@@ -412,6 +449,52 @@ private fun highlightPath(layout: TextLayoutResult, cursor: HighlightCursor, rtl
         }
     }
     return path
+}
+
+private suspend fun LazyListState.springScrollToCenter(index: Int) {
+    if (index < 0) return
+    fun centerDelta(): Float? {
+        val info = layoutInfo
+        val item = info.visibleItemsInfo.firstOrNull { it.index == index } ?: return null
+        val viewportCenter = (info.viewportStartOffset + info.viewportEndOffset) / 2f
+        return item.offset + item.size / 2f - viewportCenter
+    }
+    val distance =
+        centerDelta()
+            ?: run {
+                val info = layoutInfo
+                val visible = info.visibleItemsInfo
+                if (visible.isEmpty()) {
+                    scrollToItem(index)
+                    centerDelta()
+                } else {
+                    val averageSize = visible.sumOf { it.size } / visible.size.toFloat()
+                    val anchor = visible.first()
+                    val estimatedTop = anchor.offset + (index - anchor.index) * averageSize
+                    val viewportCenter = (info.viewportStartOffset + info.viewportEndOffset) / 2f
+                    estimatedTop + averageSize / 2f - viewportCenter
+                }
+            }
+            ?: return
+    suspend fun springBy(pixels: Float) {
+        if (abs(pixels) < 1f) return
+        scroll {
+            val scrollScope = this
+            var previous = 0f
+            Animatable(0f).animateTo(pixels, LyricSettleSpring) {
+                scrollScope.scrollBy(value - previous)
+                previous = value
+            }
+        }
+    }
+    springBy(distance)
+    val residual = centerDelta()
+    if (residual == null) {
+        scrollToItem(index)
+        springBy(centerDelta() ?: 0f)
+    } else {
+        springBy(residual)
+    }
 }
 
 private fun parseLrc(lrcText: String): List<LyricLine> {
