@@ -43,6 +43,22 @@ public class KeyboxImitationHooks {
     private static final String TAG = "KeyboxImitationHooks";
     private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
 
+    /**
+     * Managers for hooked frameworks. Attesting from those processes breaks
+     * strong integrity, so they stay on the device attestation until the
+     * exclude list is changed.
+     */
+    public static final String[] DEFAULT_EXCLUDED_PACKAGES = {
+            "org.lsposed.manager",
+            "io.github.lsposed.manager",
+            "de.robv.android.xposed.installer",
+            "org.meowcat.edxposed.manager",
+            "com.solohsu.android.edxp.manager",
+            "io.va.exposed",
+            "com.topjohnwu.lsplant.manager",
+            "me.weishu.exposed",
+    };
+
     public static KeyMetadata generateKey(IKeystoreSecurityLevel level, KeyDescriptor descriptor,
             Collection<KeyParameter> args, int flags, byte[] entropy) {
         if (!KeyProviderManager.isKeyboxAvailable()) {

@@ -30,6 +30,7 @@ import com.android.internal.security.keybox.KeyboxKeyParameters;
 
 import com.android.internal.util.KeyboxChainGenerator;
 import com.android.internal.util.KeyboxChainGenerator.KeyGenParameters;
+import com.android.internal.util.KeyboxImitationHooks;
 import com.android.internal.util.KeyboxUtils;
 import com.android.server.SystemService;
 
@@ -286,7 +287,8 @@ public final class AttestationService extends SystemService {
                     UserHandle.of(UserHandle.getUserId(targetUid)), 0);
             String excluded = Settings.Secure.getString(
                     userContext.getContentResolver(), Settings.Secure.KEYBOX_EXCLUDED_PACKAGES);
-            if (excluded == null || excluded.isBlank()) {
+            List<String> excludedPackages = excludedPackages(excluded);
+            if (excludedPackages.isEmpty()) {
                 return true;
             }
 
@@ -295,8 +297,21 @@ public final class AttestationService extends SystemService {
                 return true;
             }
 
-            List<String> excludedPackages = Arrays.asList(excluded.split(":"));
             return Collections.disjoint(Arrays.asList(packages), excludedPackages);
+        }
+
+        /**
+         * A missing setting means the hooked-framework managers are excluded.
+         * An empty setting means the user cleared that list.
+         */
+        private static List<String> excludedPackages(String excluded) {
+            if (excluded == null) {
+                return Arrays.asList(KeyboxImitationHooks.DEFAULT_EXCLUDED_PACKAGES);
+            }
+            if (excluded.isBlank()) {
+                return List.of();
+            }
+            return Arrays.asList(excluded.split(":"));
         }
 
         @Override
