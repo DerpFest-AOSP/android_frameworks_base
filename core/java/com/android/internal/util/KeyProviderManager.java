@@ -168,13 +168,9 @@ public final class KeyProviderManager {
 
         @Override
         public boolean hasKeybox() {
-            if (!keyboxData.containsKey("EC.PRIV") || !keyboxData.containsKey("RSA.PRIV")) {
-                return false;
-            }
-            if (!keyboxData.containsKey("EC.CERT_1") || !keyboxData.containsKey("RSA.CERT_1")) {
-                return false;
-            }
-            return true;
+            boolean ec = keyboxData.containsKey("EC.PRIV") && keyboxData.containsKey("EC.CERT_1");
+            boolean rsa = keyboxData.containsKey("RSA.PRIV") && keyboxData.containsKey("RSA.CERT_1");
+            return ec || rsa;
         }
 
         @Override

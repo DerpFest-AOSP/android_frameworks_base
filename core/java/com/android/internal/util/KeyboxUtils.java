@@ -137,11 +137,14 @@ public class KeyboxUtils {
 
     public static X509CertificateHolder getCertificateHolder(String algorithm) throws Exception {
         IKeyboxProvider provider = KeyProviderManager.getProvider();
-        String certPem = KeyProperties.KEY_ALGORITHM_EC.equals(algorithm)
-                ? provider.getEcCertificateChain()[0]
-                : provider.getRsaCertificateChain()[0];
+        String[] chain = KeyProperties.KEY_ALGORITHM_EC.equals(algorithm)
+                ? provider.getEcCertificateChain()
+                : provider.getRsaCertificateChain();
+        if (chain == null || chain.length == 0 || chain[0] == null) {
+            throw new IllegalStateException("Keybox has no " + algorithm + " certificate");
+        }
 
-        X509Certificate parsedCert = parseCertificate(certPem);
+        X509Certificate parsedCert = parseCertificate(chain[0]);
         return new X509CertificateHolder(parsedCert.getEncoded());
     }
 }

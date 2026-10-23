@@ -147,12 +147,11 @@ public final class KeyboxChainGenerator {
 
     private static List<Certificate> buildCertificateChain(int uid, KeyDescriptor descriptor,
             KeyGenParameters params, PublicKey publicKey) throws Exception {
+        // An EC attestation key can sign an RSA subject. Prefer the requested
+        // algorithm, and fall back so an EC-only keybox still roots RSA keys.
+        String issuerAlgorithm = issuerAlgorithm(params);
         X509v3CertificateBuilder certBuilder = new X509v3CertificateBuilder(
-                KeyboxUtils.getCertificateHolder(
-                        Objects.equals(params.algorithm, Algorithm.EC)
-                                ? KeyProperties.KEY_ALGORITHM_EC
-                                : KeyProperties.KEY_ALGORITHM_RSA
-                ).getSubject(),
+                KeyboxUtils.getCertificateHolder(issuerAlgorithm).getSubject(),
                 params.certificateSerial,
                 new Time(params.certificateNotBefore),
                 new Time(params.certificateNotAfter),
@@ -166,19 +165,41 @@ public final class KeyboxChainGenerator {
         }
         certBuilder.addExtension(createExtension(params, uid));
 
-        ContentSigner contentSigner;
-        if (Objects.equals(params.algorithm, Algorithm.EC)) {
-            contentSigner = new JcaContentSignerBuilder("SHA256withECDSA").build(
-                    KeyboxUtils.getPrivateKey(KeyProperties.KEY_ALGORITHM_EC));
-        } else {
-            contentSigner = new JcaContentSignerBuilder("SHA256withRSA").build(
-                    KeyboxUtils.getPrivateKey(KeyProperties.KEY_ALGORITHM_RSA));
-        }
+        String signatureAlgorithm = KeyProperties.KEY_ALGORITHM_EC.equals(issuerAlgorithm)
+                ? "SHA256withECDSA" : "SHA256withRSA";
+        ContentSigner contentSigner = new JcaContentSignerBuilder(signatureAlgorithm).build(
+                KeyboxUtils.getPrivateKey(issuerAlgorithm));
         X509CertificateHolder certHolder = certBuilder.build(contentSigner);
         Certificate leaf = KeyboxUtils.getCertificateFromHolder(certHolder);
-        List<Certificate> chain = KeyboxUtils.getCertificateChain(leaf.getPublicKey().getAlgorithm());
+        List<Certificate> chain = KeyboxUtils.getCertificateChain(issuerAlgorithm);
         chain.add(0, leaf);
         return chain;
+    }
+
+    private static String issuerAlgorithm(KeyGenParameters params) throws Exception {
+        String requested = Objects.equals(params.algorithm, Algorithm.EC)
+                ? KeyProperties.KEY_ALGORITHM_EC
+                : KeyProperties.KEY_ALGORITHM_RSA;
+        if (hasKeyboxCertificate(requested)) {
+            return requested;
+        }
+        String fallback = KeyProperties.KEY_ALGORITHM_EC.equals(requested)
+                ? KeyProperties.KEY_ALGORITHM_RSA
+                : KeyProperties.KEY_ALGORITHM_EC;
+        if (hasKeyboxCertificate(fallback)) {
+            Log.i(TAG, "Keybox has no " + requested + " key; signing with " + fallback);
+            return fallback;
+        }
+        return requested;
+    }
+
+    private static boolean hasKeyboxCertificate(String algorithm) {
+        try {
+            List<Certificate> chain = KeyboxUtils.getCertificateChain(algorithm);
+            return chain != null && !chain.isEmpty();
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private static ASN1Encodable[] fromIntList(List<Integer> list) {
