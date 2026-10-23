@@ -449,6 +449,9 @@ public class PropImitationHooks {
         // Vendor, bootimage and system partitions each have their own patch prop.
         // DroidGuard rejects the fingerprint when any of them still shows the device date.
         putIfAbsent(props, "*security_patch", securityPatch);
+        // Partition props stay readable as this device. DroidGuard compares them
+        // with the spoofed fingerprint, so each one that exists is overwritten.
+        spoofPartitionIdentity(props, fields);
 
         props.entrySet().removeIf(entry -> TextUtils.isEmpty(entry.getValue()));
         if (props.isEmpty()) {
@@ -474,6 +477,50 @@ public class PropImitationHooks {
         if (!TextUtils.isEmpty(value)) {
             props.putIfAbsent(key, value);
         }
+    }
+
+    /**
+     * Overwrite partition identity props that already exist. A vendor fingerprint
+     * such as {@code lineage_komodo} next to a spoofed Pixel fingerprint fails
+     * the cross-check even when the keybox chain is valid.
+     */
+    private static void spoofPartitionIdentity(Map<String, String> props,
+            Map<String, String> fields) {
+        String product = fields.get("PRODUCT");
+        String type = firstNonEmpty(fields.get("TYPE"), "user");
+        String release = fields.get("VERSION.RELEASE");
+        String id = fields.get("ID");
+        String incremental = fields.get("VERSION.INCREMENTAL");
+        String tags = firstNonEmpty(fields.get("TAGS"), "release-keys");
+        String description = null;
+        if (!TextUtils.isEmpty(product) && !TextUtils.isEmpty(release)
+                && !TextUtils.isEmpty(id) && !TextUtils.isEmpty(incremental)) {
+            description = product + "-" + type + " " + release + " " + id + " "
+                    + incremental + " " + tags;
+        }
+        String flavor = TextUtils.isEmpty(product) ? null : product + "-" + type;
+        putIfExists(props, "ro.build.description", description);
+        putIfExists(props, "ro.build.flavor", flavor);
+
+        String fingerprint = fields.get("FINGERPRINT");
+        for (String part : new String[] {
+                "vendor", "odm", "product", "system", "system_ext", "bootimage", "vendor_dlkm"}) {
+            putIfExists(props, "ro." + part + ".build.fingerprint", fingerprint);
+            putIfExists(props, "ro." + part + ".build.description", description);
+            putIfExists(props, "ro.product." + part + ".device", fields.get("DEVICE"));
+            putIfExists(props, "ro.product." + part + ".name", fields.get("PRODUCT"));
+            putIfExists(props, "ro.product." + part + ".brand", fields.get("BRAND"));
+            putIfExists(props, "ro.product." + part + ".manufacturer",
+                    fields.get("MANUFACTURER"));
+            putIfExists(props, "ro.product." + part + ".model", fields.get("MODEL"));
+        }
+    }
+
+    private static void putIfExists(Map<String, String> props, String key, String value) {
+        if (TextUtils.isEmpty(value) || TextUtils.isEmpty(SystemProperties.get(key, ""))) {
+            return;
+        }
+        props.putIfAbsent(key, value);
     }
 
     private static String firstNonEmpty(String primary, String fallback) {
