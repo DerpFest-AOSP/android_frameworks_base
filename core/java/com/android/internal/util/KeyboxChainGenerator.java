@@ -33,6 +33,7 @@ import com.android.internal.org.bouncycastle.asn1.ASN1Integer;
 import com.android.internal.org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import com.android.internal.org.bouncycastle.asn1.ASN1OctetString;
 import com.android.internal.org.bouncycastle.asn1.ASN1Sequence;
+import com.android.internal.org.bouncycastle.asn1.ASN1TaggedObject;
 import com.android.internal.org.bouncycastle.asn1.DERNull;
 import com.android.internal.org.bouncycastle.asn1.DEROctetString;
 import com.android.internal.org.bouncycastle.asn1.DERSequence;
@@ -40,6 +41,7 @@ import com.android.internal.org.bouncycastle.asn1.DERSet;
 import com.android.internal.org.bouncycastle.asn1.DERTaggedObject;
 import com.android.internal.org.bouncycastle.asn1.x500.X500Name;
 import com.android.internal.org.bouncycastle.asn1.x509.Extension;
+import com.android.internal.org.bouncycastle.asn1.x509.Extensions;
 import com.android.internal.org.bouncycastle.asn1.x509.KeyUsage;
 import com.android.internal.org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import com.android.internal.org.bouncycastle.asn1.x509.Time;
@@ -67,6 +69,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -81,6 +84,8 @@ public final class KeyboxChainGenerator {
 
     private static final String TAG = "KeyboxChainGenerator";
     private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
+    private static final ASN1ObjectIdentifier ATTESTATION_OID =
+            new ASN1ObjectIdentifier("1.3.6.1.4.1.11129.2.1.17");
 
     private static final int ATTESTATION_APPLICATION_ID_PACKAGE_INFOS_INDEX = 0;
     private static final int ATTESTATION_APPLICATION_ID_SIGNATURE_DIGESTS_INDEX = 1;
@@ -202,6 +207,149 @@ public final class KeyboxChainGenerator {
         }
     }
 
+    /**
+     * Re-sign a TEE attestation leaf with the keybox key. The private key stays
+     * in KeyMint. Subject, serial, dates, public key, attestation IDs, and patch
+     * tags are kept. Root of trust is forced locked and verified, but the boot
+     * key and hash stay the ones the TEE measured, so the leaf describes the
+     * same phone as the bootloader digest.
+     *
+     * @return the re-signed leaf followed by the keybox chain, or null to leave
+     *         the hardware certificate unchanged
+     */
+    public static List<Certificate> hackHardwareLeaf(byte[] leafCertificateBytes) {
+        if (leafCertificateBytes == null || leafCertificateBytes.length == 0) {
+            return null;
+        }
+        try {
+            X509Certificate leaf = (X509Certificate) CertificateFactory.getInstance("X.509")
+                    .generateCertificate(new ByteArrayInputStream(leafCertificateBytes));
+            X509CertificateHolder leafHolder = new X509CertificateHolder(leaf.getEncoded());
+            Extensions extensions = leafHolder.getExtensions();
+            Extension attestation = extensions == null
+                    ? null : extensions.getExtension(ATTESTATION_OID);
+            if (attestation == null) {
+                Log.w(TAG, "Hardware leaf has no attestation extension");
+                return null;
+            }
+
+            ASN1Encodable[] description = ASN1Sequence.getInstance(
+                    attestation.getExtnValue().getOctets()).toArray();
+            if (description.length < 8 || !(description[7] instanceof ASN1Sequence)) {
+                Log.w(TAG, "Hardware attestation extension is truncated");
+                return null;
+            }
+
+            TreeMap<Integer, ASN1Encodable> enforced = new TreeMap<>();
+            ASN1Encodable originalRootOfTrust = null;
+            for (ASN1Encodable element : (ASN1Sequence) description[7]) {
+                ASN1TaggedObject tagged = ASN1TaggedObject.getInstance(element);
+                if (tagged.getTagNo() == 704) {
+                    originalRootOfTrust = tagged.getBaseObject().toASN1Primitive();
+                } else {
+                    enforced.put(tagged.getTagNo(), tagged);
+                }
+            }
+
+            byte[] bootKey = rootOfTrustOctet(originalRootOfTrust, 0);
+            byte[] bootHash = rootOfTrustOctet(originalRootOfTrust, 3);
+            if (bootKey == null || bootHash == null) {
+                Log.w(TAG, "Hardware leaf has no verified-boot hash");
+                return null;
+            }
+
+            String issuerAlgorithm = keyboxAlgorithm(leaf.getPublicKey());
+            if (issuerAlgorithm == null || !hasKeyboxCertificate(issuerAlgorithm)) {
+                Log.w(TAG, "No keybox for hardware leaf algorithm");
+                return null;
+            }
+
+            ASN1Encodable[] rootOfTrust = {
+                    new DEROctetString(bootKey),
+                    ASN1Boolean.TRUE,
+                    new ASN1Enumerated(0),
+                    new DEROctetString(bootHash)};
+            enforced.put(704, new DERTaggedObject(704, new DERSequence(rootOfTrust)));
+
+            ASN1EncodableVector ordered = new ASN1EncodableVector();
+            for (ASN1Encodable value : enforced.values()) {
+                ordered.add(value);
+            }
+            description[7] = new DERSequence(ordered);
+            Extension hacked = new Extension(ATTESTATION_OID, attestation.isCritical(),
+                    new DEROctetString(new DERSequence(description)));
+
+            X509CertificateHolder issuer = KeyboxUtils.getCertificateHolder(issuerAlgorithm);
+            X509v3CertificateBuilder builder = new X509v3CertificateBuilder(
+                    issuer.getSubject(),
+                    leafHolder.getSerialNumber(),
+                    leafHolder.getNotBefore(),
+                    leafHolder.getNotAfter(),
+                    leafHolder.getSubject(),
+                    leafHolder.getSubjectPublicKeyInfo());
+            for (Object oid : extensions.getExtensionOIDs()) {
+                ASN1ObjectIdentifier identifier = (ASN1ObjectIdentifier) oid;
+                if (ATTESTATION_OID.equals(identifier)) {
+                    builder.addExtension(hacked);
+                } else {
+                    builder.addExtension(extensions.getExtension(identifier));
+                }
+            }
+
+            ContentSigner signer = new JcaContentSignerBuilder(
+                    signatureAlgorithm(leaf.getSigAlgName(), issuerAlgorithm)).build(
+                    KeyboxUtils.getPrivateKey(issuerAlgorithm));
+            Certificate hackedLeaf = KeyboxUtils.getCertificateFromHolder(builder.build(signer));
+            List<Certificate> chain = KeyboxUtils.getCertificateChain(issuerAlgorithm);
+            chain.add(0, hackedLeaf);
+            return chain;
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to re-sign hardware attestation leaf", e);
+            return null;
+        }
+    }
+
+    private static byte[] rootOfTrustOctet(ASN1Encodable rootOfTrust, int index) {
+        try {
+            ASN1Sequence sequence = ASN1Sequence.getInstance(rootOfTrust);
+            if (sequence == null || sequence.size() <= index) {
+                return null;
+            }
+            byte[] value = ASN1OctetString.getInstance(sequence.getObjectAt(index)).getOctets();
+            return value.length == 0 ? null : value;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static String keyboxAlgorithm(PublicKey key) {
+        String algorithm = key == null ? null : key.getAlgorithm();
+        if (algorithm == null) {
+            return null;
+        }
+        if ("EC".equalsIgnoreCase(algorithm) || "ECDSA".equalsIgnoreCase(algorithm)) {
+            return KeyProperties.KEY_ALGORITHM_EC;
+        }
+        if ("RSA".equalsIgnoreCase(algorithm)) {
+            return KeyProperties.KEY_ALGORITHM_RSA;
+        }
+        return null;
+    }
+
+    private static String signatureAlgorithm(String leafSignature, String issuerAlgorithm) {
+        boolean ec = KeyProperties.KEY_ALGORITHM_EC.equals(issuerAlgorithm);
+        if (leafSignature != null) {
+            String upper = leafSignature.toUpperCase(Locale.US);
+            if (ec && upper.contains("ECDSA")) {
+                return leafSignature;
+            }
+            if (!ec && upper.contains("RSA")) {
+                return leafSignature;
+            }
+        }
+        return ec ? "SHA256withECDSA" : "SHA256withRSA";
+    }
+
     private static ASN1Encodable[] fromIntList(List<Integer> list) {
         ASN1Encodable[] result = new ASN1Encodable[list.size()];
         for (int i = 0; i < list.size(); i++) {
@@ -275,8 +423,7 @@ public final class KeyboxChainGenerator {
 
             ASN1OctetString keyDescriptionOctetStr = getAsn1OctetString(
                     toAuthorizationList(tee), toAuthorizationList(software), params);
-            return new Extension(new ASN1ObjectIdentifier("1.3.6.1.4.1.11129.2.1.17"),
-                    false, keyDescriptionOctetStr);
+            return new Extension(ATTESTATION_OID, false, keyDescriptionOctetStr);
         } catch (Throwable t) {
             Log.e(TAG, Log.getStackTraceString(t));
         }

@@ -236,14 +236,10 @@ public class PropImitationHooks {
             for (Map.Entry<String, String> entry : fields.entrySet()) {
                 setPropValue(entry.getKey(), entry.getValue());
             }
-            // Keystore reads these instead of Build.DEVICE. They are filled from
-            // ro.product.*_for_attestation when the class loads, which is before
-            // this spoof runs, so the certificate otherwise keeps this device.
-            setPropValue("DEVICE_FOR_ATTESTATION", fields.get("DEVICE"));
-            setPropValue("PRODUCT_FOR_ATTESTATION", fields.get("PRODUCT"));
-            setPropValue("MODEL_FOR_ATTESTATION", fields.get("MODEL"));
-            setPropValue("BRAND_FOR_ATTESTATION", fields.get("BRAND"));
-            setPropValue("MANUFACTURER_FOR_ATTESTATION", fields.get("MANUFACTURER"));
+            // Build.*_FOR_ATTESTATION is what keystore sends to the TEE. Leave
+            // the real device there. Writing the certified profile into those
+            // fields makes the leaf name a different phone than the one that
+            // measured the boot hash, and the TEE rejects the mismatched IDs.
             if (sIsGms) {
                 spoofNativeProperties(fields, nativeProps, initialSdk);
             }
@@ -432,10 +428,8 @@ public class PropImitationHooks {
         putIfAbsent(props, "ro.boot.flash.locked", "1");
         putIfAbsent(props, "ro.boot.vbmeta.device_state", "locked");
         putIfAbsent(props, "ro.boot.verifiedbootstate", "green");
-        putIfAbsent(props, "ro.boot.vbmeta.digest",
-                VerifiedBootState.getAttestationBootHashHex());
-        putIfAbsent(props, "ro.boot.vbmeta.public_key_digest",
-                VerifiedBootState.getAttestationBootKeyHex());
+        // The bootloader digest stays as published. Replacing it with another
+        // phone's factory hash disagrees with the hash in the hardware leaf.
         putIfAbsent(props, "ro.boot.veritymode", "enforcing");
         putIfAbsent(props, "ro.debuggable", "0");
         putIfAbsent(props, "ro.secure", "1");
@@ -452,12 +446,6 @@ public class PropImitationHooks {
         putIfAbsent(props, "ro.product.brand", fields.get("BRAND"));
         putIfAbsent(props, "ro.product.manufacturer", fields.get("MANUFACTURER"));
         putIfAbsent(props, "ro.product.model", fields.get("MODEL"));
-        putIfAbsent(props, "ro.product.device_for_attestation", fields.get("DEVICE"));
-        putIfAbsent(props, "ro.product.name_for_attestation", fields.get("PRODUCT"));
-        putIfAbsent(props, "ro.product.model_for_attestation", fields.get("MODEL"));
-        putIfAbsent(props, "ro.product.brand_for_attestation", fields.get("BRAND"));
-        putIfAbsent(props, "ro.product.manufacturer_for_attestation",
-                fields.get("MANUFACTURER"));
         putIfAbsent(props, "ro.hardware", fields.get("HARDWARE"));
         putIfExists(props, "ro.boot.hardware", fields.get("HARDWARE"));
         putIfExists(props, "ro.product.board", fields.get("DEVICE"));
