@@ -213,10 +213,10 @@ public final class KeyboxChainGenerator {
     private static Extension createExtension(KeyGenParameters params, int uid) {
         try {
             ASN1Encodable[] rootOfTrustEncodables = {
-                    new DEROctetString(VerifiedBootState.getVerifiedBootKeyBytes()),
+                    new DEROctetString(VerifiedBootState.getAttestationBootKeyBytes()),
                     ASN1Boolean.TRUE,
                     new ASN1Enumerated(0),
-                    new DEROctetString(VerifiedBootState.getVerifiedBootHashBytes())};
+                    new DEROctetString(VerifiedBootState.getAttestationBootHashBytes())};
             ASN1Sequence rootOfTrustSeq = new DERSequence(rootOfTrustEncodables);
 
             // Authorization list entries must be emitted in ascending tag order.

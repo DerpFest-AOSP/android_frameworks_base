@@ -16,6 +16,7 @@
 
 package com.android.internal.util;
 
+import android.os.Build;
 import android.os.SystemProperties;
 import android.security.keystore.KeyProperties;
 
@@ -29,6 +30,18 @@ public final class VerifiedBootState {
     private static final String REAL_VBMETA_PUBLIC_KEY_DIGEST_PROP =
             "ro.boot.vbmeta.public_key_digest";
     private static final int DIGEST_SIZE_BYTES = 32;
+
+    /**
+     * Chained vbmeta digest and AVB public-key digest of the mustang
+     * {@code CP3A.260905.009} factory image. Init publishes a fresh random
+     * digest on every boot, so a keybox certificate otherwise names a hash
+     * Google has never shipped for this fingerprint.
+     */
+    private static final String FACTORY_BUILD_ID = "CP3A.260905.009";
+    private static final String FACTORY_BOOT_HASH =
+            "78b3088513cb7a0c0805f3ccacd0990adeb2a7fec589511938a3ea8909157e98";
+    private static final String FACTORY_BOOT_KEY =
+            "ca5c81da02b8debb054fc625135a7833698a9b32148e8a2ef619ebc62ab2e3d8";
 
     private static volatile String sDerivedBootHash;
     private static volatile String sDerivedBootKey;
@@ -53,6 +66,30 @@ public final class VerifiedBootState {
 
     public static byte[] getVerifiedBootKeyBytes() {
         return hexToBytes(getVerifiedBootKeyHex());
+    }
+
+    /** Boot hash for a keybox certificate. Matches {@link #getAttestationBootKeyHex}. */
+    public static String getAttestationBootHashHex() {
+        if (FACTORY_BUILD_ID.equals(Build.ID)) {
+            return FACTORY_BOOT_HASH;
+        }
+        return getVerifiedBootHashHex();
+    }
+
+    /** Verified-boot key digest paired with {@link #getAttestationBootHashHex}. */
+    public static String getAttestationBootKeyHex() {
+        if (FACTORY_BUILD_ID.equals(Build.ID)) {
+            return FACTORY_BOOT_KEY;
+        }
+        return getVerifiedBootKeyHex();
+    }
+
+    public static byte[] getAttestationBootHashBytes() {
+        return hexToBytes(getAttestationBootHashHex());
+    }
+
+    public static byte[] getAttestationBootKeyBytes() {
+        return hexToBytes(getAttestationBootKeyHex());
     }
 
     private static String getEffectiveDigestHex(String property) {

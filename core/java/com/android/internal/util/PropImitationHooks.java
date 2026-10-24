@@ -432,6 +432,10 @@ public class PropImitationHooks {
         putIfAbsent(props, "ro.boot.flash.locked", "1");
         putIfAbsent(props, "ro.boot.vbmeta.device_state", "locked");
         putIfAbsent(props, "ro.boot.verifiedbootstate", "green");
+        putIfAbsent(props, "ro.boot.vbmeta.digest",
+                VerifiedBootState.getAttestationBootHashHex());
+        putIfAbsent(props, "ro.boot.vbmeta.public_key_digest",
+                VerifiedBootState.getAttestationBootKeyHex());
         putIfAbsent(props, "ro.boot.veritymode", "enforcing");
         putIfAbsent(props, "ro.debuggable", "0");
         putIfAbsent(props, "ro.secure", "1");
