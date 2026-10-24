@@ -323,4 +323,7 @@
     <string name="keyguard_plugged_in_vooc_charging"><xliff:g id="percentage">%s</xliff:g> • VOOC 閃充</string>
     <string name="keyguard_indication_turbo_power_time"><xliff:g id="percentage">%2$s</xliff:g> • Turbo 快充（將於 <xliff:g id="charging_time_left" example="4 hours and 2 minutes">%1$s</xliff:g> 後充飽）</string>
     <string name="keyguard_plugged_in_turbo_charging"><xliff:g id="percentage">%s</xliff:g> • Turbo 快充</string>
+
+    <!-- AxDynamicBar strings [CHAR LIMIT=NONE] -->
+    <string name="ax_dynamic_bar_url">連結</string>
 </resources>

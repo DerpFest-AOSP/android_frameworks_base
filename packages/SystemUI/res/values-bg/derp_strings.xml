@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: DerpFest AOSP
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- Label for current user in power menu options dialog -->
+    <string name="global_action_restart_systemui">Системен UI</string>
+    <!-- Face unlock -->
+    <string name="face_unlock_recognizing">Разпознаване на лице...</string>
+    <!-- QuickSettings: InternetDialog: Summary for how many devices are connected to the hotspot [CHAR LIMIT=NONE] -->
+    <plurals name="quick_settings_internet_hotspot_summary_num_devices">
+        <item quantity="one">%d устройство свързано</item>
+        <item quantity="other">%d устройства свързани</item>
+    </plurals>
+    <!-- Smartspace -->
+    <string name="accessibility_next_alarm">Следваща аларма в %s</string>
+    <string name="accessibility_smartspace_page">Страница %1$d от %2$d</string>
+    <string name="smartspace_content_desc">От поглед</string>
+    <string name="smartspace_flight_qr_code">QR код</string>
+    <!-- Name of the roaming status bar icon. -->
+    <string name="status_bar_roaming">Индикатор за роуминг</string>
+    <!-- Name of the HD calling status bar icon. -->
+    <string name="status_bar_hd_calling">Обаждане в висока дефиниция (VoLTE/VoNR)</string>
+    <!-- Name of the VoWiFi status bar icon. -->
+    <string name="status_bar_vowifi">Обаждане чрез интернет (VoWiFi)</string>
+    <!-- CPUInfo tile -->
+    <string name="quick_settings_cpuinfo_label">Информация за CPU</string>
+    <!-- Compass QS Tile -->
+    <string name="quick_settings_compass_label">Компас</string>
+    <string name="quick_settings_compass_value"><xliff:g id="degrees">%1$.0f</xliff:g>\u00b0<xliff:g id="direction">%2$s</xliff:g></string>
+    <string name="quick_settings_compass_init">Подготвяне\u2026</string>
+    <string name="quick_settings_compass_N">Север</string>
+    <string name="quick_settings_compass_NE">Североизток</string>
+    <string name="quick_settings_compass_E">Изток</string>
+    <string name="quick_settings_compass_SE">Югоизток</string>
+    <string name="quick_settings_compass_S">Юг</string>
+    <string name="quick_settings_compass_SW">Югозапад</string>
+    <string name="quick_settings_compass_W">Запад</string>
+    <string name="quick_settings_compass_NW">Северозапад</string>
+    <!-- DataSwitch Tile -->
+    <string name="qs_data_switch_label">Смени картата с данни</string>
+    <!-- Screenshot Tile -->
+    <string name="screenshot_long_press">Дълъг натиск - избрана област</string>
+    <!-- Language toggle tile -->
+    <string name="quick_settings_locale_label">Език</string>
+    <string name="quick_settings_locale_more_locales_toast">Конфигурирай много езици първо</string>
+    <!-- Sound QS Tile -->
+    <string name="quick_settings_sound_label">Звук</string>
+    <string name="quick_settings_sound_ring">Звънене</string>
+    <string name="quick_settings_sound_vibrate">Вибрация</string>
+    <string name="quick_settings_sound_silent">Тихо</string>
+    <!-- Preferred network tile -->
+    <string name="quick_settings_preferred_network_label">Предпочитана връзка</string>
+    <string name="quick_settings_preferred_network_lte">4G / LTE</string>
+    <string name="quick_settings_preferred_network_nr">5G / NR</string>
+    <string name="quick_settings_preferred_network_unsupported">Не се подкрепя</string>
+    <!-- Data disabled icon -->
+    <string name="data_disabled_icon_title">Илонка за изключени мобилни данни</string>
+    <!-- 5G toggle in Internet Dialog -->
+    <string name="enable_fiveg">Включи 5G</string>
+    <!-- 4G icon -->
+    <string name="show_fourg_icon_title">Икона за 4G</string>
+    <!-- Data usage info in QS footer -->
+    <string name="usage_data">Използвани днес</string>
+    <string name="usage_data_weekly">използвани тази седмица</string>
+    <string name="usage_data_default_suffix">Данни</string>
+    <string name="usage_wifi_default_suffix">Бесжична Мрежа</string>
+    <!-- Refresh rate QS tile -->
+    <string name="refresh_rate_tile_label">Честота на опресняване</string>
+    <!-- Flashlight Strength -->
+    <string name="flashlight_strength_title">Интензивност на фенерчето</string>
+    <string name="flashlight_strength_turn_off">Изключи</string>
+    <string name="flashlight_strength_turn_on">Включи</string>
+    <!-- VPN tethering QS tile -->
+    <string name="vpn_tethering_label">Тетъринг на VPN</string>
+    <!-- AxDynamicBar strings [CHAR LIMIT=NONE] -->
+    <string name="ax_dynamic_bar_timer">Таймер</string>
+    <string name="ax_dynamic_bar_stopwatch">Хронометър</string>
+    <string name="ax_dynamic_bar_alarm">Аларма</string>
+    <string name="ax_dynamic_bar_flashlight">Фенерче</string>
+    <string name="ax_dynamic_bar_hotspot">Точка за достъп</string>
+    <string name="ax_dynamic_bar_hotspot_active">Точка за достъп е активно</string>
+    <string name="ax_dynamic_bar_vpn_active">VPN е активно</string>
+    <string name="ax_dynamic_bar_screen_recording">Записване на екрана</string>
+    <string name="ax_dynamic_bar_now_playing">Сега се изпълнява</string>
+    <string name="ax_dynamic_bar_media_output">Изходяща мултимедия</string>
+    <string name="ax_dynamic_bar_sound_mode">Режим на звука</string>
+    <string name="ax_dynamic_bar_silent">Тихо</string>
+    <string name="ax_dynamic_bar_vibrate">Вибрация</string>
+    <string name="ax_dynamic_bar_ring">Звънене</string>
+    <string name="ax_dynamic_bar_charging">Зареждане</string>
+    <string name="ax_dynamic_bar_wireless">Безжично</string>
+    <string name="ax_dynamic_bar_saver">Спестява</string>
+    <string name="ax_dynamic_bar_music">Музика</string>
+    <string name="ax_dynamic_bar_copied">Копирано</string>
+    <string name="ax_dynamic_bar_copied_feedback">Копирано!</string>
+    <string name="ax_dynamic_bar_image_copied">Изображението е копирано</string>
+    <string name="ax_dynamic_bar_copy_image">Копирай изображението</string>
+    <string name="ax_dynamic_bar_clipboard_image_desc">Изпрати изображението в клипборда</string>
+    <string name="ax_dynamic_bar_image">Изображение</string>
+    <string name="ax_dynamic_bar_dismiss">Отхвърли</string>
+    <string name="ax_dynamic_bar_open">Отвори</string>
+    <string name="ax_dynamic_bar_stop">Стоп</string>
+    <string name="ax_dynamic_bar_stop_recording">Спри записа</string>
+    <string name="ax_dynamic_bar_reset">Нулиране</string>
+    <string name="ax_dynamic_bar_clear_all">Изчисти всичко</string>
+    <string name="ax_dynamic_bar_show_more">Покажи повече</string>
+    <string name="ax_dynamic_bar_show_less">Покажи по-малко</string>
+    <string name="ax_dynamic_bar_play">Възпроизведи</string>
+    <string name="ax_dynamic_bar_pause">Пауза</string>
+    <string name="ax_dynamic_bar_paused">На пауза</string>
+    <string name="ax_dynamic_bar_saved">Запазено</string>
+    <string name="ax_dynamic_bar_recording">Записване</string>
+    <string name="ax_dynamic_bar_done">Готово</string>
+    <string name="ax_dynamic_bar_ringing">Звъни</string>
+    <string name="ax_dynamic_bar_running">Бягане</string>
+    <string name="ax_dynamic_bar_on">Включено</string>
+    <string name="ax_dynamic_bar_recents">Скорошни</string>
+    <string name="ax_dynamic_bar_unlocked">Отключено</string>
+    <string name="ax_dynamic_bar_device_unlocked">Устройството е отключено</string>
+    <string name="ax_dynamic_bar_progress">Прогрес</string>
+    <string name="ax_dynamic_bar_casting_to">Кастинг към</string>
+    <string name="ax_dynamic_bar_camera_mic">Камера &amp; Микрофон</string>
+    <string name="ax_dynamic_bar_camera">Камера</string>
+    <string name="ax_dynamic_bar_microphone">Микрофон</string>
+    <string name="ax_dynamic_bar_camera_mic_short">Камера &amp; Микрофон</string>
+    <string name="ax_dynamic_bar_hotspot_devices"><xliff:g id="count" example="3">%d</xliff:g> устройства</string>
+    <string name="ax_dynamic_bar_wireless_charging">Безжично зареждане</string>
+    <string name="ax_dynamic_bar_until_full">докато е пълно</string>
+    <string name="ax_dynamic_bar_battery_saver">Пестене на батерия</string>
+    <string name="ax_dynamic_bar_incoming_call">Входящо повикване</string>
+    <string name="ax_dynamic_bar_connected">Свързано</string>
+    <string name="ax_dynamic_bar_disconnect">Прекратяване на връзката</string>
+    <string name="ax_dynamic_bar_no_devices">Няма устройство</string>
+    <string name="ax_dynamic_bar_one_device_connected">1 устройство е свързано</string>
+    <string name="ax_dynamic_bar_devices_connected"><xliff:g id="count" example="3">%d</xliff:g> устройства свързани</string>
+    <string name="ax_dynamic_bar_vpn_connected">Свързан с VPN</string>
+    <string name="ax_dynamic_bar_secured">Защитено</string>
+    <string name="ax_dynamic_bar_connecting">Свързване\u2026</string>
+    <string name="ax_dynamic_bar_one_device">1 устройство</string>
+    <string name="ax_dynamic_bar_bluetooth_device">Bluetooth устройство</string>
+    <string name="ax_dynamic_bar_apps_count"><xliff:g id="count" example="2">%d</xliff:g> приложения</string>
+    <string name="ax_dynamic_bar_just_now">Досега</string>
+    <string name="ax_dynamic_bar_mins_ago">допреди <xliff:g id="count" example="5">%d</xliff:g> месеца</string>
+    <string name="ax_dynamic_bar_hours_ago">Допреди <xliff:g id="count" example="2">%d</xliff:g>ч</string>
+    <string name="ax_dynamic_bar_days_ago">Допреди <xliff:g id="count" example="3">%d</xliff:g>д</string>
+    <string name="ax_dynamic_bar_weeks_ago">Допреди <xliff:g id="count" example="1">%d</xliff:g>сед</string>
+    <string name="ax_dynamic_bar_resume">Продължи</string>
+    <string name="ax_dynamic_bar_clipboard">Клипборд</string>
+    <string name="ax_dynamic_bar_previous">Предишни</string>
+    <string name="ax_dynamic_bar_next">Следващ</string>
+    <string name="ax_dynamic_bar_shuffle">Разбъркване</string>
+    <string name="ax_dynamic_bar_output">Изход</string>
+    <string name="ax_dynamic_bar_rec_short">Записва</string>
+    <string name="ax_dynamic_bar_cast_short">Кастинг</string>
+    <string name="ax_dynamic_bar_active">Активно</string>
+    <string name="ax_dynamic_bar_biometric">Биометрични данни</string>
+    <string name="ax_dynamic_bar_alignment">Подравняване</string>
+    <string name="ax_dynamic_bar_cam_short">Камера</string>
+    <string name="ax_dynamic_bar_mic_short">Микрофон</string>
+    <string name="ax_dynamic_bar_recent_apps">Скорошни приложения</string>
+    <string name="ax_dynamic_bar_count_running"><xliff:g id="count" example="3">%d</xliff:g> работи</string>
+    <string name="ax_dynamic_bar_sports_vs">срещу</string>
+    <string name="ax_dynamic_bar_sports_live">НА ЖИВО</string>
+    <string name="ax_dynamic_bar_sports_final">Финал</string>
+    <string name="ax_dynamic_bar_sports_halftime">Полувреме</string>
+    <string name="ax_dynamic_bar_sports_upcoming">Предстоящо</string>
+    <string name="ax_dynamic_bar_call">Обаждане</string>
+    <string name="ax_dynamic_bar_kill_app">Спри приложение</string>
+    <!-- Indication on the keyguard that is shown when the device is charging with a dash charger. Should match keyguard_plugged_in_dash_charging [CHAR LIMIT=40] -->
+    <string name="keyguard_indication_dash_charging_time"><xliff:g id="percentage">%2$s</xliff:g> • Бързо зареждане (<xliff:g id="charging_time_left" example="4 часа и 2 минути">%1$s</xliff:g> до пълно зареждане)</string>
+    <string name="keyguard_plugged_in_dash_charging"><xliff:g id="percentage">%s</xliff:g> • Бързо зареждане</string>
+    <!-- Indication on the keyguard that is shown when the device is charging with a warp charger. Should match keyguard_plugged_in_warp_charging [CHAR LIMIT=40] -->
+    <string name="keyguard_indication_warp_charging_time"><xliff:g id="percentage">%2$s</xliff:g> • Warp зареждане (<xliff:g id="charging_time_left" example="4 часа и 2 минути">%1$s</xliff:g> до пълно зареждане)</string>
+    <string name="keyguard_plugged_in_warp_charging"><xliff:g id="percentage">%s</xliff:g> • Warp зареждане</string>
+    <!-- Indication on the keyguard that is shown when the device is charging with a VOOC charger. Should match keyguard_plugged_in_vooc_charging [CHAR LIMIT=40] -->
+    <string name="keyguard_indication_vooc_charging_time"><xliff:g id="percentage">%2$s</xliff:g> • VOOC зареждане (<xliff:g id="charging_time_left" example="4 часа и 2 минути">%1$s</xliff:g> до пълно зареждане)</string>
+    <string name="keyguard_plugged_in_vooc_charging"><xliff:g id="percentage">%s</xliff:g> • VOOC зареждане</string>
+    <!-- Indication on the keyguard that is shown when the device is charging with a turbo power charger. Should match keyguard_plugged_in_turbo_charging [CHAR LIMIT=40] -->
+    <string name="keyguard_indication_turbo_power_time"><xliff:g id="percentage">%2$s</xliff:g> • Турбо зареждане (<xliff:g id="charging_time_left" example="4 hours and 2 minutes">%1$s</xliff:g> до пълно зареждане)</string>
+    <string name="keyguard_plugged_in_turbo_charging"><xliff:g id="percentage">%s</xliff:g> • Турбо зареждане</string>
+</resources>

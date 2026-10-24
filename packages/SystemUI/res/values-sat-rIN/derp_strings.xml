@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: DerpFest AOSP
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- Label for current user in power menu options dialog -->
+    <string name="global_action_restart_systemui">ᱥᱤᱥᱴᱮᱢ UI</string>
+    <!-- CPUInfo tile -->
+    <string name="quick_settings_cpuinfo_label">CPU ᱵᱤᱵᱨᱚᱬ</string>
+    <!-- Compass QS Tile -->
+    <string name="quick_settings_compass_label">ᱠᱚᱢᱯᱟᱥ</string>
+    <string name="quick_settings_compass_init">ᱮᱦᱚᱵᱽᱚᱜ ᱠᱟᱱᱟ\u2026</string>
+    <!-- DataSwitch Tile -->
+    <string name="qs_data_switch_label">ᱰᱟᱴᱟ ᱠᱟᱰ ᱛᱮ ᱪᱟᱞᱟᱜ ᱢᱮᱸ</string>
+    <!-- Language toggle tile -->
+    <string name="quick_settings_locale_label">ᱯᱟᱹᱨᱥᱤ</string>
+    <!-- Sound QS Tile -->
+    <string name="quick_settings_sound_label">ᱥᱟᱲᱮ</string>
+    <string name="quick_settings_sound_ring">ᱨᱤᱝ</string>
+    <string name="quick_settings_sound_vibrate">ᱛᱷᱟᱨᱼᱛᱷᱟᱨᱟᱣ</string>
+    <!-- Preferred network tile -->
+    <string name="quick_settings_preferred_network_lte">4G / LTE</string>
+    <string name="quick_settings_preferred_network_nr">5G / NR</string>
+    <!-- AxDynamicBar strings [CHAR LIMIT=NONE] -->
+    <string name="ax_dynamic_bar_vibrate">ᱛᱷᱟᱨᱼᱛᱷᱟᱨᱟᱣ</string>
+    <string name="ax_dynamic_bar_ring">ᱨᱤᱝ</string>
+    <!-- Indication on the keyguard that is shown when the device is charging with a dash charger. Should match keyguard_plugged_in_dash_charging [CHAR LIMIT=40] -->
+    <string name="keyguard_indication_dash_charging_time"><xliff:g id="percentage">%2$s</xliff:g> • ᱰᱮᱥ ᱪᱟᱨᱡᱤᱝ (<xliff:g id="charging_time_left" example="4 hours and 2 minutes">%1$s</xliff:g> ᱯᱩᱨᱟᱹᱣ ᱦᱟᱹᱵᱤᱡᱽ)</string>
+    <string name="keyguard_plugged_in_dash_charging"><xliff:g id="percentage">%s</xliff:g> • ᱰᱮᱥ ᱪᱟᱨᱡᱤᱝ</string>
+    <!-- Indication on the keyguard that is shown when the device is charging with a warp charger. Should match keyguard_plugged_in_warp_charging [CHAR LIMIT=40] -->
+    <string name="keyguard_indication_warp_charging_time"><xliff:g id="percentage">%2$s</xliff:g> • ᱣᱨᱟᱯ ᱪᱟᱨᱡᱤᱝ(<xliff:g id="charging_time_left" example="4 hours and 2 minutes">%1$s</xliff:g> ᱯᱩᱨᱟᱹᱣ ᱦᱟᱹᱵᱤᱡᱽ)</string>
+    <string name="keyguard_plugged_in_warp_charging"><xliff:g id="percentage">%s</xliff:g> • ᱣᱨᱟᱯ ᱪᱟᱨᱡᱤᱝ</string>
+    <!-- Indication on the keyguard that is shown when the device is charging with a VOOC charger. Should match keyguard_plugged_in_vooc_charging [CHAR LIMIT=40] -->
+    <string name="keyguard_indication_vooc_charging_time"><xliff:g id="percentage">%2$s</xliff:g> • VOOC ᱪᱨᱡᱤᱝ (<xliff:g id="charging_time_left" example="4 hours and 2 minutes">%1$s</xliff:g> ᱯᱩᱨᱟᱹᱣ ᱦᱟᱹᱵᱤᱡᱽ)</string>
+    <string name="keyguard_plugged_in_vooc_charging"><xliff:g id="percentage">%s</xliff:g> • VOOC ᱪᱟᱨᱡᱤᱝ</string>
+</resources>

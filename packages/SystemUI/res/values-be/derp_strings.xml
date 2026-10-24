@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: DerpFest AOSP
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- Label for current user in power menu options dialog -->
+    <string name="global_action_restart_systemui">Сістэмны інтэрфейс</string>
+    <!-- Face unlock -->
+    <string name="face_unlock_recognizing">Распазнаванне асобы...</string>
+    <!-- QuickSettings: InternetDialog: Summary for how many devices are connected to the hotspot [CHAR LIMIT=NONE] -->
+    <plurals name="quick_settings_internet_hotspot_summary_num_devices">
+        <item quantity="one">%d прылада падключана</item>
+        <item quantity="few">%d прылады падключана</item>
+        <item quantity="many">%d прылад падключана</item>
+        <item quantity="other">%d прылады падключана</item>
+    </plurals>
+    <!-- Name of the roaming status bar icon. -->
+    <string name="status_bar_roaming">Індыкатар роўмінгу</string>
+    <!-- Name of the HD calling status bar icon. -->
+    <string name="status_bar_hd_calling">HD выклікі (VoLTE/VoNR)</string>
+    <!-- Name of the VoWiFi status bar icon. -->
+    <string name="status_bar_vowifi">Wi-Fi выклікі (VoWiFi)</string>
+    <!-- CPUInfo tile -->
+    <string name="quick_settings_cpuinfo_label">Інфармацыя аб працэсары</string>
+    <!-- Compass QS Tile -->
+    <string name="quick_settings_compass_label">Компас</string>
+    <string name="quick_settings_compass_init">Ініцыялізацыя\u2026</string>
+    <string name="quick_settings_compass_N">Пн</string>
+    <string name="quick_settings_compass_NE">ПнУсх</string>
+    <string name="quick_settings_compass_E">Усх</string>
+    <string name="quick_settings_compass_SE">ПдУсх</string>
+    <string name="quick_settings_compass_S">Пд</string>
+    <string name="quick_settings_compass_SW">ПдЗх</string>
+    <string name="quick_settings_compass_W">Зх</string>
+    <string name="quick_settings_compass_NW">ПнЗх</string>
+    <!-- DataSwitch Tile -->
+    <string name="qs_data_switch_label">Пераключыце карту мабільных дадзеных</string>
+    <!-- Screenshot Tile -->
+    <string name="screenshot_long_press">Доўгі націск - выбраны рэгіён</string>
+    <!-- Language toggle tile -->
+    <string name="quick_settings_locale_label">Мова</string>
+    <string name="quick_settings_locale_more_locales_toast">Спачатку наладзьце некалькі моў</string>
+    <!-- Sound QS Tile -->
+    <string name="quick_settings_sound_label">Гук</string>
+    <string name="quick_settings_sound_ring">Званок</string>
+    <string name="quick_settings_sound_vibrate">Вібрацыя</string>
+    <!-- Preferred network tile -->
+    <string name="quick_settings_preferred_network_lte">4G / LTE</string>
+    <string name="quick_settings_preferred_network_nr">5G / NR</string>
+    <!-- Label for UI element which allows to use lens on screenshot [CHAR LIMIT=30] -->
+    <string name="screenshot_lens_label">Аб’ектыў</string>
+    <!-- 5G toggle in Internet Dialog -->
+    <string name="enable_fiveg">Уключыць 5G</string>
+    <!-- Data usage info in QS footer -->
+    <string name="usage_data">выкарыстоўваецца сёння</string>
+    <string name="usage_data_default_suffix">Дадзеныя</string>
+    <!-- Refresh rate QS tile -->
+    <string name="refresh_rate_tile_label">Частата экрана</string>
+    <!-- AxDynamicBar strings [CHAR LIMIT=NONE] -->
+    <string name="ax_dynamic_bar_vibrate">Вібрацыя</string>
+    <string name="ax_dynamic_bar_ring">Званок</string>
+    <string name="ax_dynamic_bar_stop">Спыніць</string>
+    <!-- Indication on the keyguard that is shown when the device is charging with a dash charger. Should match keyguard_plugged_in_dash_charging [CHAR LIMIT=40] -->
+    <string name="keyguard_indication_dash_charging_time"><xliff:g id="percentage">%2$s</xliff:g> • Хуткая зарадкаа (<xliff:g id="charging_time_left" example="4 hours and 2 minutes">%1$s</xliff:g> да поўнай зарадкі)</string>
+    <string name="keyguard_plugged_in_dash_charging">Ідзе зарадка (<xliff:g id="Percentage">%s</xliff:g>)</string>
+    <!-- Indication on the keyguard that is shown when the device is charging with a warp charger. Should match keyguard_plugged_in_warp_charging [CHAR LIMIT=40] -->
+    <string name="keyguard_indication_warp_charging_time"><xliff:g id="percentage">%2$s</xliff:g> • Warp зарадка • (<xliff:g id="charging_time_left" example="4 hours and 2 minutes">%1$s</xliff:g> да поўнай зарадкі)</string>
+    <string name="keyguard_plugged_in_warp_charging"><xliff:g id="percentage">%s</xliff:g> • Warp зарадка</string>
+    <!-- Indication on the keyguard that is shown when the device is charging with a VOOC charger. Should match keyguard_plugged_in_vooc_charging [CHAR LIMIT=40] -->
+    <string name="keyguard_indication_vooc_charging_time"><xliff:g id="percentage">%2$s</xliff:g> • VOOC зарадка • (<xliff:g id="charging_time_left" example="4 гадзінны і 2 хвіліны">%1$s</xliff:g> да поўнай зарадкі)</string>
+    <string name="keyguard_plugged_in_vooc_charging"><xliff:g id="percentage">%s</xliff:g> • VOOC зарадка</string>
+    <!-- Indication on the keyguard that is shown when the device is charging with a turbo power charger. Should match keyguard_plugged_in_turbo_charging [CHAR LIMIT=40] -->
+    <string name="keyguard_indication_turbo_power_time"><xliff:g id="percentage">%2$s</xliff:g> • Турба зарадка (<xliff:g id="charging_time_left" example="4 hours and 2 minutes">%1$s</xliff:g> да поўный зарадкі)</string>
+    <string name="keyguard_plugged_in_turbo_charging"><xliff:g id="percentage">%s</xliff:g> • Турба зарадка</string>
+</resources>

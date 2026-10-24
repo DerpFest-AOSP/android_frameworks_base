@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: DerpFest AOSP
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- Label for current user in power menu options dialog -->
+    <string name="global_action_restart_systemui">Interfície del sistema</string>
+    <!-- Face unlock -->
+    <string name="face_unlock_recognizing">Reconeixent rostre...</string>
+    <!-- QuickSettings: InternetDialog: Summary for how many devices are connected to the hotspot [CHAR LIMIT=NONE] -->
+    <plurals name="quick_settings_internet_hotspot_summary_num_devices">
+        <item quantity="one">%d dispositiu connectat</item>
+        <item quantity="other">%d dispositius connectats</item>
+    </plurals>
+    <!-- Name of the roaming status bar icon. -->
+    <string name="status_bar_roaming">Indicador d\'itinerància</string>
+    <!-- CPUInfo tile -->
+    <string name="quick_settings_cpuinfo_label">Informació de CPU</string>
+    <!-- Compass QS Tile -->
+    <string name="quick_settings_compass_label">Brúixola</string>
+    <string name="quick_settings_compass_init">Inicialitzant\u2026</string>
+    <string name="quick_settings_compass_SW">SO</string>
+    <string name="quick_settings_compass_W">O</string>
+    <string name="quick_settings_compass_NW">NO</string>
+    <!-- DataSwitch Tile -->
+    <string name="qs_data_switch_label">Cambiar tarjeta de dades</string>
+    <!-- Screenshot Tile -->
+    <string name="screenshot_long_press">Prem prolongadament la regió seleccionada</string>
+    <!-- Language toggle tile -->
+    <string name="quick_settings_locale_label">Idioma</string>
+    <!-- Sound QS Tile -->
+    <string name="quick_settings_sound_label">So</string>
+    <string name="quick_settings_sound_ring">Timbre</string>
+    <string name="quick_settings_sound_vibrate">Vibrar</string>
+    <!-- Preferred network tile -->
+    <string name="quick_settings_preferred_network_lte">4G / LTE</string>
+    <string name="quick_settings_preferred_network_nr">5G / NR</string>
+    <!-- Label for UI element which allows to use lens on screenshot [CHAR LIMIT=30] -->
+    <string name="screenshot_lens_label">Lent</string>
+    <!-- Data usage info in QS footer -->
+    <string name="usage_data">utilitzat avui</string>
+    <string name="usage_data_default_suffix">Dades</string>
+    <!-- Refresh rate QS tile -->
+    <string name="refresh_rate_tile_label">Freqüència de refresc</string>
+    <!-- AxDynamicBar strings [CHAR LIMIT=NONE] -->
+    <string name="ax_dynamic_bar_vibrate">Vibrar</string>
+    <string name="ax_dynamic_bar_ring">Timbre</string>
+    <string name="ax_dynamic_bar_stop">Aturar</string>
+    <!-- Indication on the keyguard that is shown when the device is charging with a dash charger. Should match keyguard_plugged_in_dash_charging [CHAR LIMIT=40] -->
+    <string name="keyguard_indication_dash_charging_time"><xliff:g id="percentage">%2$s</xliff:g> • Càrrega Dash (<xliff:g id="charging_time_left" example="4 hours and 2 minutes">%1$s</xliff:g> per càrrega completa)</string>
+    <string name="keyguard_plugged_in_dash_charging"><xliff:g id="percentage">%s</xliff:g> • Càrrega Dash</string>
+    <!-- Indication on the keyguard that is shown when the device is charging with a warp charger. Should match keyguard_plugged_in_warp_charging [CHAR LIMIT=40] -->
+    <string name="keyguard_indication_warp_charging_time"><xliff:g id="percentage">%2$s</xliff:g> • Càrrega Warp (<xliff:g id="charging_time_left" example="4 hours and 2 minutes">%1$s</xliff:g> per càrrega completa)</string>
+    <string name="keyguard_plugged_in_warp_charging"><xliff:g id="percentage">%s</xliff:g> • Càrrega Warp</string>
+    <!-- Indication on the keyguard that is shown when the device is charging with a VOOC charger. Should match keyguard_plugged_in_vooc_charging [CHAR LIMIT=40] -->
+    <string name="keyguard_indication_vooc_charging_time"><xliff:g id="percentage">%2$s</xliff:g> • Càrrega VOOC (<xliff:g id="charging_time_left" example="4 hours and 2 minutes">%1$s</xliff:g> per a completar)</string>
+    <string name="keyguard_plugged_in_vooc_charging"><xliff:g id="percentage">%s</xliff:g> • Càrrega VOOC</string>
+    <!-- Indication on the keyguard that is shown when the device is charging with a turbo power charger. Should match keyguard_plugged_in_turbo_charging [CHAR LIMIT=40] -->
+    <string name="keyguard_indication_turbo_power_time"><xliff:g id="percentage">%2$s</xliff:g> • Càrrega Turbo (<xliff:g id="charging_time_left" example="4 hours and 2 minutes">%1$s</xliff:g> per a finalitzar la càrrega)</string>
+    <string name="keyguard_plugged_in_turbo_charging"><xliff:g id="percentage">%s</xliff:g> • Càrrega Turbo</string>
+</resources>

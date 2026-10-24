@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: DerpFest AOSP
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- Label for current user in power menu options dialog -->
+    <string name="global_action_restart_systemui">Süsteemiliides</string>
+    <!-- Face unlock -->
+    <string name="face_unlock_recognizing">Näotuvastus...</string>
+    <!-- QuickSettings: InternetDialog: Summary for how many devices are connected to the hotspot [CHAR LIMIT=NONE] -->
+    <plurals name="quick_settings_internet_hotspot_summary_num_devices">
+        <item quantity="one">%d seade ühendatud</item>
+        <item quantity="other">%d seadet ühendatud</item>
+    </plurals>
+    <!-- Name of the roaming status bar icon. -->
+    <string name="status_bar_roaming">Rändlusindikaator</string>
+    <!-- Name of the HD calling status bar icon. -->
+    <string name="status_bar_hd_calling">HD helistamine (VoLTE/VoNR)</string>
+    <!-- Name of the VoWiFi status bar icon. -->
+    <string name="status_bar_vowifi">Wi-Fi helistamine (VoWiFi)</string>
+    <!-- CPUInfo tile -->
+    <string name="quick_settings_cpuinfo_label">Protsessori info</string>
+    <!-- Compass QS Tile -->
+    <string name="quick_settings_compass_label">Kompass</string>
+    <string name="quick_settings_compass_init">Käivitamine\u2026</string>
+    <string name="quick_settings_compass_N">Põhi</string>
+    <string name="quick_settings_compass_NE">Kirre</string>
+    <string name="quick_settings_compass_E">Ida</string>
+    <string name="quick_settings_compass_SE">Kagu</string>
+    <string name="quick_settings_compass_S">Lõuna</string>
+    <string name="quick_settings_compass_SW">Edel</string>
+    <string name="quick_settings_compass_W">Lääs</string>
+    <string name="quick_settings_compass_NW">Loe</string>
+    <!-- DataSwitch Tile -->
+    <string name="qs_data_switch_label">Vaheta andmeside SIMi</string>
+    <!-- Screenshot Tile -->
+    <string name="screenshot_long_press">Hoia pikalt - valitud ala</string>
+    <!-- Language toggle tile -->
+    <string name="quick_settings_locale_label">Keel</string>
+    <string name="quick_settings_locale_more_locales_toast">Seadista kõigepealt mitu keelt</string>
+    <!-- Sound QS Tile -->
+    <string name="quick_settings_sound_label">Heli</string>
+    <string name="quick_settings_sound_ring">Helin</string>
+    <string name="quick_settings_sound_vibrate">Vibreeri</string>
+    <!-- Preferred network tile -->
+    <string name="quick_settings_preferred_network_lte">4G / LTE</string>
+    <string name="quick_settings_preferred_network_nr">5G / NR</string>
+    <!-- 5G toggle in Internet Dialog -->
+    <string name="enable_fiveg">Luba 5G</string>
+    <!-- Data usage info in QS footer -->
+    <string name="usage_data">täna kasutatud</string>
+    <string name="usage_data_default_suffix">Andmeside</string>
+    <!-- Refresh rate QS tile -->
+    <string name="refresh_rate_tile_label">Värskendussagedus</string>
+    <!-- AxDynamicBar strings [CHAR LIMIT=NONE] -->
+    <string name="ax_dynamic_bar_vibrate">Vibreeri</string>
+    <string name="ax_dynamic_bar_ring">Helin</string>
+    <string name="ax_dynamic_bar_stop">Peata</string>
+    <!-- Indication on the keyguard that is shown when the device is charging with a dash charger. Should match keyguard_plugged_in_dash_charging [CHAR LIMIT=40] -->
+    <string name="keyguard_indication_dash_charging_time"><xliff:g id="percentage">%2$s</xliff:g> • Dash-laadimine (täitumiseni <xliff:g id="charging_time_left" example="4 hours and 2 minutes">%1$s</xliff:g>)</string>
+    <string name="keyguard_plugged_in_dash_charging"><xliff:g id="percentage">%s</xliff:g> • Dash-laadimine</string>
+    <!-- Indication on the keyguard that is shown when the device is charging with a warp charger. Should match keyguard_plugged_in_warp_charging [CHAR LIMIT=40] -->
+    <string name="keyguard_indication_warp_charging_time"><xliff:g id="percentage">%2$s</xliff:g> • Warp-laadimine (täitumiseni <xliff:g id="charging_time_left" example="4 hours and 2 minutes">%1$s</xliff:g>)</string>
+    <string name="keyguard_plugged_in_warp_charging"><xliff:g id="percentage">%s</xliff:g> • Warp-laadimine</string>
+    <!-- Indication on the keyguard that is shown when the device is charging with a VOOC charger. Should match keyguard_plugged_in_vooc_charging [CHAR LIMIT=40] -->
+    <string name="keyguard_indication_vooc_charging_time"><xliff:g id="percentage">%2$s</xliff:g> • VOOC laadimine (<xliff:g id="charging_time_left" example="4 hours and 2 minutes">%1$s</xliff:g> täitumiseni)</string>
+    <string name="keyguard_plugged_in_vooc_charging"><xliff:g id="percentage">%s</xliff:g> • VOOC laadimine</string>
+    <!-- Indication on the keyguard that is shown when the device is charging with a turbo power charger. Should match keyguard_plugged_in_turbo_charging [CHAR LIMIT=40] -->
+    <string name="keyguard_indication_turbo_power_time"><xliff:g id="percentage">%2$s</xliff:g> • Turbo-laadimine (täitumiseni <xliff:g id="charging_time_left" example="4 hours and 2 minutes">%1$s</xliff:g>)</string>
+    <string name="keyguard_plugged_in_turbo_charging"><xliff:g id="percentage">%s</xliff:g> • Turbo-laadimine</string>
+</resources>

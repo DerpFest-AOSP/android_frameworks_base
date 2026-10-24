@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: DerpFest AOSP
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- Label for current user in power menu options dialog -->
+    <string name="global_action_restart_systemui">ڕووکاری سیستەم</string>
+    <!-- CPUInfo tile -->
+    <string name="quick_settings_cpuinfo_label">CPU زانیاری</string>
+    <!-- Compass QS Tile -->
+    <string name="quick_settings_compass_label">قیبلەنما</string>
+    <string name="quick_settings_compass_init">بەرایی دەکرێ\u2026</string>
+    <string name="quick_settings_compass_N">باکور</string>
+    <string name="quick_settings_compass_NE">باکوری خۆرهەڵات</string>
+    <string name="quick_settings_compass_E">خۆرهەڵات</string>
+    <string name="quick_settings_compass_SE">باشوری خۆرهەڵات</string>
+    <string name="quick_settings_compass_S">باشور</string>
+    <string name="quick_settings_compass_SW">باشوری خۆرئاوا</string>
+    <string name="quick_settings_compass_W">خۆرئاوا</string>
+    <string name="quick_settings_compass_NW">باکوری خۆرئاوا</string>
+    <!-- DataSwitch Tile -->
+    <string name="qs_data_switch_label">گۆڕینی کارتی داتا</string>
+    <!-- Language toggle tile -->
+    <string name="quick_settings_locale_label">زمان</string>
+    <!-- Sound QS Tile -->
+    <string name="quick_settings_sound_label">دەنگ</string>
+    <string name="quick_settings_sound_ring">زەنگ</string>
+    <string name="quick_settings_sound_vibrate">لەرزین</string>
+    <!-- Preferred network tile -->
+    <string name="quick_settings_preferred_network_lte">4G / LTE</string>
+    <string name="quick_settings_preferred_network_nr">5G / NR</string>
+    <!-- AxDynamicBar strings [CHAR LIMIT=NONE] -->
+    <string name="ax_dynamic_bar_vibrate">لەرزین</string>
+    <string name="ax_dynamic_bar_ring">زەنگ</string>
+    <!-- Indication on the keyguard that is shown when the device is charging with a dash charger. Should match keyguard_plugged_in_dash_charging [CHAR LIMIT=40] -->
+    <string name="keyguard_indication_dash_charging_time"><xliff:g id="percentage">%2$s</xliff:g> • بارگاویبوونەوەی داش (<xliff:g id="charging_time_left" example="4 hours and 2 minutes">%1$s</xliff:g> بۆ پڕبوون)</string>
+    <string name="keyguard_plugged_in_dash_charging"><xliff:g id="percentage">%s</xliff:g> • بارگاویبوونەوەی داش</string>
+    <!-- Indication on the keyguard that is shown when the device is charging with a warp charger. Should match keyguard_plugged_in_warp_charging [CHAR LIMIT=40] -->
+    <string name="keyguard_indication_warp_charging_time"><xliff:g id="percentage">%2$s</xliff:g> • بارگاویبوونەوەی وارپ (<xliff:g id="charging_time_left" example="4 hours and 2 minutes">%1$s</xliff:g> بۆ پڕبوون)</string>
+    <string name="keyguard_plugged_in_warp_charging"><xliff:g id="percentage">%s</xliff:g> • بارگاویبوونەوەی وارپ</string>
+    <!-- Indication on the keyguard that is shown when the device is charging with a VOOC charger. Should match keyguard_plugged_in_vooc_charging [CHAR LIMIT=40] -->
+    <string name="keyguard_indication_vooc_charging_time"><xliff:g id="percentage">%2$s</xliff:g> • VOOC بارگاوی (<xliff:g id="charging_time_left" example="4 hours and 2 minutes">%1$s</xliff:g> بۆ پڕبوون)</string>
+    <string name="keyguard_plugged_in_vooc_charging"><xliff:g id="percentage">%s</xliff:g> • VOOC بارگاوی</string>
+</resources>
