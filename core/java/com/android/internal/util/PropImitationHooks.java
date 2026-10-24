@@ -459,6 +459,8 @@ public class PropImitationHooks {
         putIfAbsent(props, "ro.product.manufacturer_for_attestation",
                 fields.get("MANUFACTURER"));
         putIfAbsent(props, "ro.hardware", fields.get("HARDWARE"));
+        putIfExists(props, "ro.boot.hardware", fields.get("HARDWARE"));
+        putIfExists(props, "ro.product.board", fields.get("DEVICE"));
         putIfAbsent(props, "ro.build.version.release", fields.get("VERSION.RELEASE"));
         putIfAbsent(props, "ro.build.version.incremental", fields.get("VERSION.INCREMENTAL"));
         String securityPatch = firstNonEmpty(fields.get("VERSION.SECURITY_PATCH"),
@@ -470,6 +472,11 @@ public class PropImitationHooks {
         // Partition props stay readable as this device. DroidGuard compares them
         // with the spoofed fingerprint, so each one that exists is overwritten.
         spoofPartitionIdentity(props, fields);
+        // A leading '!' drops the property from lookup and enumeration. The
+        // name itself is the custom-ROM signal, so rewriting the value is not
+        // enough.
+        props.put("!ro.derpfest.", "1");
+        props.put("!ro.lineage.", "1");
 
         props.entrySet().removeIf(entry -> TextUtils.isEmpty(entry.getValue()));
         if (props.isEmpty()) {
@@ -522,9 +529,11 @@ public class PropImitationHooks {
 
         String fingerprint = fields.get("FINGERPRINT");
         for (String part : new String[] {
-                "vendor", "odm", "product", "system", "system_ext", "bootimage", "vendor_dlkm"}) {
+                "vendor", "odm", "product", "system", "system_ext", "system_dlkm",
+                "bootimage", "vendor_dlkm"}) {
             putIfExists(props, "ro." + part + ".build.fingerprint", fingerprint);
             putIfExists(props, "ro." + part + ".build.description", description);
+            putIfExists(props, "ro." + part + ".build.id", id);
             putIfExists(props, "ro.product." + part + ".device", fields.get("DEVICE"));
             putIfExists(props, "ro.product." + part + ".name", fields.get("PRODUCT"));
             putIfExists(props, "ro.product." + part + ".brand", fields.get("BRAND"));

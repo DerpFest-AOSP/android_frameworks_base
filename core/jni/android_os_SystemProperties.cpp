@@ -50,6 +50,7 @@
 #include <sys/sysmacros.h>
 #include <unistd.h>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #endif
 
@@ -297,6 +298,7 @@ struct Override {
     uintptr_t offset = 0;
     std::string name;
     std::string value;
+    bool hide = false;
     bool wasLong = false;
     uintptr_t longOffset = 0;
     size_t longLen = 0;
@@ -305,6 +307,7 @@ struct Override {
 struct State {
     std::unordered_map<std::string, std::string> exactMap;
     std::vector<std::pair<std::string, std::string>> suffixRules;
+    std::vector<std::string> hidePrefixes;
     bool debug = false;
     std::vector<Mapping> mappings;
     std::vector<Override> overrides;
@@ -448,8 +451,15 @@ void enumerateProperty(void* cookie, const char* name, const char* value, uint32
         return;
     }
 
-    const char* replacement = overrideFor(*state, name);
-    if (replacement == nullptr) {
+    bool hide = false;
+    for (const std::string& prefix : state->hidePrefixes) {
+        if (strncmp(name, prefix.c_str(), prefix.size()) == 0) {
+            hide = true;
+            break;
+        }
+    }
+    const char* replacement = hide ? "" : overrideFor(*state, name);
+    if (!hide && replacement == nullptr) {
         return;
     }
     if (strlen(replacement) >= PROP_VALUE_MAX) {
@@ -471,7 +481,8 @@ void enumerateProperty(void* cookie, const char* name, const char* value, uint32
     Override entry{.mapping = mapping,
                    .offset = reinterpret_cast<uintptr_t>(info) - mapping->start,
                    .name = name,
-                   .value = replacement};
+                   .value = replacement,
+                   .hide = hide};
     if ((serial & kLongPropertyFlag) != 0) {
         if (state->debug) {
             ALOGD("[PROP-VIRT] %s is long-encoded; demoting to inline", name);
@@ -573,7 +584,58 @@ bool applyOverride(const Mapping& mapping, const Override& override) {
     __atomic_thread_fence(__ATOMIC_RELEASE);
     const uint32_t hidden = lenFlags | ((serialDirty & ~1U) & kCounterMask);
     __atomic_store_n(&info->serial, hidden, __ATOMIC_RELAXED);
+
+    // The name sits immediately after the inline value. Clearing it keeps a
+    // foreach of the area from reporting a ROM property after its trie link
+    // is removed.
+    if (override.hide) {
+        const size_t nameOff = override.offset + sizeof(InlinePropertyInfo);
+        const size_t nameBytes = override.name.size() + 1;
+        if (nameOff + nameBytes <= length) {
+            memset(reinterpret_cast<void*>(mapping.start + nameOff), 0, nameBytes);
+        }
+    }
     return true;
+}
+
+// Property offsets in the trie are relative to the byte after the area header.
+constexpr uintptr_t kPropAreaDataOffset = sizeof(PropertyAreaHeader);
+
+void detachHiddenProps(const Mapping& mapping, uintptr_t infoFileOff) {
+    if (infoFileOff < kPropAreaDataOffset) {
+        return;
+    }
+    const uint32_t target = static_cast<uint32_t>(infoFileOff - kPropAreaDataOffset);
+    const size_t length = mapping.end - mapping.start;
+    const uintptr_t base = mapping.start;
+    std::vector<uint32_t> pending;
+    std::unordered_set<uint32_t> seen;
+    pending.push_back(0);
+    while (!pending.empty()) {
+        const uint32_t dataOff = pending.back();
+        pending.pop_back();
+        if (!seen.insert(dataOff).second) {
+            continue;
+        }
+        const uintptr_t fileOff = kPropAreaDataOffset + dataOff;
+        if (fileOff + 20 > length) {
+            continue;
+        }
+        auto* fields = reinterpret_cast<uint32_t*>(base + fileOff);
+        const uint32_t namelen = fields[0];
+        if (namelen > 128 || fileOff + 20 + namelen + 1 > length) {
+            continue;
+        }
+        if (__atomic_load_n(fields + 1, __ATOMIC_RELAXED) == target) {
+            __atomic_store_n(fields + 1, 0u, __ATOMIC_RELAXED);
+        }
+        for (int link = 2; link <= 4; ++link) {
+            const uint32_t next = __atomic_load_n(fields + link, __ATOMIC_RELAXED);
+            if (next != 0) {
+                pending.push_back(next);
+            }
+        }
+    }
 }
 
 bool verifyMappingsIdentity(const std::vector<Mapping*>& affected) {
@@ -732,6 +794,32 @@ bool install(State& state) {
         return false;
     }
 
+    for (Mapping* mapping : affected) {
+        if (mprotect(reinterpret_cast<void*>(mapping->start), mapping->end - mapping->start,
+                     PROT_READ | PROT_WRITE) != 0) {
+            ALOGE("[PROP-VIRT] cannot reopen %s to hide properties: %s", mapping->path.c_str(),
+                  strerror(errno));
+            rollback(state.mappings, state.debug);
+            cleanup(state.mappings);
+            return false;
+        }
+    }
+    for (const auto& override : state.overrides) {
+        if (override.hide && override.mapping != nullptr) {
+            detachHiddenProps(*override.mapping, override.offset);
+        }
+    }
+    for (Mapping* mapping : affected) {
+        if (mprotect(reinterpret_cast<void*>(mapping->start), mapping->end - mapping->start,
+                     mapping->prot) != 0) {
+            ALOGE("[PROP-VIRT] cannot restore protections on %s after hide: %s",
+                  mapping->path.c_str(), strerror(errno));
+            rollback(state.mappings, state.debug);
+            cleanup(state.mappings);
+            return false;
+        }
+    }
+
     cleanup(state.mappings);
     if (state.debug) {
         ALOGD("[PROP-VIRT] installed %zu overrides across %zu areas",
@@ -764,7 +852,9 @@ jboolean PropImitationHooks_nativeSpoofProperties(
             ScopedUtfChars kUtf(env, kStr);
             ScopedUtfChars vUtf(env, vStr);
             if (kUtf.c_str() != nullptr && vUtf.c_str() != nullptr && kUtf.size() > 0) {
-                if (kUtf.c_str()[0] == '*' && kUtf.size() > 1) {
+                if (kUtf.c_str()[0] == '!' && kUtf.size() > 1) {
+                    state.hidePrefixes.emplace_back(kUtf.c_str() + 1);
+                } else if (kUtf.c_str()[0] == '*' && kUtf.size() > 1) {
                     state.suffixRules.emplace_back(kUtf.c_str() + 1, vUtf.c_str());
                 } else {
                     state.exactMap.emplace(kUtf.c_str(), vUtf.c_str());
