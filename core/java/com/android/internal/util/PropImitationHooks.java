@@ -236,6 +236,14 @@ public class PropImitationHooks {
             for (Map.Entry<String, String> entry : fields.entrySet()) {
                 setPropValue(entry.getKey(), entry.getValue());
             }
+            // Keystore reads these instead of Build.DEVICE. They are filled from
+            // ro.product.*_for_attestation when the class loads, which is before
+            // this spoof runs, so the certificate otherwise keeps this device.
+            setPropValue("DEVICE_FOR_ATTESTATION", fields.get("DEVICE"));
+            setPropValue("PRODUCT_FOR_ATTESTATION", fields.get("PRODUCT"));
+            setPropValue("MODEL_FOR_ATTESTATION", fields.get("MODEL"));
+            setPropValue("BRAND_FOR_ATTESTATION", fields.get("BRAND"));
+            setPropValue("MANUFACTURER_FOR_ATTESTATION", fields.get("MANUFACTURER"));
             if (sIsGms) {
                 spoofNativeProperties(fields, nativeProps, initialSdk);
             }
@@ -440,6 +448,12 @@ public class PropImitationHooks {
         putIfAbsent(props, "ro.product.brand", fields.get("BRAND"));
         putIfAbsent(props, "ro.product.manufacturer", fields.get("MANUFACTURER"));
         putIfAbsent(props, "ro.product.model", fields.get("MODEL"));
+        putIfAbsent(props, "ro.product.device_for_attestation", fields.get("DEVICE"));
+        putIfAbsent(props, "ro.product.name_for_attestation", fields.get("PRODUCT"));
+        putIfAbsent(props, "ro.product.model_for_attestation", fields.get("MODEL"));
+        putIfAbsent(props, "ro.product.brand_for_attestation", fields.get("BRAND"));
+        putIfAbsent(props, "ro.product.manufacturer_for_attestation",
+                fields.get("MANUFACTURER"));
         putIfAbsent(props, "ro.hardware", fields.get("HARDWARE"));
         putIfAbsent(props, "ro.build.version.release", fields.get("VERSION.RELEASE"));
         putIfAbsent(props, "ro.build.version.incremental", fields.get("VERSION.INCREMENTAL"));
