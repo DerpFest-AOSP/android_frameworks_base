@@ -207,12 +207,44 @@ public final class KeyboxChainGenerator {
         }
     }
 
+    /** Boot hash from a raw TEE leaf, or null when the leaf has none. */
+    public static byte[] hardwareBootHash(byte[] leafCertificateBytes) {
+        if (leafCertificateBytes == null || leafCertificateBytes.length == 0) {
+            return null;
+        }
+        try {
+            X509Certificate leaf = (X509Certificate) CertificateFactory.getInstance("X.509")
+                    .generateCertificate(new ByteArrayInputStream(leafCertificateBytes));
+            X509CertificateHolder leafHolder = new X509CertificateHolder(leaf.getEncoded());
+            Extensions extensions = leafHolder.getExtensions();
+            Extension attestation = extensions == null
+                    ? null : extensions.getExtension(ATTESTATION_OID);
+            if (attestation == null) {
+                return null;
+            }
+            ASN1Encodable[] description = ASN1Sequence.getInstance(
+                    attestation.getExtnValue().getOctets()).toArray();
+            if (description.length < 8 || !(description[7] instanceof ASN1Sequence)) {
+                return null;
+            }
+            for (ASN1Encodable element : (ASN1Sequence) description[7]) {
+                ASN1TaggedObject tagged = ASN1TaggedObject.getInstance(element);
+                if (tagged.getTagNo() == 704) {
+                    return rootOfTrustOctet(tagged.getBaseObject().toASN1Primitive(), 3);
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to read hardware boot hash", e);
+        }
+        return null;
+    }
+
     /**
      * Re-sign a TEE attestation leaf with the keybox key. The private key stays
-     * in KeyMint. Subject, serial, dates, public key, attestation IDs, and patch
-     * tags are kept. Root of trust is forced locked and verified, but the boot
-     * key and hash stay the ones the TEE measured, so the leaf describes the
-     * same phone as the bootloader digest.
+     * in KeyMint. Subject, serial, dates, public key, and attestation IDs are
+     * kept. Root of trust is forced locked and verified, using the boot key and
+     * hash the TEE measured. OS version and patch tags are rewritten from the
+     * calling process so they match the patch that process reports.
      *
      * @return the re-signed leaf followed by the keybox chain, or null to leave
      *         the hardware certificate unchanged
@@ -244,10 +276,13 @@ public final class KeyboxChainGenerator {
             ASN1Encodable originalRootOfTrust = null;
             for (ASN1Encodable element : (ASN1Sequence) description[7]) {
                 ASN1TaggedObject tagged = ASN1TaggedObject.getInstance(element);
-                if (tagged.getTagNo() == 704) {
+                int tag = tagged.getTagNo();
+                if (tag == 704) {
                     originalRootOfTrust = tagged.getBaseObject().toASN1Primitive();
+                } else if (tag == 705 || tag == 706 || tag == 718 || tag == 719) {
+                    // Replaced below from this process's security patch.
                 } else {
-                    enforced.put(tagged.getTagNo(), tagged);
+                    enforced.put(tag, tagged);
                 }
             }
 
@@ -270,6 +305,12 @@ public final class KeyboxChainGenerator {
                     new ASN1Enumerated(0),
                     new DEROctetString(bootHash)};
             enforced.put(704, new DERTaggedObject(704, new DERSequence(rootOfTrust)));
+            enforced.put(705, new DERTaggedObject(true, 705, new ASN1Integer(getOsVersion())));
+            enforced.put(706, new DERTaggedObject(true, 706, new ASN1Integer(getPatchLevel())));
+            enforced.put(718, new DERTaggedObject(true, 718,
+                    new ASN1Integer(getPatchLevelLong())));
+            enforced.put(719, new DERTaggedObject(true, 719,
+                    new ASN1Integer(getPatchLevelLong())));
 
             ASN1EncodableVector ordered = new ASN1EncodableVector();
             for (ASN1Encodable value : enforced.values()) {

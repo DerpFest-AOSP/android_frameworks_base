@@ -119,6 +119,7 @@ import com.android.internal.protolog.ProtoLog;
 import com.android.internal.protolog.ProtoLogConfigurationServiceImpl;
 import com.android.internal.protolog.WmProtoLogGroups;
 import com.android.internal.util.ConcurrentUtils;
+import com.android.internal.util.VerifiedBootState;
 import com.android.internal.util.EmergencyAffordanceManager;
 import com.android.internal.util.FrameworkStatsLog;
 import com.android.internal.widget.ILockSettings;
@@ -1458,6 +1459,14 @@ public final class SystemServer implements Dumpable {
 
         t.traceBegin("StartThemeEngineManagerService");
         mSystemServiceManager.startService(ThemeEngineManagerService.class);
+        t.traceEnd();
+
+        t.traceBegin("PublishTeeBootHash");
+        try {
+            VerifiedBootState.publishTeeBootHash();
+        } catch (Throwable e) {
+            Slog.e(TAG, "Failed to publish TEE vbmeta digest", e);
+        }
         t.traceEnd();
 
         // Manages Resources packages

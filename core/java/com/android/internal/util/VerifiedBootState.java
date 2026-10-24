@@ -18,14 +18,24 @@ package com.android.internal.util;
 
 import android.os.Build;
 import android.os.SystemProperties;
+import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
+import android.util.Log;
 
 import java.nio.charset.StandardCharsets;
+import java.security.KeyPairGenerator;
+import java.security.KeyStore;
 import java.security.MessageDigest;
 import java.security.cert.Certificate;
+import java.security.cert.X509Certificate;
 import java.util.List;
 
 public final class VerifiedBootState {
+    private static final String TAG = "VerifiedBootState";
+
+    /** Alias of the one-shot key used to read the TEE boot hash. Not attested with the keybox. */
+    public static final String TEE_BOOT_HASH_ALIAS = "derpfest_boot_hash";
+
     private static final String REAL_VBMETA_DIGEST_PROP = "ro.boot.vbmeta.digest";
     private static final String REAL_VBMETA_PUBLIC_KEY_DIGEST_PROP =
             "ro.boot.vbmeta.public_key_digest";
@@ -49,6 +59,66 @@ public final class VerifiedBootState {
     private VerifiedBootState() {}
 
     public static void ensureInitialized() {}
+
+    /**
+     * Publish the TEE's verified-boot hash when the bootloader left
+     * {@code ro.boot.vbmeta.digest} unset. The property is replaceable, so
+     * DroidGuard and the hardware leaf then name the same measurement.
+     */
+    public static void publishTeeBootHash() {
+        if (isValidDigestHex(SystemProperties.get(REAL_VBMETA_DIGEST_PROP, ""))) {
+            return;
+        }
+        byte[] hash = readTeeBootHash();
+        if (hash == null || hash.length != DIGEST_SIZE_BYTES) {
+            Log.w(TAG, "TEE boot hash unavailable");
+            return;
+        }
+        try {
+            SystemProperties.set(REAL_VBMETA_DIGEST_PROP, toHex(hash));
+            Log.i(TAG, "Published TEE vbmeta digest");
+        } catch (RuntimeException e) {
+            Log.e(TAG, "Failed to publish TEE vbmeta digest", e);
+        }
+    }
+
+    private static byte[] readTeeBootHash() {
+        boolean created = false;
+        try {
+            KeyPairGenerator generator = KeyPairGenerator.getInstance(
+                    KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore");
+            generator.initialize(new KeyGenParameterSpec.Builder(
+                    TEE_BOOT_HASH_ALIAS,
+                    KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_VERIFY)
+                    .setDigests(KeyProperties.DIGEST_SHA256)
+                    .setAttestationChallenge(new byte[DIGEST_SIZE_BYTES])
+                    .build());
+            created = true;
+            generator.generateKeyPair();
+
+            KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+            keyStore.load(null);
+            Certificate[] chain = keyStore.getCertificateChain(TEE_BOOT_HASH_ALIAS);
+            if (chain == null || chain.length == 0 || !(chain[0] instanceof X509Certificate)) {
+                Log.w(TAG, "TEE boot-hash probe returned no certificate");
+                return null;
+            }
+            return KeyboxChainGenerator.hardwareBootHash(chain[0].getEncoded());
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to read boot hash from TEE", e);
+            return null;
+        } finally {
+            if (created) {
+                try {
+                    KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+                    keyStore.load(null);
+                    keyStore.deleteEntry(TEE_BOOT_HASH_ALIAS);
+                } catch (Exception e) {
+                    Log.w(TAG, "Failed to delete TEE boot-hash probe key", e);
+                }
+            }
+        }
+    }
 
     public static String getVerifiedBootHashHex() {
         ensureInitialized();

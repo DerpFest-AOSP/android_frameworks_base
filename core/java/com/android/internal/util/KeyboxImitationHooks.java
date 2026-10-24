@@ -61,6 +61,12 @@ public class KeyboxImitationHooks {
 
     public static KeyMetadata generateKey(IKeystoreSecurityLevel level, KeyDescriptor descriptor,
             Collection<KeyParameter> args, int flags, byte[] entropy) {
+        // The boot-hash probe must read the raw TEE leaf. Re-signing it would
+        // still keep the hash, but a software fallback must not be published.
+        if (descriptor != null
+                && VerifiedBootState.TEE_BOOT_HASH_ALIAS.equals(descriptor.alias)) {
+            return null;
+        }
         if (!KeyProviderManager.isKeyboxAvailable()) {
             return null;
         }
