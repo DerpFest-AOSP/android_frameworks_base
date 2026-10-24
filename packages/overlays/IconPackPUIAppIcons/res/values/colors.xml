@@ -2,4 +2,6 @@
 <resources>
     <color name="primaryBackground">@android:color/system_accent1_100</color>
     <color name="primaryForeground">@android:color/system_neutral2_700</color>
+    <!-- Matches the Minimal themed-icon background used in the style picker. -->
+    <color name="cameraBackground">@android:color/system_accent1_100</color>
 </resources>
