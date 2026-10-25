@@ -2,9 +2,11 @@ package com.android.systemui.tuner;
 
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.graphics.drawable.Drawable;
 import android.provider.Settings;
 import android.util.AttributeSet;
 
+import androidx.core.graphics.drawable.DrawableCompat;
 import androidx.preference.SwitchPreferenceCompat;
 
 import com.android.internal.logging.MetricsLogger;
@@ -30,6 +32,21 @@ public class TunerSwitch extends SwitchPreferenceCompat implements Tunable {
     public void onAttached() {
         super.onAttached();
         Dependency.get(TunerService.class).addTunable(this, getKey().split(","));
+        setupTheme();
+    }
+
+    /** Same tint as {@link StatusBarSwitch#setupTheme()} so these icons follow the theme. */
+    private void setupTheme() {
+        Drawable icon = getIcon();
+        if (icon != null) {
+            TypedArray a = getContext().obtainStyledAttributes(
+                    new int[]{android.R.attr.textColorPrimary});
+            int color = a.getColor(0, 0);
+            a.recycle();
+            Drawable wrappedIcon = DrawableCompat.wrap(icon.mutate());
+            DrawableCompat.setTint(wrappedIcon, color);
+            setIcon(wrappedIcon);
+        }
     }
 
     @Override
