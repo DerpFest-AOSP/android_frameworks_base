@@ -19,25 +19,18 @@
 package com.android.systemui.derpfest.header;
 
 import android.content.Context;
-import android.content.res.Resources;
-import android.database.ContentObserver;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
-import android.util.Log;
-import android.os.Handler;
 import android.os.UserHandle;
 import android.provider.Settings;
+import android.util.DisplayMetrics;
+import android.util.Log;
 
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.Calendar;
-
-import com.android.systemui.res.R;
 
 public class FileHeaderProvider implements
         StatusBarHeaderMachine.IStatusBarHeaderProvider {
@@ -48,6 +41,9 @@ public class FileHeaderProvider implements
 
     private Context mContext;
     private Drawable mImage = null;
+    private String mLoadedPath;
+    private long mLoadedLength;
+    private long mLoadedModified;
 
     public FileHeaderProvider(Context context) {
         mContext = context;
@@ -65,6 +61,8 @@ public class FileHeaderProvider implements
     public void settingsChanged(Uri uri) {
         if (isCustomHeaderEnabled()) {
             loadHeaderImage();
+        } else {
+            releaseImage();
         }
     }
     
@@ -87,18 +85,68 @@ public class FileHeaderProvider implements
 
     @Override
     public void disableProvider() {
+        releaseImage();
+    }
+
+    private void releaseImage() {
+        mImage = null;
+        mLoadedPath = null;
+        mLoadedLength = 0;
+        mLoadedModified = 0;
     }
 
     private void loadHeaderImage() {
-        if (mContext == null) return;
+        if (mContext == null) {
+            return;
+        }
         String path = getCustomHeaderPath();
-        if (path == null || path.isEmpty()) return;
-        final Bitmap bitmap = BitmapFactory.decodeFile(path);
+        if (path == null || path.isEmpty()) {
+            releaseImage();
+            return;
+        }
+        File file = new File(path);
+        long length = file.length();
+        long modified = file.lastModified();
+        if (mImage != null && path.equals(mLoadedPath)
+                && length == mLoadedLength && modified == mLoadedModified) {
+            return;
+        }
+        Bitmap bitmap = decodeSampled(file);
         if (bitmap == null) {
-            Log.d(TAG + "loadHeaderImage: ", "Failed to decode bitmap from file");
+            Log.d(TAG, "Failed to decode bitmap from " + path);
+            releaseImage();
             return;
         }
         mImage = new BitmapDrawable(mContext.getResources(), bitmap);
+        mLoadedPath = path;
+        mLoadedLength = length;
+        mLoadedModified = modified;
+    }
+
+    /** The header is only as wide as the display, so a camera photo need not stay full size. */
+    private Bitmap decodeSampled(File file) {
+        BitmapFactory.Options bounds = new BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(file.getAbsolutePath(), bounds);
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+            return null;
+        }
+        DisplayMetrics metrics = mContext.getResources().getDisplayMetrics();
+        int maxEdge = Math.max(metrics.widthPixels, metrics.heightPixels);
+        BitmapFactory.Options opts = new BitmapFactory.Options();
+        opts.inSampleSize = sampleSize(Math.max(bounds.outWidth, bounds.outHeight), maxEdge);
+        return BitmapFactory.decodeFile(file.getAbsolutePath(), opts);
+    }
+
+    private static int sampleSize(int longestEdge, int maxEdge) {
+        int sample = 1;
+        if (maxEdge <= 0) {
+            return sample;
+        }
+        while (sample < 32 && longestEdge / (sample * 2) >= maxEdge) {
+            sample *= 2;
+        }
+        return sample;
     }
 
     @Override

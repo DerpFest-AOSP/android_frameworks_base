@@ -44,6 +44,7 @@ public class StaticHeaderProvider implements
     private Resources mRes;
     private String mImage;
     private String mPackageName;
+    private Drawable mDrawable;
 
     public StaticHeaderProvider(Context context) {
         mContext = context;
@@ -63,15 +64,22 @@ public class StaticHeaderProvider implements
                 Settings.System.STATUS_BAR_CUSTOM_HEADER_IMAGE,
                 UserHandle.USER_CURRENT);
 
-        if (imageUrl != null && customHeader) {
-            int idx = imageUrl.indexOf("/");
-            if (idx != -1) {
-                String[] parts = imageUrl.split("/");
-                mPackageName = parts[0];
-                mImage = parts[1];
-                loadHeaderImage();
-            }
+        if (!customHeader || imageUrl == null) {
+            return;
         }
+        int idx = imageUrl.indexOf('/');
+        if (idx <= 0 || idx >= imageUrl.length() - 1) {
+            return;
+        }
+        String packageName = imageUrl.substring(0, idx);
+        String image = imageUrl.substring(idx + 1);
+        if (packageName.equals(mPackageName) && image.equals(mImage) && mDrawable != null) {
+            return;
+        }
+        mPackageName = packageName;
+        mImage = image;
+        mDrawable = null;
+        loadHeaderImage();
     }
 
     @Override
@@ -81,6 +89,7 @@ public class StaticHeaderProvider implements
 
     @Override
     public void disableProvider() {
+        mDrawable = null;
     }
 
     private void loadHeaderImage() {
@@ -97,18 +106,29 @@ public class StaticHeaderProvider implements
 
     @Override
     public Drawable getCurrent(final Calendar now) {
-        if (mRes == null) {
+        if (mRes == null || mPackageName == null) {
             return null;
         }
         if (!derpUtils.isPackageInstalled(mContext, mPackageName)) {
             Log.w(TAG, "Header pack image " + mImage + " no longer available");
+            mDrawable = null;
+            mRes = null;
+            return null;
+        }
+        // Same instance so a screen-on update does not crossfade into itself.
+        if (mDrawable != null) {
+            return mDrawable;
+        }
+        int resId = mRes.getIdentifier(mImage, "drawable", mPackageName);
+        if (resId == 0) {
+            Log.w(TAG, "No drawable " + mImage + " in " + mPackageName);
             return null;
         }
         try {
-            return mRes.getDrawable(mRes.getIdentifier(mImage, "drawable", mPackageName), null);
-        } catch(Resources.NotFoundException e) {
-            Log.w(TAG, "No drawable found for " + now +" in " + mPackageName);
+            mDrawable = mRes.getDrawable(resId, null);
+        } catch (Resources.NotFoundException e) {
+            Log.w(TAG, "No drawable found for " + now + " in " + mPackageName);
         }
-        return null;
+        return mDrawable;
     }
 }
