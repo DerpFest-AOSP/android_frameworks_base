@@ -967,17 +967,35 @@ public class Typeface {
          * @return the Typeface object
          */
         public @NonNull Typeface build() {
+            final int weight = mStyle == null ? 400 : mStyle.getWeight();
+            final boolean italic = mStyle != null
+                    && mStyle.getSlant() != FontStyle.FONT_SLANT_UPRIGHT;
+            final Typeface selected = replaceBundledUiFont(weight, italic);
+            if (selected != null) {
+                return selected;
+            }
+
             final int userFallbackSize = mFamilies.size();
             final Typeface fallbackTypeface = getSystemDefaultTypeface(mFallbackName);
             final long[] ptrArray = new long[userFallbackSize];
             for (int i = 0; i < userFallbackSize; ++i) {
                 ptrArray[i] = mFamilies.get(i).getNativePtr();
             }
-            final int weight = mStyle == null ? 400 : mStyle.getWeight();
-            final int italic =
-                    (mStyle == null || mStyle.getSlant() == FontStyle.FONT_SLANT_UPRIGHT) ?  0 : 1;
             return new Typeface(nativeCreateFromArray(
-                    ptrArray, fallbackTypeface.getNativeInstance(), weight, italic), null);
+                    ptrArray, fallbackTypeface.getNativeInstance(), weight, italic ? 1 : 0), null);
+        }
+
+        /**
+         * Apps that ship Google Sans (or download it from the font provider) build the face
+         * here, which skips the family-name override. Swap those UI faces for the selected font.
+         */
+        @Nullable
+        private Typeface replaceBundledUiFont(int weight, boolean italic) {
+            if (mFamilies.isEmpty() || mFamilies.get(0).getSize() <= 0) {
+                return null;
+            }
+            return FontController.getBundledFontOverride(
+                    mFamilies.get(0).getFont(0), weight, italic);
         }
     }
 
@@ -1388,6 +1406,20 @@ public class Typeface {
         return tf == null ? Typeface.DEFAULT : tf;
     }
 
+    /**
+     * System family lookup that returns null when the family is not installed.
+     * @hide
+     */
+    @Nullable
+    public static Typeface getInstalledTypeface(@Nullable String familyName) {
+        if (familyName == null) {
+            return null;
+        }
+        synchronized (SYSTEM_FONT_MAP_LOCK) {
+            return sSystemFontMap.get(familyName);
+        }
+    }
+
     /** @hide */
     @VisibleForTesting
     public static void initSystemDefaultTypefaces(Map<String, FontFamily[]> fallbacks,
@@ -1611,6 +1643,68 @@ public class Typeface {
                 Arrays.asList(
                         tf, tfBold, tfItalic, tfItalicBold),
                 Arrays.asList(tf, Typeface.SERIF, Typeface.MONOSPACE));
+
+        // Static DEFAULT / DEFAULT_BOLD are final placeholders. Updating the font map does not
+        // move the face they already point at, so retarget that pointer while a custom font
+        // is selected and put the original face back when the stock stack is active again.
+        if (FontController.isDefaultFont(fontFamily)) {
+            retargetStaticDefaults(null, null);
+        } else {
+            retargetStaticDefaults(tf, tfBold);
+        }
+    }
+
+    private static Typeface sOriginalDefault;
+    private static Typeface sOriginalDefaultBold;
+
+    @Nullable
+    private static Typeface concreteTypeface(@Nullable Typeface typeface) {
+        Typeface current = typeface;
+        while (current != null && current.mPendingTypeface != null) {
+            final Typeface next = current.mPendingTypeface.get();
+            if (next == null || next == current) {
+                return null;
+            }
+            current = next;
+        }
+        return current;
+    }
+
+    private void pointPendingAt(@Nullable Typeface target) {
+        if (mPendingTypeface == null) {
+            return;
+        }
+        final Typeface concrete = concreteTypeface(target);
+        // A placeholder must not point at itself or at another placeholder. getNativeInstance()
+        // follows this reference and would recurse.
+        if (concrete == null || concrete == this || concrete.mPendingTypeface != null) {
+            return;
+        }
+        mPendingTypeface.set(concrete);
+    }
+
+    private static void retargetStaticDefaults(@Nullable Typeface regular,
+            @Nullable Typeface bold) {
+        synchronized (SYSTEM_FONT_MAP_LOCK) {
+            if (sOriginalDefault == null) {
+                sOriginalDefault = concreteTypeface(DEFAULT);
+            }
+            if (sOriginalDefaultBold == null) {
+                sOriginalDefaultBold = concreteTypeface(DEFAULT_BOLD);
+            }
+            // Leave the placeholders alone until the stock faces have been recorded.
+            // Retargeting first would make the next capture remember the replacement.
+            if (sOriginalDefault == null || sOriginalDefaultBold == null) {
+                return;
+            }
+            final Typeface newRegular = regular != null ? regular : sOriginalDefault;
+            final Typeface newBold = bold != null ? bold : sOriginalDefaultBold;
+            DEFAULT.pointPendingAt(newRegular);
+            if (SANS_SERIF != DEFAULT) {
+                SANS_SERIF.pointPendingAt(newRegular);
+            }
+            DEFAULT_BOLD.pointPendingAt(newBold);
+        }
     }
 
     /** @hide */

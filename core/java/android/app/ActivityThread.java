@@ -7445,6 +7445,12 @@ public final class ActivityThread extends ClientTransactionHandler
                         + afterAssets);
             }
         }
+
+        // Overlay updates can change config_bodyFontFamily without a configuration change.
+        final Application app = getApplication();
+        if (app != null) {
+            FontController.OnConfigurationChanged(app.getResources());
+        }
     }
 
     /**

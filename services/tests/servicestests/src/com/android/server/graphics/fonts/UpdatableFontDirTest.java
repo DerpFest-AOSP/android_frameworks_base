@@ -46,6 +46,7 @@ import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.internal.util.android.FontController;
 import com.android.text.flags.Flags;
 
 import org.junit.After;
@@ -494,6 +495,8 @@ public final class UpdatableFontDirTest {
         assertThat(dir.getFontFamilyMap()).containsKey("sans-serif");
         assertThat(getLastFamily(dir.getSystemFontConfig(), "sans-serif").getFontList().get(0)
                 .getPostScriptName()).isEqualTo("CustomFont");
+        assertThat(getLastFamily(dir.getSystemFontConfig(), FontController.CUSTOM_FONT_MARKER_FAMILY)
+                .getFontList().get(0).getPostScriptName()).isEqualTo("CustomFont");
         File installedFont = dir.getPostScriptMap().get("CustomFont");
         assertThat(installedFont).isNotNull();
 
@@ -503,6 +506,8 @@ public final class UpdatableFontDirTest {
 
         dir.clearCustomFont();
         assertThat(dir.getCustomFontName()).isNull();
+        assertThat(getLastFamily(dir.getSystemFontConfig(),
+                FontController.CUSTOM_FONT_MARKER_FAMILY)).isNull();
         dir.loadFontFileMap();
         assertThat(dir.getPostScriptMap()).doesNotContainKey("CustomFont");
         assertThat(installedFont.getParentFile().exists()).isFalse();
@@ -514,8 +519,14 @@ public final class UpdatableFontDirTest {
         assertThat(UpdatableFontDir.isUiFontFamilyName("google-sans-text")).isTrue();
         assertThat(UpdatableFontDir.isUiFontFamilyName("variable-body-medium")).isTrue();
         assertThat(UpdatableFontDir.isUiFontFamilyName("roboto-flex")).isTrue();
+        assertThat(UpdatableFontDir.isUiFontFamilyName("roboto-medium")).isTrue();
+        assertThat(UpdatableFontDir.isUiFontFamilyName("source-sans-pro")).isTrue();
+        assertThat(UpdatableFontDir.isUiFontFamilyName("gsf-regular")).isTrue();
         assertThat(UpdatableFontDir.isUiFontFamilyName("serif")).isFalse();
         assertThat(UpdatableFontDir.isUiFontFamilyName("monospace")).isFalse();
+        assertThat(UpdatableFontDir.isUiFontFamilyName("google-sans-clock")).isFalse();
+        assertThat(UpdatableFontDir.isUiFontFamilyName("sans-serif-condensed")).isFalse();
+        assertThat(UpdatableFontDir.isUiFontFamilyName("sans-serif-smallcaps")).isFalse();
     }
 
     @Test

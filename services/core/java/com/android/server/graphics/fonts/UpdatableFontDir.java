@@ -37,6 +37,7 @@ import android.util.Slog;
 
 import androidx.annotation.VisibleForTesting;
 
+import com.android.internal.util.android.FontController;
 import com.android.text.flags.Flags;
 
 import org.xmlpull.v1.XmlPullParserException;
@@ -53,7 +54,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
@@ -498,6 +498,15 @@ final class UpdatableFontDir {
         return null;
     }
 
+    private boolean hasActiveCustomFont(PersistentSystemFontConfig.Config config) {
+        for (int i = 0; i < config.fontFamilies.size(); i++) {
+            if (isCustomFontFamily(config.fontFamilies.get(i))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private boolean isCustomFontFamily(FontUpdateRequest.Family family) {
         if (!CUSTOM_FONT_FAMILY_NAME.equals(family.getName()) || family.getFonts().isEmpty()) {
             return false;
@@ -598,6 +607,10 @@ final class UpdatableFontDir {
         }
         FontConfig preinstalledFontConfig = mConfigSupplier.apply(Collections.emptyMap());
         int maxCount = getMaxPrioritizedUnnamedFamilyCount(preinstalledFontConfig);
+        // The installed font is prepended onto each UI family, so that chain is one longer.
+        if (hasActiveCustomFont(curConfig)) {
+            maxCount = Math.max(maxCount - 1, 0);
+        }
         if (curConfig.prioritizedFamilyList.size() + fallbackRequests.size() > maxCount) {
             throw new SystemFontException(FontManager.RESULT_ERROR_INVALID_ARGUMENT,
                     "Too many fallback font update requests: " + fallbackRequests.size()
@@ -1159,6 +1172,13 @@ final class UpdatableFontDir {
             mergedFamilies.add(customFontFamily);
         }
 
+        // Family name of an installed font file is still "sans-serif". Publish a separate
+        // marker so app processes can tell that file apart from the stock family.
+        if (customFontFamily != null && !customFontFamily.getFamilies().isEmpty()) {
+            mergedFamilies.add(new FontConfig.NamedFamilyList(customFontFamily.getFamilies(),
+                    FontController.CUSTOM_FONT_MARKER_FAMILY, null));
+        }
+
         if (Flags.insertFontFamily()) {
             // Now, handle the fallback families, inserting the dynamic ones at the correct
             // position. In general we insert updated fallback fonts before the corresponding
@@ -1187,6 +1207,9 @@ final class UpdatableFontDir {
             }
 
             int maxCount = getMaxPrioritizedUnnamedFamilyCount(config);
+            if (customFontApplied) {
+                maxCount = Math.max(maxCount - 1, 0);
+            }
             if (prioritizedUnnamedFamilies.size() > maxCount) {
                 Slog.w(TAG, "Too many prioritized unnamed families: "
                         + prioritizedUnnamedFamilies.size()
@@ -1214,18 +1237,13 @@ final class UpdatableFontDir {
                 config.getLocaleFallbackCustomizations(), mLastModifiedMillis, mConfigVersion);
     }
 
+    /**
+     * Families that receive an installed custom font. Same set the runtime override remaps,
+     * so a downloaded Google Sans and a system "google-sans" family stay in agreement.
+     */
     @VisibleForTesting
     static boolean isUiFontFamilyName(@Nullable String familyName) {
-        if (familyName == null) {
-            return false;
-        }
-        String normalized = familyName.toLowerCase(Locale.ROOT);
-        return normalized.startsWith("sans-serif")
-                || normalized.startsWith("google-sans")
-                || normalized.startsWith("variable-")
-                || normalized.equals("roboto")
-                || normalized.equals("roboto-flex")
-                || normalized.startsWith("source-sans-pro");
+        return FontController.isOverridableFamily(familyName);
     }
 
     @VisibleForTesting

@@ -14,26 +14,33 @@
  */
 package com.android.internal.util.android;
 
+import android.annotation.Nullable;
 import android.app.ActivityThread;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Typeface;
+import android.graphics.fonts.Font;
+import android.graphics.fonts.FontFileUtil;
 import android.os.SystemProperties;
 import android.text.TextUtils;
 import android.util.ArrayMap;
 import android.util.Log;
 
+import com.android.internal.R;
+
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Map;
-import java.util.regex.Pattern;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 public class FontController {
 
     private static final String TAG = "FontController";
 
-    private static FontController sInstance = null;
+    private static final FontController sInstance = new FontController();
 
     private volatile Resources sResources = null;
 
@@ -41,31 +48,59 @@ public class FontController {
 
     private static final String DEFAULT_FONT_ROOT = "google-sans-flex";
 
+    /**
+     * Named family published by the font manager while a user-installed font file is active.
+     * Family name stays "sans-serif" in that case, so apps cannot tell a custom file apart from
+     * the stock family by name alone.
+     */
+    public static final String CUSTOM_FONT_MARKER_FAMILY = "user-custom-font";
+
+    /** PostScript name prefixes of UI fonts apps ship in res/font or fetch from GMS. */
+    private static final String[] BUNDLED_UI_FONT_PREFIXES = {
+            "googlesans",
+            "productsans",
+            "sourcesans",
+            "roboto"
+    };
+
+    /** Display, code, and text faces that should keep their own files. */
+    private static final String[] BUNDLED_UI_FONT_EXCLUDES = {
+            "mono",
+            "code",
+            "clock",
+            "slab",
+            "serif",
+            "condensed"
+    };
+
     private static final String[] DEFAULT_FONT_FALLBACKS = {
             "google-sans-flex",
             "google-sans",
             "sans-serif"
     };
 
-    private static final Set<String> OVERRIDE_FONTS = new HashSet<>(Arrays.asList(
-            "google", "sans-serif", "gsf-", "variable"
-    ));
+    /** Family-name prefixes that follow the selected body font. */
+    private static final String[] OVERRIDE_FAMILY_PREFIXES = {
+            "sans-serif",
+            "google-sans",
+            "gsf-",
+            "variable-",
+            "roboto",
+            "source-sans-pro"
+    };
 
-    private static final Set<String> SYS_OVERRIDE_FONTS = new HashSet<>(Arrays.asList(
-            "serif", "monospace"
-    ));
+    /** Families whose names contain one of these keep their own face. */
+    private static final String[] OVERRIDE_FAMILY_EXCLUDES = {
+            "clock",
+            "mono",
+            "condensed",
+            "smallcaps"
+    };
 
     private static final Set<String> EXCLUDED_APPS = new HashSet<>(Arrays.asList(
             "it.subito",
             "tv.arte.plus7",
             "com.google.android.gm"
-    ));
-
-    private static final Set<String> SYS_OVERRIDE_APPS = new HashSet<>(Arrays.asList(
-            "com.android.settings",
-            "com.android.systemui",
-            "com.android.launcher3",
-            "android"
     ));
 
     private static final Map<String, Integer> WEIGHT_MAP = new ArrayMap<>();
@@ -115,9 +150,6 @@ public class FontController {
     }
 
     public static FontController get() {
-        if (sInstance == null) {
-            sInstance = new FontController();
-        }
         return sInstance;
     }
 
@@ -138,13 +170,10 @@ public class FontController {
     private String getCurrentFont() {
         if (sResources == null) return sFontFamily;
         try {
-            int configId = sResources.getIdentifier("config_bodyFontFamily", "string", "android");
-            if (configId != 0) {
-                String currFont = sResources.getString(configId);
-                if (!TextUtils.equals(sFontFamily, currFont)) {
-                    sFontFamily = currFont;
-                    logger("Font changed to: " + sFontFamily);
-                }
+            String currFont = sResources.getString(R.string.config_bodyFontFamily);
+            if (!TextUtils.isEmpty(currFont) && !TextUtils.equals(sFontFamily, currFont)) {
+                sFontFamily = currFont;
+                logger("Font changed to: " + sFontFamily);
             }
         } catch (Exception e) {
             logger("getCurrentFont failed: " + e.getMessage());
@@ -155,13 +184,11 @@ public class FontController {
     private Typeface getOverrideTypefaceInternal(String fontToOverride) {
         if (fontToOverride == null) return null;
 
-        String pkgName = getCurrentPackageName();
+        final String pkgName = getCurrentPackageName();
 
         if (pkgName == null) return null;
 
-        final boolean isSysPkg = SYS_OVERRIDE_APPS.contains(pkgName);
-
-        if (EXCLUDED_APPS.contains(pkgName) && !isSysPkg) {
+        if (EXCLUDED_APPS.contains(pkgName)) {
             logger("Excluded app, skipping override: " + pkgName);
             return null;
         }
@@ -177,14 +204,12 @@ public class FontController {
         // Don't remap variable-* families when the default Google Sans Flex
         // font stack is active; let them pass through so optical sizing and
         // ROND axis values in fonts_customization.xml render correctly.
-        if (fontToOverride.contains("variable") && currentFont.contains(DEFAULT_FONT_ROOT)) {
+        if (fontToOverride.contains("variable") && isDefaultFont(currentFont)) {
             logger("Default font active, passing through variable family: " + fontToOverride);
             return null;
         }
 
-        boolean override = OVERRIDE_FONTS.stream().anyMatch(fontToOverride::contains)
-                || (isSysPkg && SYS_OVERRIDE_FONTS.stream().anyMatch(fontToOverride::contains));
-        if (!override) {
+        if (!isOverridableFamily(fontToOverride)) {
             logger("Not on override list, skipping override: " + fontToOverride);
             return null;
         }
@@ -194,24 +219,130 @@ public class FontController {
         return TypefaceFactory.create(fontToOverride, resolvedBase, adjustment);
     }
 
+    /**
+     * Replacement for a font an app bundled or downloaded, or null to keep that file.
+     *
+     * Name-based overrides never see these faces: res/font and the GMS font provider both
+     * end in {@link Typeface.CustomFallbackBuilder#build()}.
+     */
+    @Nullable
+    public static Typeface getBundledFontOverride(@Nullable Font font, int weight, boolean italic) {
+        if (font == null) return null;
+        try {
+            return get().overrideBundledFont(font, weight, italic);
+        } catch (Throwable t) {
+            logger("getBundledFontOverride failed: " + t);
+            return null;
+        }
+    }
+
+    /** True while a user-installed font file is part of the system font map. */
+    public static boolean hasCustomFont() {
+        return Typeface.getInstalledTypeface(CUSTOM_FONT_MARKER_FAMILY) != null;
+    }
+
+    @Nullable
+    private Typeface overrideBundledFont(Font font, int weight, boolean italic) {
+        if (ActivityThread.isSystem()) return null;
+        if (sResources == null || Typeface.getSystemFontMap().isEmpty()) return null;
+
+        final String pkgName = getCurrentPackageName();
+        if (pkgName == null || EXCLUDED_APPS.contains(pkgName)) return null;
+
+        final String currentFont = getCurrentFont();
+        if (isDefaultFont(currentFont) && !hasCustomFont()) return null;
+
+        final String psName = readPostScriptName(font);
+        if (!isBundledUiFont(psName)) return null;
+
+        // Leave the file weight alone. TextView adds fontWeightAdjustment itself, and
+        // applying it here bolds the same text twice.
+        final int resolvedWeight = clampWeight(weight);
+        if (!italic) {
+            Typeface named = TypefaceFactory.resolveNamedVariant(currentFont, resolvedWeight, false);
+            if (named != null) {
+                logger("Bundled font " + psName + " -> named variant, weight=" + resolvedWeight);
+                return named;
+            }
+        }
+        final Typeface base = resolveDefaultTypeface();
+        logger("Bundled font " + psName + " in " + pkgName + " -> " + currentFont
+                + ", weight=" + resolvedWeight + ", italic=" + italic);
+        return Typeface.create(base, resolvedWeight, italic);
+    }
+
+    @Nullable
+    private static String readPostScriptName(Font font) {
+        try {
+            ByteBuffer buffer = font.getBuffer();
+            if (buffer == null) return null;
+            return FontFileUtil.getPostScriptName(buffer, font.getTtcIndex());
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    /** True for UI faces apps bundle under their own PostScript name. */
+    public static boolean isBundledUiFont(@Nullable String psName) {
+        if (TextUtils.isEmpty(psName)) return false;
+        final String normalized = psName.toLowerCase(Locale.ROOT)
+                .replace("-", "")
+                .replace("_", "")
+                .replace(" ", "");
+        if (containsAny(normalized, BUNDLED_UI_FONT_EXCLUDES)) return false;
+        return startsWithAny(normalized, BUNDLED_UI_FONT_PREFIXES);
+    }
+
+    /** True for system family names that should follow the selected body font. */
+    public static boolean isOverridableFamily(@Nullable String familyName) {
+        if (TextUtils.isEmpty(familyName)) return false;
+        final String name = familyName.toLowerCase(Locale.ROOT);
+        if (containsAny(name, OVERRIDE_FAMILY_EXCLUDES)) return false;
+        return startsWithAny(name, OVERRIDE_FAMILY_PREFIXES);
+    }
+
+    /** True when the body family is still the stock Google Sans Flex stack. */
+    public static boolean isDefaultFont(@Nullable String fontFamily) {
+        return fontFamily != null && fontFamily.contains(DEFAULT_FONT_ROOT);
+    }
+
+    private static boolean containsAny(String value, String[] needles) {
+        for (String needle : needles) {
+            if (value.contains(needle)) return true;
+        }
+        return false;
+    }
+
+    private static boolean startsWithAny(String value, String[] prefixes) {
+        for (String prefix : prefixes) {
+            if (value.startsWith(prefix)) return true;
+        }
+        return false;
+    }
+
+    private static int clampWeight(int weight) {
+        if (weight < 1) return 1;
+        if (weight > 1000) return 1000;
+        return weight;
+    }
+
     public static Typeface resolveBaseTypeface() {
         return get().resolveDefaultTypeface();
     }
 
     private Typeface resolveDefaultTypeface() {
-        // First try to resolve the currently active custom font directly
+        // getSystemDefaultTypeface() returns Typeface.DEFAULT for a missing family
+        // and for the real sans-serif face, so it cannot tell those apart.
         String currentFont = getCurrentFont();
-        if (currentFont != null && !currentFont.isEmpty()) {
-            Typeface tf = Typeface.getSystemDefaultTypeface(currentFont);
-            if (tf != null && tf != Typeface.DEFAULT) {
-                logger("resolveDefaultTypeface: resolved current font '" + currentFont + "'");
-                return tf;
-            }
+        Typeface installed = Typeface.getInstalledTypeface(currentFont);
+        if (installed != null) {
+            logger("resolveDefaultTypeface: resolved current font '" + currentFont + "'");
+            return installed;
         }
-        // Fall back through known default font aliases
+        // Family-list ids such as google-sans-flex are not always map keys.
         for (String family : DEFAULT_FONT_FALLBACKS) {
-            Typeface tf = Typeface.getSystemDefaultTypeface(family);
-            if (tf != null && tf != Typeface.DEFAULT) {
+            Typeface tf = Typeface.getInstalledTypeface(family);
+            if (tf != null) {
                 logger("resolveDefaultTypeface: resolved via fallback '" + family + "'");
                 return tf;
             }
@@ -221,6 +352,7 @@ public class FontController {
     }
 
     private void handleOnConfiguration(Resources res) {
+        if (res == null) return;
         sResources = res;
         String pkgName = getCurrentPackageName();
         if (pkgName == null || EXCLUDED_APPS.contains(pkgName)) return;
