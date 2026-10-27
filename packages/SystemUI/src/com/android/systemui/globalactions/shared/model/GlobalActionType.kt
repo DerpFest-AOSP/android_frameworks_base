@@ -34,7 +34,7 @@ enum class GlobalActionType(val configKey: String) {
     SCREENSHOT("screenshot"),
     SYSTEM_UPDATE("system_update"),
     STANDBY("standby"),
-    DEVICECONTROLS("device_controls"),
+    DEVICECONTROLS("devicecontrols"),
     RESTART_SYSTEMUI("restart_systemui");
 
     companion object {
