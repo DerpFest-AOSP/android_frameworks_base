@@ -147,13 +147,17 @@ public class DaylightHeaderProvider implements
             mAlarmIntent.cancel();
         }
 
+        // Package-scoped so the shade's non-exported receiver is the only target.
         Intent intent = new Intent(StatusBarHeaderMachine.STATUS_BAR_HEADER_UPDATE_ACTION);
+        intent.setPackage(mContext.getPackageName());
         mAlarmIntent = PendingIntent.getBroadcast(mContext, 0, intent,
-                PendingIntent.FLAG_IMMUTABLE);
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
 
         if (mAlarmIntervalMinutes == 0) {
             c.add(Calendar.HOUR_OF_DAY, 1);
             c.set(Calendar.MINUTE, 0);
+            c.set(Calendar.SECOND, 0);
+            c.set(Calendar.MILLISECOND, 0);
         }
         long alarmStart = c.getTimeInMillis();
         long interval = mAlarmIntervalMinutes == 0 ? AlarmManager.INTERVAL_HOUR : mAlarmIntervalMinutes * 60 * 1000;

@@ -106,7 +106,12 @@ public class StatusBarHeaderMachine {
             super(handler);
         }
 
+        private boolean mObserving;
+
         void observe() {
+            if (mObserving) {
+                return;
+            }
             mContext.getContentResolver().registerContentObserver(Settings.System.getUriFor(
                     Settings.System.STATUS_BAR_CUSTOM_HEADER),
                     false, this, UserHandle.USER_ALL);
@@ -125,10 +130,15 @@ public class StatusBarHeaderMachine {
             mContext.getContentResolver().registerContentObserver(Settings.System.getUriFor(
                     Settings.System.STATUS_BAR_FILE_HEADER_IMAGE),
                     false, this, UserHandle.USER_ALL);
+            mObserving = true;
         }
 
         void unobserve() {
+            if (!mObserving) {
+                return;
+            }
             mContext.getContentResolver().unregisterContentObserver(this);
+            mObserving = false;
         }
 
         @Override
@@ -193,11 +203,15 @@ public class StatusBarHeaderMachine {
         if (!mObservers.contains(observer)) {
             mObservers.add(observer);
         }
+        // Detach unregisters the observer. Register again while a shade is attached.
+        mSettingsObserver.observe();
     }
 
     public void removeObserver(IStatusBarHeaderMachineObserver observer) {
         mObservers.remove(observer);
-        mSettingsObserver.unobserve();
+        if (mObservers.isEmpty()) {
+            mSettingsObserver.unobserve();
+        }
     }
 
     private void doUpdateStatusHeaderObservers(final boolean force) {
@@ -284,7 +298,7 @@ public class StatusBarHeaderMachine {
                 filter.addAction(Intent.ACTION_SCREEN_ON);
                 filter.addAction(Intent.ACTION_SCREEN_OFF);
                 filter.addAction(STATUS_BAR_HEADER_UPDATE_ACTION);
-                mContext.registerReceiver(mBroadcastReceiver, filter, Context.RECEIVER_EXPORTED);
+                mContext.registerReceiver(mBroadcastReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
                 mAttached = true;
             } else {
                 // we dont want to wait for the alarm if provider has changed its header image
