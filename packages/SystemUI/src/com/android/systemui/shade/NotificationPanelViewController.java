@@ -3842,8 +3842,10 @@ public final class NotificationPanelViewController implements
                 case STATUS_BAR_CUSTOM_HEADER:
                     mHeaderImageEnabled =
                             TunerService.parseIntegerSwitch(newValue, false);
+                    // Tuner reloads this for the new user. The settings observer does not.
+                    mStatusBarHeaderMachine.updateEnablement();
                     if (!mHeaderImageEnabled) {
-                        mQsHeaderLayout.setVisibility(View.GONE);
+                        clearHeaderImage();
                     } else {
                         mOrientation = mView.getResources().getConfiguration().orientation;
                         mView.post(() -> updateHeaderImage());
@@ -3860,6 +3862,8 @@ public final class NotificationPanelViewController implements
                 case STATUS_BAR_CUSTOM_HEADER_SHADOW:
                     mHeaderImageShadow =
                             TunerService.parseInteger(newValue, 0);
+                    // updateHeaderImage skips the alpha while expansion is unchanged.
+                    mShadeHeaderExpansion = -1f;
                     if (mHeaderImageEnabled) {
                         mView.post(() -> updateHeaderImage());
                     }
@@ -3876,10 +3880,7 @@ public final class NotificationPanelViewController implements
 
         @Override
         public void disableHeader() {
-            mView.post(() -> {
-                mCurrentBackground = null;
-                mQsHeaderImageView.setVisibility(View.GONE);
-            });
+            mView.post(() -> clearHeaderImage());
         }
 
         @Override
@@ -4556,13 +4557,20 @@ public final class NotificationPanelViewController implements
             mQsHeaderImageView.setVisibility(View.VISIBLE);
             mCurrentBackground = drawable;
             setNotificationPanelHeaderBackground(drawable, force);
+            mShadeHeaderExpansion = -1f;
         } else {
-            mCurrentBackground = null;
-            mQsHeaderImageView.setVisibility(View.GONE);
+            clearHeaderImage();
         }
         if (mHeaderImageEnabled) {
             updateHeaderImage();
         }
+    }
+
+    private void clearHeaderImage() {
+        mCurrentBackground = null;
+        mQsHeaderImageView.setImageDrawable(null);
+        mQsHeaderImageView.setVisibility(View.GONE);
+        mQsHeaderLayout.setVisibility(View.GONE);
     }
 
     private void updateHeaderImage() {
