@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package com.android.systemui.axdynamicbar.shared
 
 import android.app.ActivityOptions
@@ -27,6 +29,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.ThumbDown
 import androidx.compose.material.icons.filled.ThumbUp
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -119,17 +122,47 @@ internal val BatteryNeutralColor: Color
     @Composable get() = MaterialTheme.colorScheme.surfaceVariant
 internal val ChipContentDark = Color(0xFF1B1B1B)
 
-internal val RedAccent = Color(0xFFFF3B30)
-internal val PinkAccent = Color(0xFFFF2D55)
-internal val OrangeAccent = Color(0xFFFF9500)
-internal val YellowAccent = Color(0xFFFFCC00)
-internal val GreenAccent = Color(0xFF34C759)
-internal val MintAccent = Color(0xFF63E6BE)
-internal val TealAccent = Color(0xFF5AC8FA)
-internal val BlueAccent = Color(0xFF007AFF)
-internal val IndigoAccent = Color(0xFF5856D6)
-internal val PurpleAccent = Color(0xFFAF52DE)
-internal val PausedGray = Color(0xFF8E8E93)
+// Semantic accents follow the Monet scheme (primary / secondary / tertiary / error)
+// instead of a fixed palette. Warm is the theme tertiary pulled toward error so
+// alarms and hotspots stay distinct from charging (tertiary) and recording (error).
+internal val RedAccent: Color
+    @Composable get() = MaterialTheme.colorScheme.error
+internal val PinkAccent: Color
+    @Composable get() = MaterialTheme.colorScheme.error
+internal val OrangeAccent: Color
+    @Composable get() = warmAccent()
+internal val YellowAccent: Color
+    @Composable get() = warmAccent()
+internal val GreenAccent: Color
+    @Composable get() = MaterialTheme.colorScheme.tertiary
+internal val MintAccent: Color
+    @Composable get() = MaterialTheme.colorScheme.tertiary
+internal val TealAccent: Color
+    @Composable get() = MaterialTheme.colorScheme.secondary
+internal val BlueAccent: Color
+    @Composable get() = MaterialTheme.colorScheme.primary
+internal val IndigoAccent: Color
+    @Composable get() = MaterialTheme.colorScheme.secondary
+internal val PurpleAccent: Color
+    @Composable get() = MaterialTheme.colorScheme.primary
+internal val PausedGray: Color
+    @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
+
+internal val ExpressiveCardColor: Color
+    @Composable get() = MaterialTheme.colorScheme.surfaceContainerHigh
+
+@Composable
+private fun warmAccent(): Color =
+    lerp(MaterialTheme.colorScheme.tertiary, MaterialTheme.colorScheme.error, 0.42f)
+
+/** Event accent mixed into a scheme surface, the Material tonal-container equivalent. */
+@Composable
+internal fun tonalContainer(accent: Color, emphasis: Float = 0.22f): Color {
+    val scheme = MaterialTheme.colorScheme
+    val dark = ColorUtils.calculateLuminance(scheme.surface.toArgb()) < 0.5
+    val amount = (if (dark) emphasis else emphasis * 0.65f).coerceIn(0f, 1f)
+    return lerp(scheme.surfaceContainerHighest, accent, amount)
+}
 
 internal val ExpandedMaxWidth = 420.dp
 
@@ -185,6 +218,7 @@ internal val ShapeAlbum = RoundedCornerShape(16.dp)
 internal val ShapeChip = RoundedCornerShape(percent = 50)
 internal val ShapeCompact = RoundedCornerShape(12.dp)
 
+@Composable
 internal fun accentColorFor(event: IslandEvent): Color = eventStyleFor(event).accent
 
 internal fun chipContentColorOn(background: Color): Color {
@@ -250,8 +284,8 @@ private fun buildColorScheme(raw: Color): IslandColorScheme {
     return IslandColorScheme(
         accent = accent,
         onAccent = chipContentColorOn(accent),
-        tonal = accent.copy(alpha = AlphaFaint),
-        surfaceTint = if (isDark) darkenColor(raw, keep = 0.25f) else accent.copy(alpha = 0.12f),
+        tonal = tonalContainer(accent),
+        surfaceTint = tonalContainer(accent, emphasis = 0.12f),
     )
 }
 
@@ -317,7 +351,7 @@ internal fun StatusChip(text: String, color: Color = SubtleGray) {
             Modifier.background(color.copy(alpha = AlphaSubtle), ShapeChip)
                 .padding(horizontal = SpaceXl, vertical = SpaceSm)
     ) {
-        Text(text.uppercase(), color = color, style = MaterialTheme.typography.labelSmall)
+        Text(text, color = color, style = MaterialTheme.typography.labelMedium)
     }
 }
 
@@ -353,7 +387,7 @@ internal fun ExpandedCardLayout(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(ShapeLg)
-                .background(accentColor.copy(alpha = AlphaFaint))
+                .background(tonalContainer(accentColor))
                 .padding(SpaceLg),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(SpaceLg),
@@ -363,7 +397,7 @@ internal fun ExpandedCardLayout(
                     modifier = Modifier
                         .size(iconSize)
                         .clip(CircleShape)
-                        .background(accentColor.copy(alpha = AlphaSubtle)),
+                        .background(tonalContainer(accentColor, emphasis = 0.4f)),
                     contentAlignment = Alignment.Center,
                 ) { icon() }
             } else {
@@ -398,14 +432,19 @@ internal fun ActionChip(
         modifier = modifier,
     ) {
         Row(
-            modifier = Modifier.height(SizeActionHeight).padding(horizontal = SpacePanel),
+            modifier = Modifier.fillMaxWidth().height(SizeActionHeight).padding(horizontal = SpacePanel),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(SpaceMd, Alignment.CenterHorizontally),
         ) {
             if (icon != null) {
                 Icon(icon, null, tint = color, modifier = Modifier.size(SizeIconSm))
             }
-            Text(label, color = color, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+            Text(
+                label,
+                color = color,
+                style = MaterialTheme.typography.labelLargeEmphasized,
+                maxLines = 1,
+            )
         }
     }
 }
@@ -426,16 +465,21 @@ internal fun ExpressivePillButton(
         modifier = modifier,
     ) {
         Row(
-            modifier = Modifier.height(SizeActionHeight).padding(horizontal = SpacePanel),
+            modifier = Modifier.fillMaxWidth().height(56.dp).padding(horizontal = SpaceXxl),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(SpaceMd),
+            horizontalArrangement = Arrangement.spacedBy(SpaceMd, Alignment.CenterHorizontally),
         ) {
             if (icon != null) {
                 Icon(
                     icon, null, tint = contentColor, modifier = Modifier.size(SizeIconSm),
                 )
             }
-            Text(label, color = contentColor, style = MaterialTheme.typography.labelLarge)
+            Text(
+                label,
+                color = contentColor,
+                style = MaterialTheme.typography.labelLargeEmphasized,
+                maxLines = 1,
+            )
         }
     }
 }

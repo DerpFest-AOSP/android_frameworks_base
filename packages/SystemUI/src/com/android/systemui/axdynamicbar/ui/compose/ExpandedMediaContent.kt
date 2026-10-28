@@ -266,7 +266,8 @@ private data class MediaGlassBrushes(
 @Composable
 private fun rememberMediaGlassBackgroundLayers(accent: Color, hasArt: Boolean): MediaGlassBrushes {
     val warmTint = remember(accent) { lerp(accent, Color(0xFFFFB74D), 0.42f) }
-    val coolTint = remember(accent) { lerp(accent, IndigoAccent.copy(alpha = 1f), 0.38f) }
+    // Fixed cool wash. The shared accents follow Monet; this glass tint stays with the art.
+    val coolTint = remember(accent) { lerp(accent, Color(0xFF5856D6), 0.38f) }
     val albumWash =
         remember(accent, warmTint, coolTint, hasArt) {
             Brush.linearGradient(

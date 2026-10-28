@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material.icons.filled.Wifi
 import android.media.AudioManager
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.android.systemui.axdynamicbar.model.IslandEvent
@@ -48,6 +49,7 @@ internal data class EventStyle(
     val labelRes: Int,
 )
 
+@Composable
 internal fun eventStyleFor(event: IslandEvent): EventStyle = when (event) {
     is IslandEvent.AudioRecording -> EventStyle(
         accent = when (event.state) {

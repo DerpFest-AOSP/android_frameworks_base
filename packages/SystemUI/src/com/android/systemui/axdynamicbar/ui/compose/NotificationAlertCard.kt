@@ -79,9 +79,8 @@ import com.android.systemui.axdynamicbar.shared.IslandActions
 import com.android.systemui.axdynamicbar.model.IslandEvent
 import com.android.systemui.axdynamicbar.shared.AlphaIconBg
 import com.android.systemui.axdynamicbar.shared.AlphaSubtle
-import com.android.systemui.axdynamicbar.shared.CardBg
-import com.android.systemui.axdynamicbar.shared.CardBorderBrush
 import com.android.systemui.axdynamicbar.shared.DarkCard
+import com.android.systemui.axdynamicbar.shared.ExpressiveCardColor
 import com.android.systemui.axdynamicbar.shared.GreenAccent
 import com.android.systemui.axdynamicbar.shared.OnCardText
 import com.android.systemui.axdynamicbar.shared.RedAccent
@@ -236,8 +235,12 @@ fun NotificationAlertCard(
                     )
                 }
                 .clip(ShapeCard)
-                .background(CardBg)
-                .border(1.dp, CardBorderBrush, ShapeCard),
+                .background(ExpressiveCardColor)
+                .border(
+                    1.dp,
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                    ShapeCard,
+                ),
         ) {
             SceneTransitionLayout(state = stlState) {
                 scene(AlertCardScenes.Compact) {
