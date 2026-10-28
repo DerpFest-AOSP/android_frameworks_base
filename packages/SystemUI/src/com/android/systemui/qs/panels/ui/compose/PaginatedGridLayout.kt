@@ -30,13 +30,16 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Velocity
@@ -60,6 +63,7 @@ import com.android.systemui.qs.panels.ui.viewmodel.TileViewModel
 import com.android.systemui.qs.panels.ui.viewmodel.toolbar.EditModeButtonViewModel
 import com.android.systemui.qs.ui.compose.rememberQsSystemBoolSetting
 import com.android.systemui.shade.ui.composable.LocalDualShadeMotion
+import com.android.systemui.shade.ui.composable.LocalDualShadePaging
 import com.android.systemui.shade.ui.composable.dualShadePart
 import javax.inject.Inject
 
@@ -151,8 +155,22 @@ constructor(
                 }
             val contentPadding = PaddingValues(horizontal = contentPaddingValue)
             val nestedScrollConnection =
-                remember(viewModel) {
+                remember(viewModel, dualShadeMotion) {
                     object : NestedScrollConnection {
+                        override fun onPostScroll(
+                            consumed: Offset,
+                            available: Offset,
+                            source: NestedScrollSource,
+                        ): Offset =
+                            if (dualShadeMotion != null) Offset(available.x, 0f) else Offset.Zero
+
+                        override suspend fun onPostFling(
+                            consumed: Velocity,
+                            available: Velocity,
+                        ): Velocity =
+                            if (dualShadeMotion != null) Velocity(available.x, 0f)
+                            else Velocity.Zero
+
                         override suspend fun onPreFling(available: Velocity): Velocity {
                             viewModel.registerSideSwipeGesture()
                             return Velocity.Zero
@@ -164,26 +182,28 @@ constructor(
              * layout extends to the sides, but the content is as if there was no padding. That
              * way, the clipping bounds of the HorizontalPager extend beyond the tiles in each page.
              */
-            HorizontalPager(
-                state = pagerState,
-                modifier =
-                    Modifier.sysuiResTag("qs_pager")
-                        .padding(horizontal = { -contentPaddingValue.roundToPx() })
-                        .nestedScroll(nestedScrollConnection),
-                contentPadding = contentPadding,
-                pageSpacing = if (pages.size > 1) InterPageSpacing else 0.dp,
-                beyondViewportPageCount = 1,
-                verticalAlignment = Alignment.Top,
-            ) {
-                val page = pages[it]
+            CompositionLocalProvider(LocalDualShadePaging provides (dualShadeMotion != null)) {
+                HorizontalPager(
+                    state = pagerState,
+                    modifier =
+                        Modifier.sysuiResTag("qs_pager")
+                            .padding(horizontal = { -contentPaddingValue.roundToPx() })
+                            .nestedScroll(nestedScrollConnection),
+                    contentPadding = contentPadding,
+                    pageSpacing = if (pages.size > 1) InterPageSpacing else 0.dp,
+                    beyondViewportPageCount = 1,
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    val page = pages[it]
 
-                with(delegateGridLayout) {
-                    TileGrid(
-                        tiles = page,
-                        modifier = Modifier,
-                        listening = listening,
-                        enableRevealEffect = false,
-                    )
+                    with(delegateGridLayout) {
+                        TileGrid(
+                            tiles = page,
+                            modifier = Modifier,
+                            listening = listening,
+                            enableRevealEffect = false,
+                        )
+                    }
                 }
             }
             FooterBar(

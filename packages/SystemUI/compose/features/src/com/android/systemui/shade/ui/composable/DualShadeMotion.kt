@@ -62,6 +62,7 @@ object DualShadeMotion {
 }
 
 val LocalDualShadeMotion = staticCompositionLocalOf<DualShadeMotionState?> { null }
+val LocalDualShadePaging = staticCompositionLocalOf { false }
 
 /** Owns drawing progress; tile state and notification layout remain owned by their controllers. */
 class DualShadeMotionState(private val overlay: OverlayKey, initial: Float) {
@@ -215,7 +216,7 @@ class DualShadeMotionState(private val overlay: OverlayKey, initial: Float) {
                         if (parts.values.none { it.animating } && transition == null) {
                             initialProgress = target
                             settling = false
-                        previousNanos = 0L
+                            previousNanos = 0L
                             break
                         }
                     }
@@ -284,7 +285,7 @@ fun Modifier.dualShadePress(interactionSource: InteractionSource): Modifier {
 /** Consume only unhandled horizontal drags, after sliders and buttons have seen the event. */
 @Composable
 fun Modifier.dualShadeControlGesture(): Modifier {
-    if (LocalDualShadeMotion.current == null) return this
+    if (LocalDualShadeMotion.current == null || LocalDualShadePaging.current) return this
     return pointerInput(Unit) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)

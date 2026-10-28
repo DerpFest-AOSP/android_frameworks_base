@@ -530,13 +530,7 @@ private fun ContentScope.QuickSettingsLayout(
                                 Modifier.dualShadePart(rank = 1f, key = "media")
                                     .dualShadeControlGesture(),
                             location = Media.Location.QS,
-                            headerGestureModifier = {
-                                Modifier.shadePanelSwipe(
-                                    enabled = isDualShade,
-                                    diagonalOnly = true,
-                                    blockVerticalScroll = true,
-                                )
-                            },
+                            headerGestureModifier = { Modifier.dualShadeControlGesture() },
                         )
                     }
                 },

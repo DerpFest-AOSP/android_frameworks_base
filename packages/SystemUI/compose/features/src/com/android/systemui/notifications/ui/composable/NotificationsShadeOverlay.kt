@@ -59,6 +59,7 @@ import com.android.systemui.shade.ui.composable.ChipHighlightModel
 import com.android.systemui.shade.ui.composable.DualShadeNotificationRows
 import com.android.systemui.shade.ui.composable.OverlayShade
 import com.android.systemui.shade.ui.composable.OverlayShadeHeader
+import com.android.systemui.shade.ui.composable.dualShadeControlGesture
 import com.android.systemui.shade.ui.composable.dualShadePart
 import com.android.systemui.shade.ui.composable.rememberDualShadeScrollState
 import com.android.systemui.shade.ui.composable.shadePanelSwipe
@@ -202,7 +203,8 @@ constructor(
                                 modifier =
                                     modifier
                                         .padding(horizontal = notificationStackPadding)
-                                        .dualShadePart(rank = 0f, key = "media"),
+                                        .dualShadePart(rank = 0f, key = "media")
+                                        .dualShadeControlGesture(),
                             ) {
                                 Media(
                                     viewModelFactory = viewModel.mediaViewModelFactory,
@@ -210,13 +212,7 @@ constructor(
                                     behavior = viewModel.mediaUiBehavior,
                                     onDismissed = viewModel::onMediaSwipeToDismiss,
                                     location = Media.Location.SHADE,
-                                    headerGestureModifier = {
-                                        Modifier.shadePanelSwipe(
-                                            enabled = viewModel.isDualShade,
-                                            diagonalOnly = true,
-                                            blockVerticalScroll = true,
-                                        )
-                                    },
+                                    headerGestureModifier = { Modifier.dualShadeControlGesture() },
                                 )
                             }
                         }
