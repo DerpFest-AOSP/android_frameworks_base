@@ -32,6 +32,7 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
@@ -130,6 +131,7 @@ constructor(
             statusBarHeightPx = viewModel.statusBarHeightPx,
             enableTransparency = viewModel.isTransparencyEnabled,
             modifier = modifier.blur(with(LocalDensity.current) { animatedBlurRadiusPx.toDp() }),
+            panelTopSpacing = 8.dp,
             onScrimClicked = viewModel::onScrimClicked,
             onBackgroundPlaced = { bounds, _, _ -> viewModel.onShadeOverlayBoundsChanged(bounds) },
             header = {

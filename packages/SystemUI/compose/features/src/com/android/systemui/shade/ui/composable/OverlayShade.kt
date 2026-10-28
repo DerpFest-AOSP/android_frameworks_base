@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
@@ -73,6 +74,7 @@ fun ContentScope.OverlayShade(
     enableTransparency: Boolean,
     onScrimClicked: () -> Unit,
     modifier: Modifier = Modifier,
+    panelTopSpacing: Dp = 0.dp,
     onBackgroundPlaced: (bounds: Rect, topCornerRadius: Float, bottomCornerRadius: Float) -> Unit =
         { _, _, _ ->
         },
@@ -101,6 +103,7 @@ fun ContentScope.OverlayShade(
                             isFullWidth,
                             alignmentOnWideScreens,
                             statusBarHeightPx,
+                            panelTopSpacing,
                         ),
                 contentAlignment = panelAlignment,
             ) {
@@ -210,6 +213,7 @@ private fun Modifier.panelContainerPadding(
     isFullWidthPanel: Boolean,
     alignment: Alignment.Horizontal,
     statusBarHeightPx: Int,
+    topSpacing: Dp,
 ): Modifier {
     if (isFullWidthPanel) {
         return this
@@ -233,7 +237,7 @@ private fun Modifier.panelContainerPadding(
                     right = paddings.calculateRightPadding(layoutDirection),
                 )
             )
-    )
+    ).padding(top = topSpacing)
 }
 
 object OverlayShade {
