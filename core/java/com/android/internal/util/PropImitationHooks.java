@@ -167,6 +167,16 @@ public class PropImitationHooks {
         }
     }
 
+    /** PIF switches are not android.os.Build fields. */
+    private static boolean isControlKey(String key) {
+        return switch (key) {
+            case "DEBUG", "spoofBuild", "spoofProps", "spoofProvider", "spoofSignature",
+                    "spoofVendingBuild", "spoofVendingFinger", "spoofVendingSdk",
+                    "verboseLogs" -> true;
+            default -> false;
+        };
+    }
+
     private static void setPropValue(String key, String value) {
         try {
             dlog("Setting prop " + key + " to " + value.toString());
@@ -234,14 +244,21 @@ public class PropImitationHooks {
         if (!was) {
             dlog("Spoofing build for GMS / Finsky");
             for (Map.Entry<String, String> entry : fields.entrySet()) {
+                if (isControlKey(entry.getKey())) {
+                    continue;
+                }
                 setPropValue(entry.getKey(), entry.getValue());
             }
             // Build.*_FOR_ATTESTATION is what keystore sends to the TEE. Leave
             // the real device there. Writing the certified profile into those
             // fields makes the leaf name a different phone than the one that
             // measured the boot hash, and the TEE rejects the mismatched IDs.
-            if (sIsGms) {
-                spoofNativeProperties(fields, nativeProps, initialSdk);
+            // Play Store certification reads the native fingerprint in its own
+            // process. DroidGuard already has that profile; the store does not.
+            // Keep the store's SDK and launch API level, or it serves the wrong
+            // apps and breaks its own UI.
+            if (sIsGms || sIsFinsky) {
+                spoofNativeProperties(fields, nativeProps, initialSdk, sIsGms);
             }
         } else {
             dlog("Skip spoofing build for GMS / Finsky, because GmsAddAccountActivityOnTop");
@@ -414,7 +431,7 @@ public class PropImitationHooks {
     }
 
     private static void spoofNativeProperties(Map<String, String> fields,
-            Map<String, String> configured, String initialSdk) {
+            Map<String, String> configured, String initialSdk, boolean includeLaunchSdk) {
         if (sNativePropsApplied) {
             return;
         }
@@ -435,8 +452,10 @@ public class PropImitationHooks {
         putIfAbsent(props, "ro.secure", "1");
         putIfAbsent(props, "ro.build.type", fields.get("TYPE"));
         putIfAbsent(props, "ro.build.tags", fields.get("TAGS"));
-        putIfAbsent(props, "ro.product.first_api_level", initialSdk);
-        putIfAbsent(props, "ro.board.first_api_level", initialSdk);
+        if (includeLaunchSdk) {
+            putIfAbsent(props, "ro.product.first_api_level", initialSdk);
+            putIfAbsent(props, "ro.board.first_api_level", initialSdk);
+        }
         putIfAbsent(props, "ro.build.fingerprint", fields.get("FINGERPRINT"));
         putIfAbsent(props, "ro.build.id", fields.get("ID"));
         putIfAbsent(props, "ro.build.display.id", fields.get("ID"));
