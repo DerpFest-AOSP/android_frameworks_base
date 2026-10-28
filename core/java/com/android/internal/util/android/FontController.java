@@ -16,7 +16,6 @@ package com.android.internal.util.android;
 
 import android.annotation.Nullable;
 import android.app.ActivityThread;
-import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Typeface;
 import android.graphics.fonts.Font;
@@ -214,9 +213,9 @@ public class FontController {
             return null;
         }
 
-        int adjustment = getFontWeightAdjustment();
-        Typeface resolvedBase = resolveDefaultTypeface();
-        return TypefaceFactory.create(fontToOverride, resolvedBase, adjustment);
+        // Leave the family weight alone. TextView and Compose add fontWeightAdjustment
+        // themselves, and applying it here bolds the same text twice.
+        return TypefaceFactory.create(fontToOverride, resolveDefaultTypeface());
     }
 
     /**
@@ -369,18 +368,6 @@ public class FontController {
         }
     }
 
-    private int getFontWeightAdjustment() {
-        try {
-            Resources res = sResources;
-            if (res == null) return 0;
-            Configuration cfg = res.getConfiguration();
-            return cfg != null ? cfg.fontWeightAdjustment : 0;
-        } catch (Exception e) {
-            logger("getFontWeightAdjustment failed: " + e.getMessage());
-            return 0;
-        }
-    }
-
     private static void logger(String msg) {
         if (SystemProperties.getBoolean("persist.sys.ax_font_debug", false)) {
             Log.d(TAG, msg);
@@ -389,13 +376,8 @@ public class FontController {
 
     private static class TypefaceFactory {
 
-        public static Typeface create(
-                String fontToOverride, Typeface base, int fontWeightAdjustment) {
+        public static Typeface create(String fontToOverride, Typeface base) {
             int weight = resolveWeightByName(fontToOverride);
-
-            if (fontWeightAdjustment != 0) {
-                weight = Math.min(1000, Math.max(100, weight + fontWeightAdjustment));
-            }
 
             boolean isItalic = fontToOverride.contains("italic");
             boolean isBold = weight >= 700;
@@ -425,7 +407,6 @@ public class FontController {
             logger("TypefaceFactory.create: fontToOverride=" + fontToOverride +
                    ", style=" + style +
                    ", weight=" + weight +
-                   ", adj=" + fontWeightAdjustment +
                    ", isItalic=" + isItalic +
                    ", success=" + (result != null));
 
