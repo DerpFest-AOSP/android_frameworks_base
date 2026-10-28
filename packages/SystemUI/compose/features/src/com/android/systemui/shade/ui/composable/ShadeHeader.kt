@@ -52,6 +52,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -149,6 +150,12 @@ import platform.test.motion.compose.values.motionTestValues
 
 /** Visual scale of the clock on the expanded combined-shade quick settings header. */
 private const val ExpandedClockScale = 2.57f
+
+/**
+ * Idle window x of the shade clock. The collapsed and expanded copies are different compositions,
+ * and only one is placed, but their idle x matches.
+ */
+private var shadeClockIdleWindowX = Float.NaN
 
 object ShadeHeader {
     object Elements {
@@ -328,7 +335,9 @@ fun ContentScope.CollapsedShadeHeader(
                     longerDateText = viewModel.longerDateText,
                     shorterDateText = viewModel.shorterDateText,
                     textColor = textColor,
-                    modifier = Modifier.element(ShadeHeader.Elements.CollapsedContentStart),
+                    modifier =
+                        Modifier.element(ShadeHeader.Elements.CollapsedContentStart)
+                            .then(holdIdleWindowX()),
                 )
             }
         },
@@ -460,6 +469,7 @@ fun ContentScope.ExpandedShadeHeader(
                             modifier =
                                 Modifier.align(Alignment.Center)
                                     .element(ShadeHeader.Elements.ShadeCarrierGroup)
+                                    .then(holdIdleWindowX())
                                     .fillMaxWidth(),
                         ) {
                             ShadeCarrierGroup(
@@ -482,7 +492,10 @@ fun ContentScope.ExpandedShadeHeader(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.element(ShadeHeader.Elements.ExpandedContent).fillMaxWidth(),
+                modifier =
+                    Modifier.element(ShadeHeader.Elements.ExpandedContent)
+                        .then(holdIdleWindowX())
+                        .fillMaxWidth(),
             ) {
                 VariableDayDate(
                     longerDateText = viewModel.longerDateText,
@@ -780,6 +793,11 @@ private fun ContentScope.Clock(
     val layoutDirection = LocalLayoutDirection.current
     // Shared with the date so the two can never drift apart in weight or size.
     val textStyle = MaterialTheme.typography.bodyMediumEmphasized
+    // Lookahead placement of this shared element sits a few pixels to the right of the idle
+    // layout. The gap depends on the current time and on interruption rounding, so it only shows
+    // up on some pulls. Hold the drawn clock on the idle x for the shade expand/collapse.
+    var correctionX by remember { mutableFloatStateOf(0f) }
+    val maxClockDriftPx = with(LocalDensity.current) { 12.dp.toPx() }
 
     ElementWithValues(
         key = ShadeHeader.Elements.Clock,
@@ -801,7 +819,30 @@ private fun ContentScope.Clock(
                 // some pulls and not others because it depends on progress and the current time.
                 Modifier.clockIntrinsicWidth()
                     .onSizeChanged { onUnscaledSizeChanged?.invoke(it.width, it.height) }
-                    .then(modifier)
+                    .onGloballyPositioned { coordinates ->
+                        val x = coordinates.positionInWindow().x
+                        val pinningDrift =
+                            layoutState.isTransitioningBetween(
+                                Scenes.Shade,
+                                Scenes.QuickSettings,
+                            )
+                        if (!pinningDrift) {
+                            shadeClockIdleWindowX = x
+                            if (correctionX != 0f) correctionX = 0f
+                        } else if (!shadeClockIdleWindowX.isNaN()) {
+                            val drift = shadeClockIdleWindowX - x
+                            val next = if (drift in -maxClockDriftPx..maxClockDriftPx) drift else 0f
+                            if (next != correctionX) correctionX = next
+                        }
+                    }
+                    // Parent of the scale layer, so this shift is in layout pixels and is not
+                    // multiplied by the clock scale. The position callback above is outside this
+                    // layer and does not see the correction. clip stays false: this layer is only
+                    // the unscaled layout box, and the scaled glyphs must paint outside it.
+                    .graphicsLayer {
+                        clip = false
+                        translationX = correctionX
+                    }
                     // use graphicsLayer instead of Modifier.scale to anchor transform to the
                     // (start, top) corner. clip stays false so the scaled glyphs are not cut
                     // to the unscaled layout box.
@@ -1176,17 +1217,56 @@ private fun Modifier.bouncy(
 }
 
 /**
- * Measures the clock at its intrinsic width.
+ * Keeps a header element on the window x it has while shade and quick settings are idle.
+ *
+ * The clock is already held there. The date and the carrier are separate elements, so they were
+ * still placed on the lookahead x and slid away from the clock (and, for the carrier, over the
+ * last digit). The shift is a few pixels and depends on the time and on interruption rounding.
+ */
+@Composable
+private fun ContentScope.holdIdleWindowX(): Modifier {
+    var idleX by remember { mutableFloatStateOf(Float.NaN) }
+    var correctionX by remember { mutableFloatStateOf(0f) }
+    val maxDriftPx = with(LocalDensity.current) { 24.dp.toPx() }
+    return Modifier.onGloballyPositioned { coordinates ->
+            val x = coordinates.positionInWindow().x
+            val pinning =
+                layoutState.isTransitioningBetween(Scenes.Shade, Scenes.QuickSettings)
+            if (!pinning) {
+                idleX = x
+                if (correctionX != 0f) correctionX = 0f
+            } else if (!idleX.isNaN()) {
+                val drift = idleX - x
+                val next = if (drift in -maxDriftPx..maxDriftPx) drift else 0f
+                if (next != correctionX) correctionX = next
+            }
+        }
+        .graphicsLayer {
+            // Layout-pixel shift, so a parent clock scale does not multiply it. This layer must
+            // not clip glyphs that draw outside the layout box.
+            clip = false
+            translationX = correctionX
+        }
+}
+
+/**
+ * Measures the clock at its intrinsic size.
  *
  * Scene transitions measure this shared element with [Constraints.fixed] interpolated between the
- * collapsed and expanded headers. That width is often a pixel or a glyph short of the current
- * time, and [androidx.compose.foundation.layout.wrapContentWidth] then coerces the text back down
- * to it. The last digit disappears, and the expanded-header scale makes the cut obvious.
+ * collapsed and expanded headers. A width that is a pixel or a glyph short of the current time
+ * drops the last digit, and the quick settings scale makes the cut obvious.
  */
 private fun Modifier.clockIntrinsicWidth(): Modifier =
     layout { measurable, constraints ->
         val placeable =
-            measurable.measure(constraints.copy(minWidth = 0, maxWidth = Constraints.Infinity))
+            measurable.measure(
+                constraints.copy(
+                    minWidth = 0,
+                    maxWidth = Constraints.Infinity,
+                    minHeight = 0,
+                    maxHeight = Constraints.Infinity,
+                )
+            )
         layout(placeable.width, placeable.height) { placeable.place(0, 0) }
     }
 
