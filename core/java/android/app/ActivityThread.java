@@ -7416,16 +7416,18 @@ public final class ActivityThread extends ClientTransactionHandler
             }
         }
 
-        ResourcesImpl beforeImpl = getApplication().getResources().getImpl();
+        final Application app = getApplication();
+        ResourcesImpl beforeImpl = app != null ? app.getResources().getImpl() : null;
 
         synchronized (mResourcesManager) {
             // Update all affected Resources objects to use new ResourcesImpl
             mResourcesManager.applyAllPendingAppInfoUpdates();
         }
 
-        ResourcesImpl afterImpl = getApplication().getResources().getImpl();
+        ResourcesImpl afterImpl = app != null ? app.getResources().getImpl() : null;
 
-        if ((beforeImpl != afterImpl) && !Arrays.equals(beforeImpl.getAssets().getApkAssets(),
+        if (beforeImpl != null && afterImpl != null && (beforeImpl != afterImpl)
+                && !Arrays.equals(beforeImpl.getAssets().getApkAssets(),
                 afterImpl.getAssets().getApkAssets())) {
             List<String> beforeAssets = Arrays.asList(beforeImpl.getAssets().getApkPaths());
             List<String> afterAssets = Arrays.asList(afterImpl.getAssets().getApkPaths());
@@ -7447,7 +7449,6 @@ public final class ActivityThread extends ClientTransactionHandler
         }
 
         // Overlay updates can change config_bodyFontFamily without a configuration change.
-        final Application app = getApplication();
         if (app != null) {
             FontController.OnConfigurationChanged(app.getResources());
         }

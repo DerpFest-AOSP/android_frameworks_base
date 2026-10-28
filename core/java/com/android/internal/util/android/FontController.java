@@ -449,8 +449,8 @@ public class FontController {
 
             for (String suffix : suffixes) {
                 String candidate = fontName + suffix;
-                Typeface tf = Typeface.getSystemDefaultTypeface(candidate);
-                if (tf != null && tf != Typeface.DEFAULT) {
+                Typeface tf = Typeface.getInstalledTypeface(candidate);
+                if (tf != null) {
                     logger("resolveNamedVariant: matched '" + candidate + "'");
                     return tf;
                 }
