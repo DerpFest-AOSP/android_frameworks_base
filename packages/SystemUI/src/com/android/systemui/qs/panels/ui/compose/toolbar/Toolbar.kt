@@ -80,6 +80,7 @@ import com.android.systemui.qs.panels.ui.viewmodel.toolbar.ToolbarViewModel
 import com.android.systemui.qs.ui.compose.borderOnFocus
 import com.android.systemui.qs.ui.compose.rememberQsSystemBoolSetting
 import com.android.systemui.res.R
+import com.android.systemui.shade.ui.composable.dualShadePart
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -123,7 +124,7 @@ fun Toolbar(
 
         if (showPowerMenuIcon) {
             if (viewModel.useInlinePowerMenu) {
-                Box {
+                Box(Modifier.dualShadePart(rank = 0.36f, key = "toolbarPower")) {
                     PowerMenuToggleButton(
                         viewModel = viewModel.powerMenuToggleButtonUiState,
                         modifier = Modifier.sysuiResTag("pm_lite"),
@@ -138,7 +139,9 @@ fun Toolbar(
             } else {
                 IconButton(
                     model = viewModel.powerButtonViewModel,
-                    modifier = Modifier.sysuiResTag("pm_lite"),
+                    modifier =
+                        Modifier.sysuiResTag("pm_lite")
+                            .dualShadePart(rank = 0.36f, key = "toolbarPower"),
                 )
             }
         }
@@ -162,7 +165,7 @@ private fun SharedTransitionScope.StandardToolbarLayout(
         // User switcher button
         IconButton(
             model = viewModel.userSwitcherViewModel,
-            Modifier.sysuiResTag("multi_user_switch"),
+            Modifier.sysuiResTag("multi_user_switch").dualShadePart(rank = 0f, key = "toolbarUser"),
             iconColor = Color.Unspecified,
             useIconColorProtection = true,
         )
@@ -171,14 +174,20 @@ private fun SharedTransitionScope.StandardToolbarLayout(
         if (showEditButton) {
             val editModeButtonViewModel =
                 rememberViewModel("Toolbar") { viewModel.editModeButtonViewModelFactory.create() }
-            EditModeButton(editModeButtonViewModel, isVisible = isFullyVisible())
+            EditModeButton(
+                editModeButtonViewModel,
+                isVisible = isFullyVisible(),
+                modifier = Modifier.dualShadePart(rank = 0.12f, key = "toolbarEdit"),
+            )
         }
 
         // Settings button
         if (showSettingsIcon) {
             IconButton(
                 model = viewModel.settingsButtonViewModel,
-                modifier = Modifier.sysuiResTag("settings_button_container"),
+                modifier =
+                    Modifier.sysuiResTag("settings_button_container")
+                        .dualShadePart(rank = 0.24f, key = "toolbarSettings"),
             )
         }
 
@@ -187,16 +196,20 @@ private fun SharedTransitionScope.StandardToolbarLayout(
             viewModel = viewModel.securityInfoViewModel,
             showCollapsed = true,
             modifier =
-                Modifier.sharedElement(
-                    rememberSharedContentState(key = SecurityInfoKey),
-                    animatedVisibilityScope = animatedContentScope,
-                ),
+                Modifier.dualShadePart(rank = 0.36f, key = "toolbarSecurity")
+                    .sharedElement(
+                        rememberSharedContentState(key = SecurityInfoKey),
+                        animatedVisibilityScope = animatedContentScope,
+                    ),
         )
 
         // Text feedback chip / build number
         ToolbarTextFeedback(
             viewModelFactory = viewModel.textFeedbackContentViewModelFactory,
-            modifier = Modifier.weight(1f).align(Alignment.CenterVertically),
+            modifier =
+                Modifier.weight(1f)
+                    .align(Alignment.CenterVertically)
+                    .dualShadePart(rank = 0.48f, key = "toolbarFeedback"),
         )
     }
 }

@@ -78,6 +78,9 @@ import com.android.systemui.qs.shared.ui.QuickSettings.Elements.toElementKey
 import com.android.systemui.qs.ui.composable.QsVolumeSliderRow
 import com.android.systemui.res.R
 import com.android.systemui.shade.shared.flag.DualShadeFlag
+import com.android.systemui.shade.ui.composable.DualShadeMotion
+import com.android.systemui.shade.ui.composable.LocalDualShadeMotion
+import com.android.systemui.shade.ui.composable.dualShadePart
 import com.android.systemui.volume.panel.component.volume.domain.model.SliderType
 import com.android.systemui.volume.panel.component.volume.slider.ui.viewmodel.AudioStreamSliderViewModel
 import javax.inject.Inject
@@ -170,17 +173,46 @@ constructor(
             } else {
                 CommonTileDefaults.TileHeight
             }
+        val dualShadeMotion = LocalDualShadeMotion.current
+        val rows =
+            remember(spans, columns) {
+                var row = 0
+                var used = 0
+                spans.map { span ->
+                    if (used + span > columns) {
+                        row++
+                        used = 0
+                    }
+                    val current = row
+                    used += span
+                    if (used == columns) {
+                        row++
+                        used = 0
+                    }
+                    current
+                }
+            }
         VerticalSpannedGrid(
             columns = columns,
-            columnSpacing = dimensionResource(R.dimen.qs_tile_margin_horizontal),
-            rowSpacing = dimensionResource(R.dimen.qs_tile_margin_vertical),
+            columnSpacing =
+                if (dualShadeMotion != null) DualShadeMotion.TileSpacing
+                else dimensionResource(R.dimen.qs_tile_margin_horizontal),
+            rowSpacing =
+                if (dualShadeMotion != null) DualShadeMotion.TileSpacing
+                else dimensionResource(R.dimen.qs_tile_margin_vertical),
             spans = spans,
             keys = { sizedTiles[it].tile.spec },
             modifier = modifier,
         ) { spanIndex, column, isFirstInColumn, isLastInColumn ->
             val it = sizedTiles[spanIndex]
 
-            Element(it.tile.spec.toElementKey(), Modifier) {
+            Element(
+                it.tile.spec.toElementKey(),
+                Modifier.dualShadePart(
+                    rank = 2f + rows[spanIndex] + column * 0.08f,
+                    key = it.tile.spec,
+                ),
+            ) {
                 if (!deferTileContent || spanIndex < readyTileCount) {
                     Tile(
                         tile = it.tile,
@@ -200,7 +232,7 @@ constructor(
                         detailsViewModel = detailsViewModel,
                         isVisible = listening,
                         requestToggleTextFeedback = textFeedbackViewModel::requestShowFeedback,
-                        enableRevealEffect = enableRevealEffect,
+                        enableRevealEffect = enableRevealEffect && dualShadeMotion == null,
                     )
                 } else {
                     Spacer(Modifier.fillMaxWidth().height(placeholderHeight))

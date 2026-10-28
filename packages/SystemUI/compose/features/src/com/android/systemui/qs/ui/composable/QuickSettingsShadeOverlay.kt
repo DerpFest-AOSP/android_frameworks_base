@@ -22,6 +22,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement.spacedBy
 import androidx.compose.foundation.layout.Box
@@ -31,7 +32,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -112,6 +112,9 @@ import com.android.systemui.shade.ui.composable.OverlayShadeHeader
 import com.android.systemui.shade.ui.composable.QsHeaderImage
 import com.android.systemui.shade.ui.composable.QuickSettingsOverlayHeader
 import com.android.systemui.shade.ui.composable.QuickSettingsOverlayPrivacyChip
+import com.android.systemui.shade.ui.composable.dualShadeControlGesture
+import com.android.systemui.shade.ui.composable.dualShadePart
+import com.android.systemui.shade.ui.composable.rememberDualShadeScrollState
 import com.android.systemui.shade.ui.composable.shadePanelSwipe
 import com.android.systemui.statusbar.notification.stack.shared.model.ShadeScrimBounds
 import com.android.systemui.statusbar.notification.stack.shared.model.ShadeScrimShape
@@ -156,7 +159,12 @@ constructor(
             rememberViewModel("QuickSettingsShadeOverlayContent", key = coroutineScope) {
                 contentViewModelFactory.create(coroutineScope)
             }
-        val useBrightnessMirrorInOverlay = useBrightnessMirrorInOverlay()
+        val useBrightnessMirrorInOverlay =
+            useBrightnessMirrorInOverlay() && !contentViewModel.shadeModeInteractor.isDualShade
+        val scrollState =
+            rememberDualShadeScrollState(
+                key = com.android.systemui.Prefs.Key.DUAL_SHADE_QUICK_SETTINGS_SCROLL
+            )
         val quickSettingsContainerViewModel =
             rememberViewModel("QuickSettingsShadeOverlayContainer") {
                 quickSettingsContainerViewModelFactory.create(
@@ -248,6 +256,7 @@ constructor(
                 QuickSettingsContainer(
                     contentViewModel = contentViewModel,
                     containerViewModel = quickSettingsContainerViewModel,
+                    scrollState = scrollState,
                 )
             }
             SnoozableHeadsUpNotificationPlaceholder(
@@ -297,6 +306,7 @@ private fun useBrightnessMirrorInOverlay(): Boolean {
 private fun ContentScope.QuickSettingsContainer(
     contentViewModel: QuickSettingsShadeOverlayContentViewModel,
     containerViewModel: QuickSettingsContainerViewModel,
+    scrollState: ScrollState,
     modifier: Modifier = Modifier,
 ) {
     val isEditing by containerViewModel.editModeViewModel.isEditing.collectAsStateWithLifecycle()
@@ -368,6 +378,7 @@ private fun ContentScope.QuickSettingsContainer(
                     volumeSliderViewModel = contentViewModel.volumeSliderViewModel,
                     audioDetailsViewModelFactory = contentViewModel.audioDetailsViewModelFactory,
                     isDualShade = contentViewModel.shadeModeInteractor.isDualShade && !isEditing,
+                    scrollState = scrollState,
                     modifier = modifier.sysuiResTag("quick_settings_panel"),
                 )
             }
@@ -386,6 +397,7 @@ private fun ContentScope.QuickSettingsLayout(
     volumeSliderViewModel: AudioStreamSliderViewModel?,
     audioDetailsViewModelFactory: AudioDetailsViewModel.Factory,
     isDualShade: Boolean,
+    scrollState: ScrollState,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -393,13 +405,18 @@ private fun ContentScope.QuickSettingsLayout(
         modifier = modifier.padding(horizontal = QuickSettingsShade.Dimensions.HorizontalPadding),
     ) {
         if (LocalSceneContainerPreloadedResources.current.isFullWidthShade) {
-            QuickSettingsOverlayPrivacyChip(qsContainerViewModel.shadeHeaderViewModel)
+            QuickSettingsOverlayPrivacyChip(
+                qsContainerViewModel.shadeHeaderViewModel,
+                modifier = Modifier.dualShadePart(rank = 0f, key = "privacy"),
+            )
             VerticalSeparator(QuickSettingsShade.Dimensions.ShortPadding)
         } else {
             VerticalSeparator(QuickSettingsShade.Dimensions.VerticalPadding)
             QuickSettingsOverlayPrivacyChip(
                 qsContainerViewModel.shadeHeaderViewModel,
-                modifier = Modifier.padding(bottom = QuickSettingsShade.Dimensions.ShortPadding),
+                modifier =
+                    Modifier.padding(bottom = QuickSettingsShade.Dimensions.ShortPadding)
+                        .dualShadePart(rank = 0f, key = "privacy"),
             )
         }
 
@@ -423,12 +440,13 @@ private fun ContentScope.QuickSettingsLayout(
                 viewModel = qsContainerViewModel.shadeHeaderViewModel,
                 modifier =
                     Modifier.element(QuickSettingsShade.Elements.Header)
+                        .dualShadePart(rank = 0f, key = "header")
                         .shadePanelSwipe(enabled = isDualShade),
             )
             VerticalSeparator(QuickSettingsShade.Dimensions.ShortPadding)
         }
 
-        Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+        Column(modifier = Modifier.fillMaxWidth().verticalScroll(scrollState)) {
             val shadeComponents =
                 qsContainerViewModel.shadeComponents.filter { component ->
                     when (component) {
@@ -444,9 +462,11 @@ private fun ContentScope.QuickSettingsLayout(
                 brightness = {
                     if (qsContainerViewModel.isBrightnessSliderVisible) {
                         Box(
-                            Modifier.systemGestureExclusionInShade(
-                                enabled = { layoutState.transitionState is TransitionState.Idle }
-                            )
+                            Modifier.dualShadePart(rank = 1f, key = "brightness")
+                                .dualShadeControlGesture()
+                                .systemGestureExclusionInShade(
+                                    enabled = { layoutState.transitionState is TransitionState.Idle }
+                                )
                         ) {
                             BrightnessSliderContainer(
                                 viewModel = qsContainerViewModel.brightnessSliderViewModel,
@@ -470,9 +490,11 @@ private fun ContentScope.QuickSettingsLayout(
                         qsContainerViewModel.isVolumeSliderVisible && volumeSliderViewModel != null
                     ) {
                         Box(
-                            Modifier.systemGestureExclusionInShade(
-                                enabled = { layoutState.transitionState is TransitionState.Idle }
-                            )
+                            Modifier.dualShadePart(rank = 1.12f, key = "volume")
+                                .dualShadeControlGesture()
+                                .systemGestureExclusionInShade(
+                                    enabled = { layoutState.transitionState is TransitionState.Idle }
+                                )
                         ) {
                             QsVolumeSliderRow(
                                 viewModel = volumeSliderViewModel,
@@ -504,7 +526,9 @@ private fun ContentScope.QuickSettingsLayout(
                             presentationStyle = MediaPresentationStyle.Compact,
                             behavior = QuickSettingsContainerViewModel.mediaUiBehavior,
                             onDismissed = qsContainerViewModel::onMediaSwipeToDismiss,
-                            modifier = Modifier,
+                            modifier =
+                                Modifier.dualShadePart(rank = 1f, key = "media")
+                                    .dualShadeControlGesture(),
                             location = Media.Location.QS,
                             headerGestureModifier = {
                                 Modifier.shadePanelSwipe(
@@ -538,6 +562,7 @@ private fun ContentScope.QuickSettingsLayout(
                     viewModel = buildNumberViewModel,
                     modifier =
                         Modifier.align(Alignment.Start)
+                            .dualShadePart(rank = 8f, key = "buildNumber")
                             .padding(start = QuickSettingsShade.Dimensions.HorizontalPadding),
                     dataUsageViewModel = dataUsageViewModel,
                 )

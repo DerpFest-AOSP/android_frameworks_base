@@ -30,6 +30,8 @@ import androidx.annotation.VisibleForTesting
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
@@ -124,6 +126,10 @@ import com.android.systemui.qs.ui.compose.qsGradientBrush
 import com.android.systemui.qs.ui.compose.rememberContrastColorOn
 import com.android.systemui.qs.ui.compose.rememberQsGradientColors
 import com.android.systemui.res.R
+import com.android.systemui.shade.ui.composable.DualShadeMotion
+import com.android.systemui.shade.ui.composable.LocalDualShadeMotion
+import com.android.systemui.shade.ui.composable.dualShadeControlGesture
+import com.android.systemui.shade.ui.composable.dualShadePress
 import kotlinx.coroutines.CoroutineScope
 import platform.test.motion.compose.values.MotionTestValueKey
 import platform.test.motion.compose.values.motionTestValues
@@ -220,7 +226,16 @@ fun ContentScope.Tile(
 
         // TODO(b/361789146): Draw the shapes instead of clipping
         val tileShape by TileDefaults.animateTileShapeAsState(uiState, shapeMode)
-        val animatedColor by animateColorAsState(colors.background, label = "QSTileBackgroundColor")
+        val dualShadeMotion = LocalDualShadeMotion.current
+        val animatedColor by
+            animateColorAsState(
+                colors.background,
+                animationSpec =
+                    if (dualShadeMotion != null)
+                        tween(DualShadeMotion.ToggleDuration, easing = DualShadeMotion.ToggleEasing)
+                    else spring(),
+                label = "QSTileBackgroundColor",
+            )
         val isDualTarget = uiState.handlesToggleClick
         val interactionSource = remember { MutableInteractionSource() }
 
@@ -283,6 +298,8 @@ fun ContentScope.Tile(
                 classicStyle = classicStyle,
                 modifier =
                     modifier
+                        .dualShadePress(interactionSource)
+                        .dualShadeControlGesture()
                         .then(surfaceRevealModifier)
                         .thenIf(backgroundBrush != null && !wantCircle && !classicStyle) {
                             Modifier.background(requireNotNull(backgroundBrush), outerShape)
@@ -298,14 +315,16 @@ fun ContentScope.Tile(
                         .tileToggleAnimation(uiState.visualState, tileAnimationStyle)
                         // Pin height for circle/classic; otherwise QQS max-height stretches rows.
                         .thenIf(classicStyle || wantCircle) { Modifier.height(tileHeight) }
-                        .bounceable(
-                            currentBounceableInfo.bounceable,
-                            currentBounceableInfo.previousTile,
-                            currentBounceableInfo.nextTile,
-                            orientation = Orientation.Horizontal,
-                            bounceEnd = currentBounceableInfo.bounceEnd,
-                            interactionSource = interactionSource,
-                        ),
+                        .thenIf(dualShadeMotion == null) {
+                            Modifier.bounceable(
+                                currentBounceableInfo.bounceable,
+                                currentBounceableInfo.previousTile,
+                                currentBounceableInfo.nextTile,
+                                orientation = Orientation.Horizontal,
+                                bounceEnd = currentBounceableInfo.bounceEnd,
+                                interactionSource = interactionSource,
+                            )
+                        },
             ) { expandable ->
                 // Use main click on long press for small, available dual target tiles.
                 // Open settings otherwise.
@@ -355,8 +374,8 @@ fun ContentScope.Tile(
 
                     coroutineScope.launch {
                         // Bounce the content of the tile if we're not animating the
-                        // container.
-                        if (!bounceContainer) {
+                        // container. Dual-shade motion uses its own press scale instead.
+                        if (!bounceContainer && dualShadeMotion == null) {
                             currentBounceableInfo.bounceable.animateContentBounce(iconOnly)
                         }
                     }
@@ -393,8 +412,9 @@ fun ContentScope.Tile(
                                         onLongClick = longClick,
                                         accessibilityUiState = uiState.accessibilityUiState,
                                         interactionSource =
-                                            interactionSource.takeIf { bounceContainer }
-                                                ?: circleInteraction,
+                                            interactionSource.takeIf {
+                                                bounceContainer || dualShadeMotion != null
+                                            } ?: circleInteraction,
                                         iconOnly = true,
                                         isDualTarget = isDualTarget,
                                     )
@@ -428,7 +448,8 @@ fun ContentScope.Tile(
                     }
                 } else {
                     TileContainer(
-                        interactionSource = interactionSource.takeIf { bounceContainer },
+                        interactionSource =
+                            interactionSource.takeIf { bounceContainer || dualShadeMotion != null },
                         onClick = click,
                         onLongClick = longClick,
                         accessibilityUiState = uiState.accessibilityUiState,
