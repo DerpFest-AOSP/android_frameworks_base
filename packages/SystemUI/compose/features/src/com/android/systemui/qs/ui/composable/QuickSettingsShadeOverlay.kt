@@ -206,6 +206,7 @@ constructor(
                 statusBarHeightPx = contentViewModel.statusBarHeightPx,
                 enableTransparency = contentViewModel.isTransparencyEnabled,
                 onScrimClicked = contentViewModel::onScrimClicked,
+                panelTopSpacing = 8.dp,
                 onBackgroundPlaced = { bounds, topCornerRadius, bottomCornerRadius ->
                     contentViewModel.onShadeOverlayBoundsChanged(bounds)
                     contentViewModel.onPanelShapeInWindowChanged(
