@@ -6986,8 +6986,13 @@ public class NotificationStackScrollLayout
         for (int i = 0; i < getChildCount(); i++) {
             View child = getChildAt(i);
             if (child instanceof ExpandableView row) {
-                boolean eligible = child.getVisibility() == VISIBLE
-                        && !row.isHeadsUpState() && !row.isExpandAnimationRunning()
+                // Keep temporarily invisible rows' progress and rank during transitions so they
+                // do not skip animations when they reappear.
+                // In the expanded panel, pinned notifications move with the list; floating
+                // notifications outside it keep their existing animation.
+                boolean eligible = child.getVisibility() != GONE
+                        && (mIsExpanded || !row.isHeadsUpState())
+                        && !row.isExpandAnimationRunning()
                         && !row.hasExpandingChild();
                 mDualShadeRowTransform.apply(child, eligible ? rank++ : -1);
             }
