@@ -52,6 +52,7 @@ import com.android.systemui.scene.domain.interactor.SceneInteractor
 import com.android.systemui.scene.shared.logger.SceneLogger
 import com.android.systemui.scene.shared.model.Overlays
 import com.android.systemui.scene.shared.model.Scenes
+import com.android.systemui.scene.shared.model.TransitionKeys
 import com.android.systemui.scene.ui.composable.Overlay
 import com.android.systemui.shade.ShadeDisplayAware
 import com.android.systemui.shade.domain.interactor.ShadeModeInteractor
@@ -523,18 +524,32 @@ constructor(
      * otherwise.
      */
     private fun isInteractionAllowedByFalsing(content: ContentKey): Boolean {
+        val transition = sceneInteractor.transitionState as? TransitionState.Transition
+        val isShadePanelSwipe =
+            transition != null &&
+                transition.toContent == content &&
+                transition.isTransitioningBetween(
+                    Overlays.NotificationsShade,
+                    Overlays.QuickSettingsShade,
+                ) &&
+                (transition.key == TransitionKeys.ShadeSwipeLeft ||
+                    transition.key == TransitionKeys.ShadeSwipeRight)
         val interactionTypeOrNull =
-            when (content) {
-                Overlays.Bouncer -> Classifier.BOUNCER_SWIPE
-                Scenes.Communal -> Classifier.GLANCEABLE_HUB_SWIPE
-                Scenes.Gone -> Classifier.UNLOCK
-                Scenes.Shade -> Classifier.SHADE_DRAG
-                Overlays.NotificationsShade -> Classifier.NOTIFICATION_DRAG_DOWN
-                Scenes.QuickSettings,
-                Overlays.QuickSettingsShade,
-                Overlays.QuickActions -> Classifier.QUICK_SETTINGS
-                else -> null
-            }
+            // Classify horizontal shade swipes as QS side swipes, while preserving the existing
+            // classification for shade drags that start on the lockscreen.
+            if (isShadePanelSwipe) Classifier.QS_SWIPE_SIDE
+            else
+                when (content) {
+                    Overlays.Bouncer -> Classifier.BOUNCER_SWIPE
+                    Scenes.Communal -> Classifier.GLANCEABLE_HUB_SWIPE
+                    Scenes.Gone -> Classifier.UNLOCK
+                    Scenes.Shade -> Classifier.SHADE_DRAG
+                    Overlays.NotificationsShade -> Classifier.NOTIFICATION_DRAG_DOWN
+                    Scenes.QuickSettings,
+                    Overlays.QuickSettingsShade,
+                    Overlays.QuickActions -> Classifier.QUICK_SETTINGS
+                    else -> null
+                }
 
         return interactionTypeOrNull?.let { interactionType ->
             // It's important that the falsing system is always queried, even if no enforcement
