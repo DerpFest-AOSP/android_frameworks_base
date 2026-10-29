@@ -168,9 +168,10 @@ class ShadePanelSwipeTest : SysuiTestCase() {
     fun rightDownDiagonal_switchesPanelInsteadOfBeingBlocked() {
         setContent(diagonalOnly = true, blockVerticalScroll = true)
         composeTestRule.onNodeWithTag("clock").performTouchInput {
+            // More horizontal than vertical, but steep enough that diagonalOnly still claims it.
             swipe(
-                center + Offset(-width / 6f, -height / 5f),
-                center + Offset(width / 6f, height / 5f),
+                center + Offset(-width / 4f, -height / 10f),
+                center + Offset(width / 4f, height / 10f),
                 120L,
             )
         }
@@ -181,7 +182,7 @@ class ShadePanelSwipeTest : SysuiTestCase() {
     }
 
     @Test
-    fun downwardDiagonal_switchesPanelEvenWhenVerticalDisplacementIsLarger() {
+    fun downwardDiagonal_doesNotSwitchWhenVerticalDisplacementIsLarger() {
         setContent(blockVerticalScroll = true)
         composeTestRule.onNodeWithTag("clock").performTouchInput {
             swipe(
@@ -192,7 +193,7 @@ class ShadePanelSwipeTest : SysuiTestCase() {
         }
         composeTestRule.runOnIdle {
             assertThat(clicks).isEqualTo(0)
-            assertThat(displacement).isLessThan(0f)
+            assertThat(displacement).isEqualTo(0f)
         }
     }
 
@@ -201,8 +202,8 @@ class ShadePanelSwipeTest : SysuiTestCase() {
         setContent(diagonalOnly = true, blockVerticalScroll = true)
         composeTestRule.onNodeWithTag("clock").performTouchInput {
             swipe(
-                center + Offset(width / 6f, -height / 5f),
-                center + Offset(-width / 6f, height / 5f),
+                center + Offset(width / 4f, -height / 10f),
+                center + Offset(-width / 4f, height / 10f),
                 120L,
             )
         }

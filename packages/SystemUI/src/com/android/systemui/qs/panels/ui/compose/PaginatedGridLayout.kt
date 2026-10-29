@@ -66,6 +66,7 @@ import com.android.systemui.shade.ui.composable.LocalDualShadeMotion
 import com.android.systemui.shade.ui.composable.LocalDualShadePaging
 import com.android.systemui.shade.ui.composable.dualShadePart
 import javax.inject.Inject
+import kotlin.math.abs
 
 class PaginatedGridLayout
 @Inject
@@ -172,7 +173,9 @@ constructor(
                             else Velocity.Zero
 
                         override suspend fun onPreFling(available: Velocity): Velocity {
-                            viewModel.registerSideSwipeGesture()
+                            if (abs(available.x) > abs(available.y)) {
+                                viewModel.registerSideSwipeGesture()
+                            }
                             return Velocity.Zero
                         }
                     }

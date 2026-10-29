@@ -9,7 +9,6 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -24,6 +23,9 @@ import androidx.compose.ui.input.pointer.util.addPointerInputChange
 import androidx.compose.ui.unit.Velocity
 import kotlin.math.abs
 import kotlin.math.hypot
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
@@ -47,82 +49,95 @@ fun Modifier.shadePanelSwipe(
 
     val dispatcher = remember { NestedScrollDispatcher() }
     val connection = remember { object : NestedScrollConnection {} }
-    val scope = rememberCoroutineScope()
-    return nestedScroll(connection, dispatcher)
-        .pointerInput(dispatcher, diagonalOnly, blockVerticalScroll) {
-            awaitEachGesture {
-                val down =
-                    awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                val tracker = VelocityTracker()
-                tracker.addPointerInputChange(down)
-                var dragging = false
-                var blockingDrag = false
-                var velocity = Velocity.Zero
-                try {
-                    while (true) {
-                        val event = awaitPointerEvent(PointerEventPass.Initial)
-                        if (event.changes.size != 1) break
-                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                        tracker.addPointerInputChange(change)
-                        if (!change.pressed) {
-                            if (dragging || blockingDrag) {
-                                change.consume()
-                            }
-                            if (dragging) {
-                                velocity = tracker.calculateVelocity()
-                            }
-                            break
+    return nestedScroll(connection, dispatcher).pointerInput(
+        dispatcher,
+        diagonalOnly,
+        blockVerticalScroll,
+    ) {
+        val gestureContext = currentCoroutineContext()
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            val tracker = VelocityTracker()
+            tracker.addPointerInputChange(down)
+            var dragging = false
+            var blockingDrag = false
+            var velocity = Velocity.Zero
+            var released = false
+            var consumedX = 0f
+            fun scroll(delta: Float): Float {
+                val available = Offset(delta, 0f)
+                val preConsumed =
+                    dispatcher.dispatchPreScroll(available, NestedScrollSource.UserInput)
+                val postConsumed =
+                    dispatcher.dispatchPostScroll(
+                        consumed = Offset.Zero,
+                        available = available - preConsumed,
+                        source = NestedScrollSource.UserInput,
+                    )
+                return preConsumed.x + postConsumed.x
+            }
+            try {
+                while (true) {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                    if (event.changes.size != 1) break
+                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                    tracker.addPointerInputChange(change)
+                    if (!change.pressed) {
+                        if (dragging || blockingDrag) {
+                            change.consume()
                         }
-                        if (blockingDrag) {
+                        released = true
+                        if (dragging) {
+                            val maximumVelocity = viewConfiguration.maximumFlingVelocity
+                            velocity =
+                                tracker.calculateVelocity(
+                                    Velocity(maximumVelocity, maximumVelocity)
+                                )
+                        }
+                        break
+                    }
+                    if (blockingDrag) {
+                        change.consume()
+                        continue
+                    }
+
+                    var delta = change.positionChangeIgnoreConsumed().x
+                    if (!dragging) {
+                        val displacement = change.position - down.position
+                        val x = abs(displacement.x)
+                        val y = abs(displacement.y)
+                        val distance = hypot(x, y)
+                        if (distance <= viewConfiguration.touchSlop) continue
+                        // Match FalsingDataProvider's direction boundary so the same diagonal swipe
+                        // is not classified in two directions.
+                        if (x <= y) {
+                            if (!blockVerticalScroll) break
+                            blockingDrag = true
                             change.consume()
                             continue
                         }
-
-                        var delta = change.positionChangeIgnoreConsumed().x
-                        if (!dragging) {
-                            val displacement = change.position - down.position
-                            val x = abs(displacement.x)
-                            val y = abs(displacement.y)
-                            val distance = hypot(x, y)
-                            if (distance <= viewConfiguration.touchSlop) continue
-                            // Accept diagonals up to about 57 degrees from horizontal. Decide
-                            // once, before a child or parent vertical scroll locks onto the same
-                            // movement. A tap never reaches this branch, so double-tap still lands.
-                            if (x < y * 0.65f) {
-                                if (!blockVerticalScroll) break
-                                blockingDrag = true
-                                change.consume()
-                                continue
-                            }
-                            if (diagonalOnly && y < x * 0.3f) break
-                            delta = displacement.x * (1f - viewConfiguration.touchSlop / distance)
-                        }
-
-                        val available = Offset(delta, 0f)
-                        val preConsumed =
-                            dispatcher.dispatchPreScroll(available, NestedScrollSource.UserInput)
-                        dispatcher.dispatchPostScroll(
-                            consumed = Offset.Zero,
-                            available = available - preConsumed,
-                            source = NestedScrollSource.UserInput,
-                        )
-                        dragging = true
-                        // Initial-pass consumption cancels the clock's click before it sees this
-                        // move. Taps are not consumed.
-                        change.consume()
+                        if (diagonalOnly && y < x * 0.3f) break
+                        delta = displacement.x * (1f - viewConfiguration.touchSlop / distance)
                     }
-                } finally {
-                    if (dragging) {
-                        val horizontalVelocity = Velocity(velocity.x, 0f)
-                        scope.launch {
-                            val consumed = dispatcher.dispatchPreFling(horizontalVelocity)
-                            dispatcher.dispatchPostFling(
-                                Velocity.Zero,
-                                horizontalVelocity - consumed,
-                            )
-                        }
+
+                    consumedX += scroll(delta)
+                    dragging = true
+                    // Initial-pass consumption cancels the clock's click before it sees this move.
+                    change.consume()
+                }
+            } finally {
+                if (dragging) {
+                    val horizontalVelocity = Velocity(velocity.x, 0f)
+                    val returnDrag = !released && gestureContext.isActive
+                    // On cancellation or multi-pointer interruption, restore the consumed drag;
+                    // let the parent dispatcher finish the fling.
+                    dispatcher.coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) {
+                        if (returnDrag) scroll(-consumedX)
+                        val consumed = dispatcher.dispatchPreFling(horizontalVelocity)
+                        dispatcher.dispatchPostFling(Velocity.Zero, horizontalVelocity - consumed)
                     }
                 }
             }
         }
+    }
 }
