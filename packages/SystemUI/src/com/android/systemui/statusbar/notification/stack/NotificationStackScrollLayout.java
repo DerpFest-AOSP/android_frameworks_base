@@ -6970,46 +6970,32 @@ public class NotificationStackScrollLayout
         }
     }
 
-    /** Drawing-only transforms leave SwipeHelper and row expansion properties untouched. */
+    /** Update row RenderNodes without rerecording the notification stack display list. */
     public interface DualShadeRowTransform {
-        void apply(Canvas canvas, View child, int rank);
+        void apply(View child, int rank);
     }
 
     private DualShadeRowTransform mDualShadeRowTransform;
-    private final Rect mDualShadeClipBounds = new Rect();
-
     public void setDualShadeRowTransform(@Nullable DualShadeRowTransform transform) {
         mDualShadeRowTransform = transform;
-        invalidate();
+    }
+
+    public void updateDualShadeRowTransforms() {
+        if (mDualShadeRowTransform == null) return;
+        int rank = 0;
+        for (int i = 0; i < getChildCount(); i++) {
+            View child = getChildAt(i);
+            if (child instanceof ExpandableView row) {
+                boolean eligible = child.getVisibility() == VISIBLE
+                        && !row.isHeadsUpState() && !row.isExpandAnimationRunning()
+                        && !row.hasExpandingChild();
+                mDualShadeRowTransform.apply(child, eligible ? rank++ : -1);
+            }
+        }
     }
 
     @Override
     protected boolean drawChild(Canvas canvas, View child, long drawingTime) {
-        if (mDualShadeRowTransform == null || !(child instanceof ExpandableView row)
-                || row.isHeadsUpState() || row.isExpandAnimationRunning()) {
-            return drawChildWithStackClipping(canvas, child, drawingTime);
-        }
-        int saved = canvas.save();
-        try {
-            canvas.getClipBounds(mDualShadeClipBounds);
-            int rank = 0;
-            for (int i = 0; i < getChildCount(); i++) {
-                View candidate = getChildAt(i);
-                if (candidate == child) break;
-                if (candidate.getVisibility() != GONE
-                        && candidate.getY() + candidate.getHeight() > mDualShadeClipBounds.top
-                        && candidate.getY() < mDualShadeClipBounds.bottom) {
-                    rank++;
-                }
-            }
-            mDualShadeRowTransform.apply(canvas, child, rank);
-            return drawChildWithStackClipping(canvas, child, drawingTime);
-        } finally {
-            canvas.restoreToCount(saved);
-        }
-    }
-
-    private boolean drawChildWithStackClipping(Canvas canvas, View child, long drawingTime) {
         boolean shouldUseClipping =
                 mShouldUseRoundedRectClipping || mShouldUseNegativeRoundedRectClipping;
         if (mBlurEffect != null) {

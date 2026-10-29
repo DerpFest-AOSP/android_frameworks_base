@@ -206,16 +206,16 @@ constructor(
         ) { spanIndex, column, isFirstInColumn, isLastInColumn ->
             val it = sizedTiles[spanIndex]
 
-            Element(
-                it.tile.spec.toElementKey(),
-                Modifier.dualShadePart(
-                    rank = 2f + rows[spanIndex] + column * 0.08f,
-                    key = it.tile.spec,
-                ),
-            ) {
+            // Scene coordinates describe the resting tile; only its contents carry the effect.
+            Element(it.tile.spec.toElementKey(), Modifier) {
                 if (!deferTileContent || spanIndex < readyTileCount) {
                     Tile(
                         tile = it.tile,
+                        modifier =
+                            Modifier.dualShadePart(
+                                rank = 2f + rows[spanIndex] + column * 0.08f,
+                                key = it.tile.spec,
+                            ),
                         iconOnly = classicStyle || iconTilesViewModel.isIconTile(it.tile.spec),
                         squishiness = { squishiness },
                         tileHapticsViewModelFactory = tileHapticsViewModelFactory,

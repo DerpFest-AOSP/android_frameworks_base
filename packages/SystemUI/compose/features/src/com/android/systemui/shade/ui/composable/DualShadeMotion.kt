@@ -6,6 +6,8 @@
 package com.android.systemui.shade.ui.composable
 
 import android.content.Context
+import android.graphics.Matrix
+import android.view.View
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
@@ -98,12 +100,17 @@ class DualShadeMotionState(private val overlay: OverlayKey, initial: Float) {
         get() =
             if (notifications) DualShadeMotion.NotificationEasing else DualShadeMotion.TileEasing
 
-    internal var invalidateRows: (() -> Unit)? = null
+    internal var updateRows: (() -> Unit)? = null
 
     internal fun part(key: Any, rank: Float): Part =
         parts
             .getOrPut(key) {
-                Part(rank, initialProgress).also { if (settling) schedule(it, target, settleStart) }
+                Part(rank, initialProgress).also {
+                    if (settling) {
+                        schedule(it, target, settleStart)
+                        advance(it)
+                    }
+                }
             }
             .also { it.rank = rank }
 
@@ -127,6 +134,13 @@ class DualShadeMotionState(private val overlay: OverlayKey, initial: Float) {
         parts.values.forEach { schedule(it, to, settleStart) }
     }
 
+    private fun advance(part: Part) {
+        if (!part.animating) return
+        val fraction = ((clockMillis - part.start) / duration).coerceIn(0f, 1f)
+        part.progress = part.from + (part.target - part.from) * easing.transform(fraction)
+        if (fraction == 1f) part.animating = false
+    }
+
     private fun snap(to: Float) {
         initialProgress = to
         target = to
@@ -135,7 +149,7 @@ class DualShadeMotionState(private val overlay: OverlayKey, initial: Float) {
             it.progress = to
             it.animating = false
         }
-        invalidateRows?.invoke()
+        updateRows?.invoke()
     }
 
     private data class Signal(
@@ -172,7 +186,7 @@ class DualShadeMotionState(private val overlay: OverlayKey, initial: Float) {
                 }
                 if (signal.dragging) settling = false
                 else if (transition != null) settle(if (signal.visible) 1f else 0f)
-                else if (!settling) {
+                else if (!settling || target != (if (signal.visible) 1f else 0f)) {
                     snap(if (signal.visible) 1f else 0f)
                     previousNanos = 0L
                     return@collectLatest
@@ -200,19 +214,10 @@ class DualShadeMotionState(private val overlay: OverlayKey, initial: Float) {
                                 (initialProgress - part.progress) * (1f - exp(-dt / lag))
                             part.animating = false
                         }
-                        invalidateRows?.invoke()
+                        updateRows?.invoke()
                     } else {
-                        parts.values.forEach { part ->
-                            if (part.animating) {
-                                val fraction =
-                                    ((clockMillis - part.start) / duration).coerceIn(0f, 1f)
-                                part.progress =
-                                    part.from +
-                                        (part.target - part.from) * easing.transform(fraction)
-                                if (fraction == 1f) part.animating = false
-                            }
-                        }
-                        invalidateRows?.invoke()
+                        parts.values.forEach(::advance)
+                        updateRows?.invoke()
                         if (parts.values.none { it.animating } && transition == null) {
                             initialProgress = target
                             settling = false
@@ -249,7 +254,8 @@ fun ContentScope.DualShadeMotionContent(content: @Composable () -> Unit) {
 @Composable
 fun Modifier.dualShadePart(rank: Float, key: Any = rank): Modifier {
     val motion = LocalDualShadeMotion.current ?: return this
-    val partKey = remember(key) { Pair("compose", key) }
+    // Each composition owns its registration, including overlapping scene compositions.
+    val partKey = remember(key) { Any() }
     val part = remember(motion, partKey, rank) { motion.part(partKey, rank) }
     DisposableEffect(motion, partKey) { onDispose { motion.remove(partKey) } }
     return graphicsLayer {
@@ -309,20 +315,55 @@ fun DualShadeNotificationRows(stack: NotificationStackScrollLayout?) {
     DisposableEffect(stack, motion) {
         if (stack != null && motion != null) {
             val density = stack.resources.displayMetrics.density
-            stack.setDualShadeRowTransform { canvas, child, rank ->
-                val part = motion.part(Pair("row", rank), rank.toFloat())
+            val matrix = Matrix()
+            val rows = linkedMapOf<View, DualShadeMotionState.Part>()
+            val transformed = mutableSetOf<View>()
+            fun reset(child: View) {
+                if (transformed.remove(child)) child.setAnimationMatrix(null)
+            }
+            stack.setDualShadeRowTransform { child, rank ->
+                if (rank < 0) {
+                    reset(child)
+                    rows.remove(child)?.let { motion.remove(child) }
+                    return@setDualShadeRowTransform
+                }
+                val part = motion.part(child, rank.toFloat())
+                rows[child] = part
                 val hidden = 1f - part.progress
-                val scale = 0.92f + 0.08f * part.progress
-                canvas.translate(-hidden * 44f * density, hidden * 12f * density)
-                canvas.scale(scale, scale, child.x + child.width / 2f, child.y + child.height / 2f)
+                if (abs(hidden) < 0.0001f) {
+                    reset(child)
+                } else if (
+                    child.animation == null &&
+                        (child in transformed || child.animationMatrix == null)
+                ) {
+                    val scale = 0.92f + 0.08f * part.progress
+                    matrix.setScale(scale, scale, child.width / 2f, child.height / 2f)
+                    matrix.postTranslate(-hidden * 44f * density, hidden * 12f * density)
+                    child.setAnimationMatrix(matrix)
+                    transformed.add(child)
+                }
             }
-            motion.invalidateRows = stack::postInvalidateOnAnimation
-        }
-        onDispose {
-            if (stack != null && motion != null) {
+            motion.updateRows = {
+                val iterator = rows.keys.iterator()
+                while (iterator.hasNext()) {
+                    val child = iterator.next()
+                    if (child.parent !== stack) {
+                        reset(child)
+                        motion.remove(child)
+                        iterator.remove()
+                    }
+                }
+                stack.updateDualShadeRowTransforms()
+            }
+            motion.updateRows?.invoke()
+            onDispose {
+                motion.updateRows = null
                 stack.setDualShadeRowTransform(null)
-                motion.invalidateRows = null
+                transformed.forEach { it.setAnimationMatrix(null) }
+                rows.keys.forEach { motion.remove(it) }
             }
+        } else {
+            onDispose {}
         }
     }
 }

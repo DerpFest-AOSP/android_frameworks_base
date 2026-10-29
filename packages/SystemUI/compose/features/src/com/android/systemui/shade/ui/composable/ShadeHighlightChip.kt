@@ -35,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -169,6 +170,7 @@ fun ShadeHighlightChip(
     horizontalArrangement: Arrangement.Horizontal = Arrangement.Start,
     includePadding: Boolean = true,
     isClickable: Boolean = true,
+    animateColorChanges: Boolean = true,
     onClick: () -> Unit = {},
     clickTargetModifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit,
@@ -183,10 +185,10 @@ fun ShadeHighlightChip(
 
     // Note: Intentionally assigning here instead of using `by`, which would unwrap the value and
     // cause recomposition.
+    val targetBackground = if (isClickable && isHovered) hoverBackgroundColor else backgroundColor
     val animatedBackgroundColor =
-        animateColorAsState(
-            targetValue = if (isClickable && isHovered) hoverBackgroundColor else backgroundColor
-        )
+        if (animateColorChanges) animateColorAsState(targetValue = targetBackground)
+        else rememberUpdatedState(targetBackground)
 
     // Wrapper for the rounded chip, intended to increase the click target.
     Box(

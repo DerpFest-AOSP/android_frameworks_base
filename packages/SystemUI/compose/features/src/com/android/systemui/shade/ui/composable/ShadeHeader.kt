@@ -100,6 +100,7 @@ import com.android.compose.animation.scene.ElementKey
 import com.android.compose.animation.scene.LowestZIndexContentPicker
 import com.android.compose.animation.scene.SceneTransitionLayoutState
 import com.android.compose.animation.scene.ValueKey
+import com.android.compose.animation.scene.animateContentColorAsState
 import com.android.compose.animation.scene.animateElementFloatAsState
 import com.android.compose.animation.scene.content.state.TransitionState
 import com.android.compose.modifiers.thenIf
@@ -166,6 +167,10 @@ object ShadeHeader {
 
     object Values {
         val ClockScale = ValueKey("ShadeHeaderClockScale")
+        val NotificationsChipBackground = ValueKey("DualShadeNotificationsChipBackground")
+        val NotificationsChipForeground = ValueKey("DualShadeNotificationsChipForeground")
+        val QuickSettingsChipBackground = ValueKey("DualShadeQuickSettingsChipBackground")
+        val QuickSettingsChipForeground = ValueKey("DualShadeQuickSettingsChipForeground")
     }
 
     object Dimensions {
@@ -518,6 +523,28 @@ fun ContentScope.OverlayShadeHeader(
     showClock: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    // Use the panel transition directly; a second color spring would lag behind the swipe.
+    val notificationsBackground by
+        animateContentColorAsState(
+            notificationsHighlight.backgroundColor,
+            ShadeHeader.Values.NotificationsChipBackground,
+        )
+    val notificationsForeground by
+        animateContentColorAsState(
+            notificationsHighlight.foregroundColor,
+            ShadeHeader.Values.NotificationsChipForeground,
+        )
+    val qsChip = rememberResolvedQsStatusChipHighlight(quickSettingsHighlight)
+    val quickSettingsBackground by
+        animateContentColorAsState(
+            qsChip.backgroundColor,
+            ShadeHeader.Values.QuickSettingsChipBackground,
+        )
+    val quickSettingsForeground by
+        animateContentColorAsState(
+            qsChip.foregroundColor,
+            ShadeHeader.Values.QuickSettingsChipForeground,
+        )
     val horizontalPadding = overlayHeaderHorizontalPadding()
 
     // This layout assumes it is globally positioned at (0, 0) and is the same width as the screen.
@@ -529,8 +556,9 @@ fun ContentScope.OverlayShadeHeader(
         startContent = {
             Box(modifier = Modifier.layoutId(ShadeHeader.LayoutId.StartContent)) {
                 ShadeHighlightChip(
-                    backgroundColor = notificationsHighlight.backgroundColor,
+                    backgroundColor = notificationsBackground,
                     hoverBackgroundColor = notificationsHighlight.hoverBackgroundColor,
+                    animateColorChanges = false,
                     horizontalArrangement = Arrangement.spacedBy(5.dp),
                     onClick = viewModel::onNotificationIconChipClicked,
                     clickTargetModifier =
@@ -549,28 +577,28 @@ fun ContentScope.OverlayShadeHeader(
                     if (showClock) {
                         Clock(
                             viewModel = viewModel,
-                            textColor = notificationsHighlight.foregroundColor,
+                            textColor = notificationsForeground,
                         )
                     }
                     VariableDayDate(
                         longerDateText = viewModel.longerDateText,
                         shorterDateText = viewModel.shorterDateText,
-                        textColor = notificationsHighlight.foregroundColor,
+                        textColor = notificationsForeground,
                     )
                 }
             }
         },
         endContent = {
-            val qsChip = rememberResolvedQsStatusChipHighlight(quickSettingsHighlight)
             Row(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.layoutId(ShadeHeader.LayoutId.EndContent),
             ) {
                 ShadeHighlightChip(
-                    backgroundColor = qsChip.backgroundColor,
+                    backgroundColor = quickSettingsBackground,
                     hoverBackgroundColor = qsChip.hoverBackgroundColor,
                     backgroundBrush = qsChip.backgroundBrush,
+                    animateColorChanges = false,
                     onClick = viewModel::onSystemIconChipClicked,
                     clickTargetModifier =
                         Modifier.fillMaxHeight().padding(horizontal = horizontalPadding),
@@ -590,15 +618,15 @@ fun ContentScope.OverlayShadeHeader(
                         viewModel = viewModel,
                         useExpandedFormat = false,
                         modifier = Modifier.padding(end = paddingEnd).weight(1f, fill = false),
-                        foregroundColor = qsChip.foregroundColor.toArgb(),
-                        backgroundColor = qsChip.backgroundColor.toArgb(),
+                        foregroundColor = quickSettingsForeground.toArgb(),
+                        backgroundColor = quickSettingsBackground.toArgb(),
                     )
                     BatteryInfo(
                         viewModel = viewModel,
                         showIcon = true,
                         useExpandedFormat = false,
+                        textColor = quickSettingsForeground,
                         chipHighlightModel = quickSettingsHighlight,
-                        textColor = qsChip.foregroundColor,
                     )
                 }
                 if (!groupedPrivacyChip() && viewModel.isPrivacyChipVisible) {

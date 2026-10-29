@@ -200,16 +200,15 @@ constructor(
                         if (viewModel.showMedia) {
                             Element(
                                 key = Media.Elements.MediaCarousel,
-                                modifier =
-                                    modifier
-                                        .padding(horizontal = notificationStackPadding)
-                                        .dualShadePart(rank = 0f, key = "media")
-                                        .dualShadeControlGesture(),
+                                modifier = modifier.padding(horizontal = notificationStackPadding),
                             ) {
                                 Media(
                                     viewModelFactory = viewModel.mediaViewModelFactory,
                                     presentationStyle = MediaPresentationStyle.Default,
                                     behavior = viewModel.mediaUiBehavior,
+                                    modifier =
+                                        Modifier.dualShadePart(rank = 0f, key = "media")
+                                            .dualShadeControlGesture(),
                                     onDismissed = viewModel::onMediaSwipeToDismiss,
                                     location = Media.Location.SHADE,
                                     headerGestureModifier = { Modifier.dualShadeControlGesture() },
