@@ -77,8 +77,10 @@ internal val SpacePanelLarge = 28.dp
 internal val ShapeXs = RoundedCornerShape(8.dp)
 internal val ShapeSm = RoundedCornerShape(12.dp)
 internal val ShapeLg = RoundedCornerShape(24.dp)
-internal val ShapeXl = RoundedCornerShape(32.dp)
-internal val ShapeCard = RoundedCornerShape(28.dp)
+internal val KeyguardCardCorner = 32.dp
+internal val CardCorner = 28.dp
+internal val ShapeXl = RoundedCornerShape(KeyguardCardCorner)
+internal val ShapeCard = RoundedCornerShape(CardCorner)
 
 internal val SizeBadge = 14.dp
 internal val SizeIconSm = 20.dp
@@ -382,12 +384,16 @@ internal fun ExpandedCardLayout(
     trailing: @Composable (() -> Unit)? = null,
     actions: @Composable (ColumnScope.() -> Unit)? = null,
 ) {
+    val blurActive = rememberSurfaceBlurActive()
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(SpaceLg)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(ShapeLg)
-                .background(tonalContainer(accentColor))
+                .background(
+                    if (blurActive) accentColor.copy(alpha = AlphaIconBg)
+                    else tonalContainer(accentColor)
+                )
                 .padding(SpaceLg),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(SpaceLg),
@@ -397,7 +403,10 @@ internal fun ExpandedCardLayout(
                     modifier = Modifier
                         .size(iconSize)
                         .clip(CircleShape)
-                        .background(tonalContainer(accentColor, emphasis = 0.4f)),
+                        .background(
+                            if (blurActive) accentColor.copy(alpha = AlphaSubtle)
+                            else tonalContainer(accentColor, emphasis = 0.4f)
+                        ),
                     contentAlignment = Alignment.Center,
                 ) { icon() }
             } else {

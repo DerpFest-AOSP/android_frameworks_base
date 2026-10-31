@@ -265,8 +265,7 @@ private fun KeyguardPanelSurface(content: @Composable () -> Unit) {
             .widthIn(max = ExpandedMaxWidth)
             .fillMaxWidth()
             .padding(horizontal = SpaceSection)
-            .clip(ShapeXl)
-            .background(ExpressiveCardColor)
+            .surfaceBlur(ShapeXl, KeyguardCardCorner)
             .border(
                 1.dp,
                 MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
@@ -291,7 +290,10 @@ private fun TonalBanner(
         modifier = Modifier
             .fillMaxWidth()
             .clip(ShapeLg)
-            .background(colors.tonal)
+            .background(
+                if (rememberSurfaceBlurActive()) colors.accent.copy(alpha = AlphaIconBg)
+                else colors.tonal
+            )
             .padding(horizontal = SpaceXxl, vertical = SpaceLg),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(SpaceMd),

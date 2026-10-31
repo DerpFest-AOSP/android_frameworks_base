@@ -393,8 +393,7 @@ internal fun PrimaryCard(content: @Composable () -> Unit) {
     Box(
         modifier =
             Modifier.fillMaxWidth()
-                .clip(ShapeCard)
-                .background(ExpressiveCardColor)
+                .surfaceBlur(ShapeCard, CardCorner)
                 .padding(SpaceXxl)
     ) {
         content()
