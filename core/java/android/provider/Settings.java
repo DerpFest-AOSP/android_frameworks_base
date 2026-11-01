@@ -15485,6 +15485,13 @@ public final class Settings {
         public static final String QS_DATA_USAGE_CYCLE_TYPE = "qs_data_usage_cycle_type";
 
         /**
+         * Edge grip suppression width level (1-5)
+         * @hide
+         */
+        @Readable
+        public static final String EDGE_GRIP_SUPPRESSION = "edge_grip_suppression";
+
+        /**
          * These entries are considered common between the personal and the managed profile,
          * since the managed profile doesn't get to change them.
          */

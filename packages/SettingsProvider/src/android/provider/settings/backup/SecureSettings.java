@@ -356,6 +356,7 @@ public class SecureSettings {
         Settings.Secure.DOZE_TAP_GESTURE_VIBRATE,
         Settings.Secure.DOZE_PICK_UP_GESTURE_VIBRATE,
         Settings.Secure.QS_DATA_USAGE_CYCLE_TYPE,
+        Settings.Secure.EDGE_GRIP_SUPPRESSION,
         Settings.Secure.DISPLAY_COLOR_BALANCE_RED,
         Settings.Secure.DISPLAY_COLOR_BALANCE_GREEN,
         Settings.Secure.DISPLAY_COLOR_BALANCE_BLUE,

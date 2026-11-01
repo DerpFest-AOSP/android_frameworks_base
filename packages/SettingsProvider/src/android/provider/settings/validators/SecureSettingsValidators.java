@@ -609,6 +609,8 @@ public class SecureSettingsValidators {
         VALIDATORS.put(Secure.DOZE_TAP_GESTURE_VIBRATE, BOOLEAN_VALIDATOR);
         VALIDATORS.put(Secure.DOZE_PICK_UP_GESTURE_VIBRATE, BOOLEAN_VALIDATOR);
         VALIDATORS.put(Secure.QS_DATA_USAGE_CYCLE_TYPE, new InclusiveIntegerRangeValidator(0, 1));
+        VALIDATORS.put(Secure.EDGE_GRIP_SUPPRESSION,
+                new InclusiveIntegerRangeValidator(1, 5));
         VALIDATORS.put(Secure.DISPLAY_COLOR_BALANCE_RED, new InclusiveIntegerRangeValidator(0, 255));
         VALIDATORS.put(Secure.DISPLAY_COLOR_BALANCE_GREEN, new InclusiveIntegerRangeValidator(0, 255));
         VALIDATORS.put(Secure.DISPLAY_COLOR_BALANCE_BLUE, new InclusiveIntegerRangeValidator(0, 255));
