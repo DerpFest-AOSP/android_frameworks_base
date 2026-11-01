@@ -17,6 +17,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.lifecycle.ExclusiveActivatable
+import com.android.systemui.shared.system.ActivityManagerWrapper
+import com.android.systemui.shared.system.TaskStackChangeListener
+import com.android.systemui.shared.system.TaskStackChangeListeners
 import com.android.systemui.statusbar.quickactions.island.alarm.ui.viewmodel.AlarmPopupChipViewModel
 import com.android.systemui.statusbar.quickactions.island.flashlight.ui.viewmodel.FlashlightPopupChipViewModel
 import com.android.systemui.statusbar.quickactions.island.livescore.ui.viewmodel.LiveScorePopupChipViewModel
@@ -27,6 +30,7 @@ import com.android.systemui.statusbar.quickactions.island.screenrecord.ui.viewmo
 import com.android.systemui.statusbar.quickactions.island.stopwatch.ui.viewmodel.StopwatchPopupChipViewModel
 import com.android.systemui.statusbar.quickactions.island.ui.model.PopupChipId
 import com.android.systemui.statusbar.quickactions.island.ui.model.PopupChipModel
+import com.android.systemui.statusbar.quickactions.island.ui.model.PopupContentModel
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.awaitCancellation
@@ -87,6 +91,34 @@ internal constructor(
     /** The ID of the current chip that is showing its popup, or `null` if no chip is shown. */
     private var currentShownPopupChipId by mutableStateOf<PopupChipId?>(null)
 
+    /** Package of the top activity, so a media chip is not shown over the app it stands for. */
+    private var foregroundPackage by mutableStateOf<String?>(null)
+
+    private val taskStackListener =
+        object : TaskStackChangeListener {
+            override fun onTaskStackChanged() {
+                updateForegroundPackage()
+            }
+        }
+
+    private fun updateForegroundPackage() {
+        val top =
+            runCatching {
+                    ActivityManagerWrapper.getInstance().runningTask?.topActivity?.packageName
+                }
+                .getOrNull()
+        if (top == foregroundPackage) return
+        foregroundPackage = top
+        // Opening the player a media chip belongs to puts that popup away. Other chips stay.
+        if (
+            top != null &&
+                currentShownPopupChipId == PopupChipId.MediaControl &&
+                incomingPopupChipBundle.media.mediaPackageName() == top
+        ) {
+            currentShownPopupChipId = null
+        }
+    }
+
     private val incomingPopupChipBundle: PopupChipBundle by derivedStateOf {
         PopupChipBundle(
             media = mediaControlChip.chip,
@@ -117,6 +149,7 @@ internal constructor(
                 bundle.promotedOngoing,
             )
             .filterIsInstance<PopupChipModel.Shown>()
+            .filterNot { it.isOwnedByForegroundApp() }
             .map { chip ->
                 chip.copy(
                     isPopupShown = chip.chipId == currentShownPopupChipId,
@@ -139,6 +172,10 @@ internal constructor(
                 UserHandle.USER_ALL,
             )
             dynamicIslandObserver.onChange(false)
+
+            TaskStackChangeListeners.getInstance().registerTaskStackListener(taskStackListener)
+            updateForegroundPackage()
+
             launch { mediaControlChip.activate() }
             launch { screenRecordChip.activate() }
             launch { liveScoreChip.activate() }
@@ -151,6 +188,7 @@ internal constructor(
                 awaitCancellation()
             } finally {
                 context.contentResolver.unregisterContentObserver(dynamicIslandObserver)
+                TaskStackChangeListeners.getInstance().unregisterTaskStackListener(taskStackListener)
             }
         }
     }
@@ -166,6 +204,20 @@ internal constructor(
         val promotedOngoing: PopupChipModel =
             PopupChipModel.Hidden(chipId = PopupChipId.PromotedOngoing),
     )
+
+    /**
+     * Whether this chip belongs to the app now in the foreground. The media chip steps aside while
+     * its own player is open.
+     */
+    private fun PopupChipModel.Shown.isOwnedByForegroundApp(): Boolean {
+        val open = foregroundPackage ?: return false
+        return (popupContent as? PopupContentModel.Media)?.model?.packageName == open
+    }
+
+    private fun PopupChipModel.mediaPackageName(): String? {
+        val shown = this as? PopupChipModel.Shown ?: return null
+        return (shown.popupContent as? PopupContentModel.Media)?.model?.packageName
+    }
 
     private fun readDynamicIslandEnabled(): Boolean {
         return Settings.System.getIntForUser(
