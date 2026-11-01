@@ -188,6 +188,12 @@
 
     <!-- Screen record dialog -->
     <string name="screenrecord_keep_screen_awake_label">Keep the screen awake</string>
+    <!-- Shown when the selfie preview cannot be opened. Recording continues. [CHAR LIMIT=80] -->
+    <string name="screenrecord_camera_unavailable">Selfie camera unavailable. Screen recording will continue.</string>
+    <!-- Accessibility description for the draggable selfie preview. [CHAR LIMIT=60] -->
+    <string name="screenrecord_camera_preview">Selfie camera preview. Drag to move.</string>
+    <!-- Hint shown when the selfie preview is enabled. [CHAR LIMIT=60] -->
+    <string name="screenrecord_camera_hint">Drag the selfie camera to move it</string>
 
     <!-- Notification counter -->
     <string name="status_bar_notification_info_overflow" translatable="false">\u221E</string>
