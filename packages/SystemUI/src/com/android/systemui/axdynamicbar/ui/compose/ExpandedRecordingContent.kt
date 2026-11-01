@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.android.systemui.axdynamicbar.shared.IslandActions
@@ -194,5 +195,104 @@ internal fun RowScope.CompactAudioRecordingRow(event: IslandEvent.AudioRecording
             }
         }
     }
+}
+
+/**
+ * Screen capture card. Separate from [AudioRecordingExpanded]: that one is a microphone
+ * notification, and stopping a screen recording is not a notification [android.app.PendingIntent].
+ *
+ * [countdownSeconds] set means the capture has not started. Null means it is recording, and the
+ * elapsed time counts from [startElapsedRealtimeMs] on [android.os.SystemClock.elapsedRealtime].
+ */
+@Composable
+internal fun ScreenRecordExpanded(
+    countdownSeconds: Long?,
+    startElapsedRealtimeMs: Long,
+    onStop: (() -> Unit)?,
+) {
+    val recording = countdownSeconds == null
+    val accent = RedAccent
+    var elapsedMs by
+        remember(startElapsedRealtimeMs) {
+            mutableLongStateOf(
+                (android.os.SystemClock.elapsedRealtime() - startElapsedRealtimeMs).coerceAtLeast(0L)
+            )
+        }
+    if (recording) {
+        LaunchedEffect(startElapsedRealtimeMs) {
+            while (true) {
+                elapsedMs =
+                    (android.os.SystemClock.elapsedRealtime() - startElapsedRealtimeMs)
+                        .coerceAtLeast(0L)
+                delay(1000)
+            }
+        }
+    }
+
+    ExpandedCardLayout(
+        accentColor = accent,
+        icon = {
+            if (recording) {
+                PulsingDot(color = accent, size = 14.dp, durationMs = 550, minAlpha = AlphaTrack)
+            } else {
+                Icon(
+                    painter = painterResource(R.drawable.ic_screenrecord),
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+        },
+        title = {
+            Text(
+                stringResource(R.string.screenrecord_ongoing_screen_only),
+                color = SubtleGray,
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (recording) {
+                Text(
+                    formatCountdownLong(elapsedMs),
+                    color = accent,
+                    style = MaterialTheme.typography.headlineMedium,
+                )
+            } else {
+                Text(
+                    stringResource(
+                        R.string.dynamic_island_screen_record_countdown,
+                        countdownSeconds,
+                    ),
+                    color = SubtleGray,
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                Text(
+                    countdownSeconds.toString(),
+                    color = accent,
+                    style = MaterialTheme.typography.headlineMedium,
+                )
+            }
+        },
+        trailing = {
+            if (recording) {
+                StatusChip(stringResource(R.string.dynamic_island_screen_record_active), accent)
+            }
+        },
+        actions =
+            if (recording && onStop != null) {
+                {
+                    ActionChip(
+                        label = stringResource(R.string.screenrecord_stop_label),
+                        icon = Icons.Filled.Stop,
+                        color = OnDestructiveText,
+                        bg = DestructiveBg,
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = onStop,
+                    )
+                }
+            } else {
+                null
+            },
+    )
 }
 

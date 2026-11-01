@@ -158,7 +158,12 @@ internal fun TimerExpanded(event: IslandEvent.Timer, interactor: IslandActions) 
 }
 
 @Composable
-internal fun StopwatchExpanded(event: IslandEvent.Stopwatch, interactor: IslandActions) {
+internal fun StopwatchExpanded(
+    event: IslandEvent.Stopwatch,
+    interactor: IslandActions,
+    frozenElapsedText: String? = null,
+    cardActions: List<IslandCardAction>? = null,
+) {
     val context = LocalContext.current
     val style = eventStyleFor(event)
     var elapsedMs by
@@ -182,15 +187,18 @@ internal fun StopwatchExpanded(event: IslandEvent.Stopwatch, interactor: IslandA
         },
         title = {
             Text(event.label.ifEmpty { stringResource(style.labelRes) }, color = SubtleGray, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val frozen = if (!event.isRunning) frozenElapsedText?.takeIf { it.isNotBlank() } else null
             Text(
-                if (event.isRunning) formatStopwatch(elapsedMs) else stringResource(R.string.ax_dynamic_bar_paused),
+                frozen ?: formatStopwatch(elapsedMs),
                 color = if (event.isRunning) style.accent else SubtleGray,
                 style = MaterialTheme.typography.headlineMedium,
             )
         },
         trailing = { if (!event.isRunning) StatusChip(stringResource(R.string.ax_dynamic_bar_paused), SubtleGray) },
         actions = {
-            if (event.actions.isNotEmpty()) {
+            if (cardActions != null) {
+                if (cardActions.isNotEmpty()) IslandCardActionRow(cardActions, style.accent)
+            } else if (event.actions.isNotEmpty()) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(SpaceMd),

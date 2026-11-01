@@ -54,6 +54,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -65,21 +66,23 @@ import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import com.android.systemui.axdynamicbar.model.IslandEvent
 import com.android.systemui.axdynamicbar.shared.IslandActions
+import com.android.systemui.axdynamicbar.shared.IslandCardAction
 import com.android.systemui.axdynamicbar.ui.compose.AccordMediaSurface
+import com.android.systemui.axdynamicbar.ui.compose.AlarmExpanded
 import com.android.systemui.axdynamicbar.ui.compose.CallExpanded
 import com.android.systemui.axdynamicbar.ui.compose.MediaCard
 import com.android.systemui.axdynamicbar.ui.compose.PrimaryCard
 import com.android.systemui.axdynamicbar.ui.compose.PromotedOngoingExpanded
+import com.android.systemui.axdynamicbar.ui.compose.ScreenRecordExpanded
 import com.android.systemui.axdynamicbar.ui.compose.SportsExpanded
+import com.android.systemui.axdynamicbar.ui.compose.StopwatchExpanded
 import com.android.systemui.axdynamicbar.ui.compose.TorchExpanded
 import com.android.systemui.common.shared.model.Icon
 import com.android.systemui.haptics.slider.compose.ui.SliderHapticsViewModel
 import com.android.systemui.media.MediaSessionManager
 import com.android.systemui.res.R
-import com.android.systemui.statusbar.quickactions.island.alarm.ui.compose.AlarmPopup
 import com.android.systemui.statusbar.quickactions.island.media.ui.compose.LyricsCard
-import com.android.systemui.statusbar.quickactions.island.screenrecord.ui.compose.ScreenRecordPopup
-import com.android.systemui.statusbar.quickactions.island.stopwatch.ui.compose.StopwatchPopup
+import com.android.systemui.statusbar.quickactions.island.screenrecord.shared.model.ScreenRecordPopupModel
 import com.android.systemui.media.controls.shared.model.MediaAction
 import com.android.systemui.statusbar.quickactions.island.media.shared.model.MediaControlChipModel
 import com.android.systemui.statusbar.quickactions.island.ui.model.PopupChipModel
@@ -445,7 +448,29 @@ fun StatusBarPopup(
                             }
                         }
                     }
-                    is PopupContentModel.ScreenRecord -> ScreenRecordPopup(model = popupContent.model)
+                    is PopupContentModel.ScreenRecord -> {
+                        Box(modifier = Modifier.widthIn(min = 280.dp, max = 360.dp)) {
+                            PrimaryCard {
+                                when (val model = popupContent.model) {
+                                    is ScreenRecordPopupModel.Starting ->
+                                        ScreenRecordExpanded(
+                                            countdownSeconds = model.secondsUntilStarted,
+                                            startElapsedRealtimeMs = 0L,
+                                            onStop = null,
+                                        )
+                                    is ScreenRecordPopupModel.Recording ->
+                                        ScreenRecordExpanded(
+                                            countdownSeconds = null,
+                                            startElapsedRealtimeMs = model.startElapsedRealtimeMs,
+                                            onStop = {
+                                                model.stopRecording()
+                                                viewModel.hidePopup()
+                                            },
+                                        )
+                                }
+                            }
+                        }
+                    }
                     is PopupContentModel.LiveScore -> {
                         val model = popupContent.model
                         val eventSports =
@@ -491,8 +516,87 @@ fun StatusBarPopup(
                             }
                         }
                     }
-                    is PopupContentModel.Stopwatch -> StopwatchPopup(model = popupContent.model)
-                    is PopupContentModel.Alarm -> AlarmPopup(model = popupContent.model)
+                    is PopupContentModel.Stopwatch -> {
+                        val model = popupContent.model
+                        val startTimeMs =
+                            remember(model.baseElapsedRealtimeMs, model.isRunning) {
+                                val elapsedMs =
+                                    (android.os.SystemClock.elapsedRealtime() -
+                                            model.baseElapsedRealtimeMs)
+                                        .coerceAtLeast(0L)
+                                System.currentTimeMillis() - elapsedMs
+                            }
+                        val event =
+                            IslandEvent.Stopwatch(
+                                label =
+                                    model.subtitle?.takeIf { it.isNotBlank() } ?: model.title,
+                                startTimeMs = startTimeMs,
+                                isRunning = model.isRunning,
+                            )
+                        val openClock =
+                            stringResource(R.string.dynamic_island_open_clock_action)
+                        val cardActions =
+                            buildList {
+                                model.actions.forEach { action ->
+                                    add(
+                                        IslandCardAction(
+                                            label = action.label,
+                                            onClick = action.onClick,
+                                            emphasized = action.emphasized,
+                                        )
+                                    )
+                                }
+                                model.onOpen?.let { open ->
+                                    add(IslandCardAction(label = openClock, onClick = open))
+                                }
+                            }
+                        Box(modifier = Modifier.widthIn(min = 280.dp, max = 360.dp)) {
+                            PrimaryCard {
+                                StopwatchExpanded(
+                                    event = event,
+                                    interactor = popupActions,
+                                    frozenElapsedText = model.elapsedTimeText,
+                                    cardActions = cardActions,
+                                )
+                            }
+                        }
+                    }
+                    is PopupContentModel.Alarm -> {
+                        val model = popupContent.model
+                        val event =
+                            IslandEvent.Alarm(
+                                label = model.title,
+                                triggerTimeMs = model.triggerTimeMs,
+                                isRinging = model.actions.isNotEmpty(),
+                            )
+                        val openClock =
+                            stringResource(R.string.dynamic_island_open_clock_action)
+                        val cardActions =
+                            buildList {
+                                model.actions.forEach { action ->
+                                    add(
+                                        IslandCardAction(
+                                            label = action.label,
+                                            onClick = action.onClick,
+                                            emphasized = action.emphasized,
+                                        )
+                                    )
+                                }
+                                model.onOpen?.let { open ->
+                                    add(IslandCardAction(label = openClock, onClick = open))
+                                }
+                            }
+                        Box(modifier = Modifier.widthIn(min = 280.dp, max = 360.dp)) {
+                            PrimaryCard {
+                                AlarmExpanded(
+                                    event = event,
+                                    interactor = popupActions,
+                                    timeText = model.fullTimeText,
+                                    cardActions = cardActions,
+                                )
+                            }
+                        }
+                    }
                     is PopupContentModel.PromotedOngoing -> {
                         Box(modifier = Modifier.widthIn(min = 320.dp, max = 400.dp)) {
                             PrimaryCard {

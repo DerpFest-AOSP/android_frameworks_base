@@ -33,7 +33,13 @@ import android.text.format.DateFormat
 import java.util.Date
 
 @Composable
-internal fun AlarmExpanded(event: IslandEvent.Alarm, interactor: IslandActions) {
+internal fun AlarmExpanded(
+    event: IslandEvent.Alarm,
+    interactor: IslandActions,
+    timeText: String? = null,
+    cardActions: List<IslandCardAction>? = null,
+) {
+    val shownTime = timeText?.takeIf { it.isNotBlank() }
     ExpandedCardLayout(
         accentColor = OrangeAccent,
         iconSize = SizeAlbumSm,
@@ -44,7 +50,9 @@ internal fun AlarmExpanded(event: IslandEvent.Alarm, interactor: IslandActions) 
         title = {
             if (event.isRinging) StatusChip(stringResource(R.string.ax_dynamic_bar_ringing), OrangeAccent)
             Text(event.label.ifEmpty { stringResource(R.string.ax_dynamic_bar_alarm) }, color = OnCardText, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (event.triggerTimeMs > 0L) {
+            if (shownTime != null) {
+                Text(shownTime, color = OrangeAccent, style = MaterialTheme.typography.headlineMedium)
+            } else if (event.triggerTimeMs > 0L) {
                 Text(
                     DateFormat.getTimeFormat(LocalContext.current)
                         .format(Date(event.triggerTimeMs)),
@@ -54,14 +62,18 @@ internal fun AlarmExpanded(event: IslandEvent.Alarm, interactor: IslandActions) 
             }
         },
         actions = {
-            ActionChip(
-                label = stringResource(R.string.ax_dynamic_bar_dismiss),
-                icon = Icons.Filled.Close,
-                color = OrangeAccent,
-                bg = OrangeAccent.copy(alpha = AlphaIconBg),
-                modifier = Modifier.fillMaxWidth(),
-                onClick = { interactor.dismissEvent(event) },
-            )
+            if (cardActions != null) {
+                if (cardActions.isNotEmpty()) IslandCardActionRow(cardActions, OrangeAccent)
+            } else {
+                ActionChip(
+                    label = stringResource(R.string.ax_dynamic_bar_dismiss),
+                    icon = Icons.Filled.Close,
+                    color = OrangeAccent,
+                    bg = OrangeAccent.copy(alpha = AlphaIconBg),
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = { interactor.dismissEvent(event) },
+                )
+            }
         },
     )
 }

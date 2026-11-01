@@ -458,6 +458,40 @@ internal fun ActionChip(
     }
 }
 
+/** Click action supplied by a caller that does not have a notification [android.app.PendingIntent]. */
+internal data class IslandCardAction(
+    val label: String,
+    val onClick: () -> Unit,
+    val emphasized: Boolean = false,
+)
+
+@Composable
+internal fun IslandCardActionRow(actions: List<IslandCardAction>, accent: Color) {
+    if (actions.isEmpty()) return
+    if (actions.size == 1) {
+        val action = actions.first()
+        ActionChip(
+            label = action.label,
+            color = if (action.emphasized) accent else OnActionText,
+            bg = if (action.emphasized) accent.copy(alpha = AlphaIconBg) else ActionBg,
+            modifier = Modifier.fillMaxWidth(),
+            onClick = action.onClick,
+        )
+        return
+    }
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(SpaceMd)) {
+        actions.forEach { action ->
+            ActionChip(
+                label = action.label,
+                color = if (action.emphasized) accent else OnActionText,
+                bg = if (action.emphasized) accent.copy(alpha = AlphaIconBg) else ActionBg,
+                modifier = Modifier.weight(1f),
+                onClick = action.onClick,
+            )
+        }
+    }
+}
+
 @Composable
 internal fun ExpressivePillButton(
     label: String,
