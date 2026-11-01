@@ -437,10 +437,62 @@ fun rememberDynamicIslandCutoutSpec(): DynamicIslandCutoutSpec {
 }
 
 /**
+ * Spec for an island docked to a camera on a side edge. The pill is laid out in its own rotated
+ * frame, where its main axis runs along the edge, so the camera gap is the hole's height. A null
+ * [edge] is unused; callers always invoke this so the composition stays stable when docking.
+ */
+@Composable
+fun rememberDynamicIslandSideCutoutSpec(
+    edge: DynamicIslandCutoutEdge?
+): DynamicIslandCutoutSpec {
+    val density = LocalDensity.current
+    return remember(edge, density) {
+        if (edge == null) {
+            DynamicIslandCutoutSpec(
+                embeddedGapWidth = DynamicIslandEmbeddedGapFallbackWidth,
+                horizontalOffset = 0.dp,
+                verticalOffset = 0.dp,
+            )
+        } else {
+            with(density) {
+                val embeddedGapWidthDp =
+                    (edge.hole.height().toDp() + (DynamicIslandEmbeddedGapSidePadding * 2))
+                        .coerceIn(
+                            DynamicIslandEmbeddedGapMinWidth,
+                            DynamicIslandEmbeddedGapMaxWidth,
+                        )
+                DynamicIslandCutoutSpec(
+                    embeddedGapWidth = embeddedGapWidthDp,
+                    horizontalOffset = 0.dp,
+                    verticalOffset = 0.dp,
+                )
+            }
+        }
+    }
+}
+
+/**
  * The top cutout's extent, from its path when there is one. Some devices' bounding rects do not
  * match their cutout (phone2 reports 454-540 for a camera drawn at 511-569), and the island has
  * to sit on the camera itself.
  */
+internal fun DisplayCutout.dynamicIslandHoleRect(): Rect? = topBoundingRectOrNull()
+
+/**
+ * The camera hole inside [boundingRect], a bounding rect of this cutout on a side edge. The top
+ * edge keeps [dynamicIslandHoleRect], whose path bounds are not clipped to the reported rect,
+ * because some devices' top rect does not contain the camera.
+ */
+fun DisplayCutout.dynamicIslandHoleWithin(boundingRect: Rect): Rect {
+    val path = cutoutPath ?: return Rect(boundingRect)
+    val pathBounds = RectF()
+    path.computeBounds(pathBounds, true)
+    if (pathBounds.isEmpty) return Rect(boundingRect)
+    val hole = Rect()
+    pathBounds.roundOut(hole)
+    return if (Rect.intersects(hole, boundingRect)) hole else Rect(boundingRect)
+}
+
 private fun DisplayCutout.topBoundingRectOrNull(): Rect? {
     val top = getBoundingRectTop().takeUnless { it.isEmpty } ?: return null
     val path = cutoutPath ?: return top

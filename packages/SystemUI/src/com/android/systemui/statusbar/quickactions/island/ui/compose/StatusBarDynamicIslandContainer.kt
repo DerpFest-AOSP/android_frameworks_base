@@ -59,8 +59,11 @@ fun StatusBarDynamicIslandContainer(
     islandActions: IslandActions,
     onIslandBoundsChanged: (android.graphics.Rect) -> Unit = {},
     modifier: Modifier = Modifier,
+    sideEdge: DynamicIslandCutoutEdge? = null,
 ) {
-    val cutoutSpec = rememberDynamicIslandCutoutSpec()
+    val topCutoutSpec = rememberDynamicIslandCutoutSpec()
+    val sideCutoutSpec = rememberDynamicIslandSideCutoutSpec(sideEdge)
+    val cutoutSpec = if (sideEdge != null) sideCutoutSpec else topCutoutSpec
     var naturalCenterX by remember { mutableFloatStateOf(Float.NaN) }
     var selectedChipId by remember { mutableStateOf<PopupChipId?>(null) }
     var popupAnchorChip by remember { mutableStateOf<PopupChipModel.Shown?>(null) }
@@ -118,11 +121,11 @@ fun StatusBarDynamicIslandContainer(
         }
     }
 
-    val cutoutCenterX = cutoutSpec.cutoutCenterX
+    val cutoutCenterX = if (sideEdge == null) cutoutSpec.cutoutCenterX else null
     Box(
         modifier =
             modifier
-                .padding(horizontal = 8.dp)
+                .padding(horizontal = if (sideEdge != null) 0.dp else 8.dp)
                 .then(
                     if (cutoutCenterX != null) {
                         // The status bar's centred area has uneven side paddings, so its centre is
@@ -154,7 +157,10 @@ fun StatusBarDynamicIslandContainer(
                             )
                         )
                     }
-                },
+                }
+                // Docked to a side camera: turn the whole pill with its edge. The reported bounds
+                // above are of the turned pill.
+                .rotatedLayout(sideEdge?.quarterTurns ?: 0),
         contentAlignment = Alignment.Center,
     ) {
         if (selectedChip == null) return@Box

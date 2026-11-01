@@ -23,6 +23,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.UserHandle
 import android.provider.Settings
+import android.view.Display
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -50,6 +51,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -67,6 +69,7 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
@@ -132,7 +135,11 @@ import com.android.systemui.statusbar.pipeline.shared.ui.binder.HomeStatusBarVie
 import com.android.systemui.statusbar.pipeline.shared.ui.view.SystemStatusIconsLayoutHelper
 import com.android.systemui.statusbar.pipeline.shared.ui.viewmodel.HomeStatusBarViewModel
 import com.android.systemui.statusbar.pipeline.shared.ui.viewmodel.HomeStatusBarViewModel.HomeStatusBarViewModelFactory
+import com.android.systemui.statusbar.quickactions.island.ui.DynamicIslandSideEdgeHost
+import com.android.systemui.statusbar.quickactions.island.ui.compose.DynamicIslandCutoutEdge
+import com.android.systemui.statusbar.quickactions.island.ui.compose.DynamicIslandEdge
 import com.android.systemui.statusbar.quickactions.island.ui.compose.StatusBarDynamicIslandContainer
+import com.android.systemui.statusbar.quickactions.island.ui.compose.resolveDynamicIslandCutoutEdge
 import com.android.systemui.statusbar.quickactions.island.ui.model.PopupChipId
 import com.android.systemui.statusbar.policy.Clock
 import com.android.systemui.statusbar.policy.KeyguardStateController
@@ -451,12 +458,58 @@ fun StatusBarRoot(
         val isHomeStatusBarAllowed by statusBarViewModel.isHomeStatusBarAllowed.collectAsState()
         val showDynamicIsland =
             isHomeStatusBarAllowed && statusBarViewModel.dynamicIslandChips.isNotEmpty()
-        LaunchedEffect(showDynamicIsland) {
-            if (!showDynamicIsland) {
+        val statusBarView = LocalView.current
+        var sideEdge by remember { mutableStateOf<DynamicIslandCutoutEdge?>(null) }
+        DisposableEffect(statusBarView) {
+            fun update() {
+                val resolved =
+                    resolveDynamicIslandCutoutEdge(statusBarView)?.takeIf {
+                        it.edge != DynamicIslandEdge.TOP &&
+                            statusBarView.display?.displayId == Display.DEFAULT_DISPLAY
+                    }
+                if (resolved != sideEdge) sideEdge = resolved
+            }
+            val listener = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> update() }
+            statusBarView.addOnLayoutChangeListener(listener)
+            update()
+            onDispose { statusBarView.removeOnLayoutChangeListener(listener) }
+        }
+        val dockToSide = showDynamicIsland && sideEdge != null
+        val sideHostContext = LocalContext.current
+        val sideEdgeHost =
+            remember(sideHostContext) {
+                DynamicIslandSideEdgeHost(sideHostContext) {
+                    edge,
+                    onBoundsChanged,
+                    onActiveChanged ->
+                    val chips = statusBarViewModel.dynamicIslandChips
+                    SideEffect { onActiveChanged(chips.isNotEmpty()) }
+                    StatusBarDynamicIslandContainer(
+                        chips = chips,
+                        onMediaControlPopupVisibilityChanged = { popupShowing ->
+                            mediaHierarchyManager?.isMediaControlPopupShowing = popupShowing
+                        },
+                        islandActions = axDynamicBarChipViewModel.interactor,
+                        onIslandBoundsChanged = onBoundsChanged,
+                        sideEdge = edge,
+                    )
+                }
+            }
+        LaunchedEffect(showDynamicIsland, dockToSide) {
+            if (!showDynamicIsland || dockToSide) {
                 statusBarViewModel.onIslandBoundsChanged(Rect())
             }
         }
-        if (showDynamicIsland) {
+        DisposableEffect(dockToSide, sideEdge) {
+            val edge = sideEdge
+            if (dockToSide && edge != null) {
+                sideEdgeHost.show(edge)
+            } else {
+                sideEdgeHost.hide()
+            }
+            onDispose { sideEdgeHost.hide() }
+        }
+        if (showDynamicIsland && !dockToSide) {
             StatusBarDynamicIslandContainer(
                 chips = statusBarViewModel.dynamicIslandChips,
                 onMediaControlPopupVisibilityChanged = { popupShowing ->
