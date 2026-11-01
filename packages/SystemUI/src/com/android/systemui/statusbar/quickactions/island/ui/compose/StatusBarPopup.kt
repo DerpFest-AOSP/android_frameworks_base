@@ -56,8 +56,12 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import com.android.systemui.axdynamicbar.model.IslandEvent
 import com.android.systemui.axdynamicbar.shared.IslandActions
@@ -81,12 +85,17 @@ import com.android.systemui.statusbar.quickactions.island.media.shared.model.Med
 import com.android.systemui.statusbar.quickactions.island.ui.model.PopupChipModel
 import com.android.systemui.statusbar.quickactions.island.ui.model.PopupContentModel
 import com.android.systemui.statusbar.util.MediaSessionTrackHelper
+import kotlin.math.roundToInt
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
 /**
  * Displays a popup in the status bar area. The offset is calculated to draw the popup below the
  * status bar.
+ *
+ * With a [sideEdge] camera the island is docked to the left or right edge, so the popup opens
+ * beside the pill instead: next to it on the inner side and centered on the camera, growing out
+ * of the pill from that edge.
  */
 @Composable
 fun StatusBarPopup(
@@ -94,22 +103,35 @@ fun StatusBarPopup(
     isVisible: Boolean,
     islandActions: IslandActions,
     chipBoundsInScreen: Rect? = null,
+    sideEdge: DynamicIslandCutoutEdge? = null,
 ) {
     val context = LocalContext.current
     val density = Density(context)
-    Popup(
-        alignment = Alignment.TopCenter,
-        properties =
-            PopupProperties(
-                focusable = true,
-                dismissOnBackPress = true,
-                dismissOnClickOutside = true,
-            ),
-        offset =
-            IntOffset(
-                x = 0,
-                y = with(density) { dimensionResource(R.dimen.status_bar_height).roundToPx() },
-            ),
+    val yOffsetPx = with(density) { dimensionResource(R.dimen.status_bar_height).roundToPx() }
+    val sideGapPx = with(density) { 4.dp.roundToPx() }
+    val sideMarginPx = with(density) { 4.dp.roundToPx() }
+    val slideInPx = with(density) { 24.dp.toPx() }
+    val slideOutPx = with(density) { 16.dp.toPx() }
+    val enterOffset =
+        when (sideEdge?.edge) {
+            null,
+            DynamicIslandEdge.TOP -> Offset(0f, -24f)
+            DynamicIslandEdge.LEFT -> Offset(-slideInPx, 0f)
+            DynamicIslandEdge.RIGHT -> Offset(slideInPx, 0f)
+        }
+    val exitOffset =
+        when (sideEdge?.edge) {
+            null,
+            DynamicIslandEdge.TOP -> Offset(0f, -16f)
+            DynamicIslandEdge.LEFT -> Offset(-slideOutPx, 0f)
+            DynamicIslandEdge.RIGHT -> Offset(slideOutPx, 0f)
+        }
+    IslandPopupWindow(
+        sideEdge = sideEdge,
+        yOffsetPx = yOffsetPx,
+        chipBoundsInScreen = chipBoundsInScreen,
+        sideGapPx = sideGapPx,
+        sideMarginPx = sideMarginPx,
         onDismissRequest = { viewModel.hidePopup() },
     ) {
         val popupView = LocalView.current
@@ -137,6 +159,17 @@ fun StatusBarPopup(
                 val popup = popupBoundsInScreen
                 if (chip == null || popup == null || popup.width <= 0f) {
                     TransformOrigin(0.5f, 0f)
+                } else if (sideEdge != null && sideEdge.edge != DynamicIslandEdge.TOP) {
+                    // Grow out of the pill on the edge: pivot on the popup side facing it, level
+                    // with the camera.
+                    val pivotX = ((chip.center.x - popup.left) / popup.width).coerceIn(0f, 1f)
+                    val pivotY =
+                        if (popup.height > 0f) {
+                            ((chip.center.y - popup.top) / popup.height).coerceIn(0f, 1f)
+                        } else {
+                            0.5f
+                        }
+                    TransformOrigin(pivotX, pivotY)
                 } else {
                     val pivotX =
                         ((chip.center.x - popup.left) / popup.width).coerceIn(0.05f, 0.95f)
@@ -169,14 +202,16 @@ fun StatusBarPopup(
         val scaleX = remember { Animatable(initialScaleFromChip.x) }
         val scaleY = remember { Animatable(initialScaleFromChip.y) }
         val alpha = remember { Animatable(0f) }
-        val translationY = remember { Animatable(-24f) }
+        val translationX = remember { Animatable(enterOffset.x) }
+        val translationY = remember { Animatable(enterOffset.y) }
 
-        LaunchedEffect(isVisible, popupBoundsInScreen != null) {
+        LaunchedEffect(isVisible, popupBoundsInScreen != null, sideEdge) {
             if (isVisible && popupBoundsInScreen != null) {
                 scaleX.snapTo(initialScaleFromChip.x)
                 scaleY.snapTo(initialScaleFromChip.y)
                 alpha.snapTo(0f)
-                translationY.snapTo(-24f)
+                translationX.snapTo(enterOffset.x)
+                translationY.snapTo(enterOffset.y)
                 coroutineScope {
                     launch {
                         scaleX.animateTo(
@@ -190,6 +225,16 @@ fun StatusBarPopup(
                             targetValue = 1f,
                             animationSpec =
                                 spring(dampingRatio = 0.65f, stiffness = Spring.StiffnessLow),
+                        )
+                    }
+                    launch {
+                        translationX.animateTo(
+                            targetValue = 0f,
+                            animationSpec =
+                                spring(
+                                    dampingRatio = 0.7f,
+                                    stiffness = Spring.StiffnessMediumLow,
+                                ),
                         )
                     }
                     launch {
@@ -227,8 +272,14 @@ fun StatusBarPopup(
                         )
                     }
                     launch {
+                        translationX.animateTo(
+                            targetValue = exitOffset.x,
+                            animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                        )
+                    }
+                    launch {
                         translationY.animateTo(
-                            -16f,
+                            exitOffset.y,
                             animationSpec = spring(stiffness = Spring.StiffnessMedium),
                         )
                     }
@@ -332,6 +383,7 @@ fun StatusBarPopup(
                             this.scaleX = scaleX.value
                             this.scaleY = scaleY.value
                             this.alpha = alpha.value
+                            this.translationX = translationX.value
                             this.translationY = translationY.value
                             this.transformOrigin = transformOrigin
                         }
@@ -490,6 +542,77 @@ internal fun LayoutCoordinates.boundsInScreen(view: View): Rect {
     val location = IntArray(2)
     view.getLocationOnScreen(location)
     return boundsInRoot().translate(Offset(location[0].toFloat(), location[1].toFloat()))
+}
+
+@Composable
+private fun IslandPopupWindow(
+    sideEdge: DynamicIslandCutoutEdge?,
+    yOffsetPx: Int,
+    chipBoundsInScreen: Rect?,
+    sideGapPx: Int,
+    sideMarginPx: Int,
+    onDismissRequest: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val properties =
+        PopupProperties(
+            focusable = true,
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true,
+        )
+    val edge = sideEdge
+    if (edge != null && edge.edge != DynamicIslandEdge.TOP) {
+        val positionProvider =
+            remember(edge.edge, chipBoundsInScreen, sideGapPx, sideMarginPx, yOffsetPx) {
+                object : PopupPositionProvider {
+                    override fun calculatePosition(
+                        anchorBounds: IntRect,
+                        windowSize: IntSize,
+                        layoutDirection: LayoutDirection,
+                        popupContentSize: IntSize,
+                    ): IntOffset {
+                        val maxX = (windowSize.width - popupContentSize.width).coerceAtLeast(0)
+                        val chip = chipBoundsInScreen
+                        if (chip != null) {
+                            // The anchor is the turned pill, whose parent-reported bounds are not
+                            // reliable, so place against the pill's own on-screen bounds. The
+                            // popup window is parented to the full-screen island window, so these
+                            // are its coordinates.
+                            val x =
+                                when (edge.edge) {
+                                    DynamicIslandEdge.RIGHT ->
+                                        chip.left.roundToInt() - sideGapPx - popupContentSize.width
+                                    else -> chip.right.roundToInt() + sideGapPx
+                                }.coerceIn(0, maxX)
+                            val maxY =
+                                (windowSize.height - popupContentSize.height - sideMarginPx)
+                                    .coerceAtLeast(sideMarginPx)
+                            val y =
+                                (chip.center.y.roundToInt() - popupContentSize.height / 2)
+                                    .coerceIn(sideMarginPx, maxY)
+                            return IntOffset(x, y)
+                        }
+                        val x =
+                            (anchorBounds.center.x - popupContentSize.width / 2).coerceIn(0, maxX)
+                        return IntOffset(x, anchorBounds.top + yOffsetPx)
+                    }
+                }
+            }
+        Popup(
+            popupPositionProvider = positionProvider,
+            onDismissRequest = onDismissRequest,
+            properties = properties,
+            content = content,
+        )
+    } else {
+        Popup(
+            alignment = Alignment.TopCenter,
+            offset = IntOffset(x = 0, y = yOffsetPx),
+            onDismissRequest = onDismissRequest,
+            properties = properties,
+            content = content,
+        )
+    }
 }
 
 private fun unsupportedHapticsFactory(): SliderHapticsViewModel.Factory {

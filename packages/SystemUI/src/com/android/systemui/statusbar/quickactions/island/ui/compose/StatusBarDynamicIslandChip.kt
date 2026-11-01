@@ -183,19 +183,21 @@ fun StatusBarDynamicIslandChip(
                 index == 0 &&
                     (viewModel.popupContent is PopupContentModel.Media ||
                         viewModel.popupContent is PopupContentModel.LiveScore)
-            Icon(
-                icon = chipIcon.icon,
-                modifier =
-                    Modifier.size(if (isArtworkLike) 18.dp else 16.dp)
-                        .then(
-                            if (isArtworkLike) {
-                                Modifier.clip(RoundedCornerShape(5.dp))
-                            } else {
-                                Modifier
-                            }
-                        ),
-                tint = if (isArtworkLike) Color.Unspecified else chipContentColor,
-            )
+            UprightContent {
+                Icon(
+                    icon = chipIcon.icon,
+                    modifier =
+                        Modifier.size(if (isArtworkLike) 18.dp else 16.dp)
+                            .then(
+                                if (isArtworkLike) {
+                                    Modifier.clip(RoundedCornerShape(5.dp))
+                                } else {
+                                    Modifier
+                                }
+                            ),
+                    tint = if (isArtworkLike) Color.Unspecified else chipContentColor,
+                )
+            }
         }
 
         viewModel.chipText
@@ -206,25 +208,29 @@ fun StatusBarDynamicIslandChip(
                     it.isNotBlank()
             }
             ?.let { text ->
-                Text(
-                    text = text,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = chipContentColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.widthIn(max = maxTextWidth),
-                )
+                UprightContent {
+                    Text(
+                        text = text,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = chipContentColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.widthIn(max = maxTextWidth),
+                    )
+                }
             }
 
         when (val popupContent = viewModel.popupContent) {
             is PopupContentModel.Media ->
                 if (popupContent.model.isPlaying) {
-                    AudioReactiveBars(
-                        isPlaying = true,
-                        color = chipContentColor,
-                    )
+                    UprightContent {
+                        AudioReactiveBars(
+                            isPlaying = true,
+                            color = chipContentColor,
+                        )
+                    }
                 } else if (pageCount > 1) {
-                    SwipeHint(color = chipContentColor.copy(alpha = 0.72f))
+                    UprightContent { SwipeHint(color = chipContentColor.copy(alpha = 0.72f)) }
                 }
             is PopupContentModel.ScreenRecord ->
                 when (val model = popupContent.model) {
@@ -253,7 +259,7 @@ fun StatusBarDynamicIslandChip(
                 )
             else -> {
                 if (pageCount > 1) {
-                    SwipeHint(color = chipContentColor.copy(alpha = 0.72f))
+                    UprightContent { SwipeHint(color = chipContentColor.copy(alpha = 0.72f)) }
                 }
             }
         }
@@ -308,32 +314,36 @@ private fun UtilityStatusIslandChip(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Spacer(modifier = Modifier.width(10.dp))
-        Icon(
-            icon = viewModel.icons.first().icon,
-            modifier = Modifier.size(16.dp),
-            tint = chipContentColor,
-        )
-        Spacer(modifier = Modifier.width(cutoutSpec.embeddedGapWidth))
-        Box(
-            modifier =
-                Modifier.weight(1f)
-                    .padding(
-                        start = 6.dp,
-                        top = 7.dp * heightScale,
-                        bottom = 7.dp * heightScale,
-                        end = 6.dp,
-                    ),
-            contentAlignment = Alignment.CenterEnd,
-        ) {
-            Text(
-                text = utilityText,
-                style = MaterialTheme.typography.labelLarge,
-                color = chipContentColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.End,
-                modifier = Modifier.fillMaxWidth(),
+        UprightContent {
+            Icon(
+                icon = viewModel.icons.first().icon,
+                modifier = Modifier.size(16.dp),
+                tint = chipContentColor,
             )
+        }
+        Spacer(modifier = Modifier.width(cutoutSpec.embeddedGapWidth))
+        UprightContent(modifier = Modifier.weight(1f)) {
+            Box(
+                modifier =
+                    Modifier.fillMaxWidth()
+                        .padding(
+                            start = 6.dp,
+                            top = 7.dp * heightScale,
+                            bottom = 7.dp * heightScale,
+                            end = 6.dp,
+                        ),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                Text(
+                    text = utilityText,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = chipContentColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
         Spacer(modifier = Modifier.width(10.dp))
     }
@@ -345,18 +355,20 @@ private fun StatusContent(
     color: Color,
     showSwipeHint: Boolean,
 ) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelLarge,
-            color = color,
-            maxLines = 1,
-        )
-        if (showSwipeHint) {
-            SwipeHint(color = color.copy(alpha = 0.72f))
+    UprightContent {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge,
+                color = color,
+                maxLines = 1,
+            )
+            if (showSwipeHint) {
+                SwipeHint(color = color.copy(alpha = 0.72f))
+            }
         }
     }
 }
