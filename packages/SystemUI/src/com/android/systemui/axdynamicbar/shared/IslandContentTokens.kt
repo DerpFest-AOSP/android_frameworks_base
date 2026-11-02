@@ -3,6 +3,7 @@
 package com.android.systemui.axdynamicbar.shared
 
 import android.app.ActivityOptions
+import android.app.BroadcastOptions
 import com.android.systemui.res.R
 import android.app.PendingIntent
 import android.content.Context
@@ -696,10 +697,14 @@ internal fun CustomActionIcon(
 }
 
 internal fun PendingIntent.sendWithBal(context: Context, fillIntent: Intent? = null) {
-    val options = ActivityOptions.makeBasic()
-    options.setPendingIntentBackgroundActivityStartMode(
-        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
-    )
+    // The call card answers through here. A bare send is "BAL blocked", so mark the tap
+    // interactive and allow the background activity start, the same way the shade does.
+    val options =
+        BroadcastOptions.makeBasic().apply {
+            isInteractive = true
+            pendingIntentBackgroundActivityStartMode =
+                ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS
+        }
     send(context, 0, fillIntent, null, null, null, options.toBundle())
 }
 

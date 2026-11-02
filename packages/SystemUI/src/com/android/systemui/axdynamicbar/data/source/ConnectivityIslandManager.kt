@@ -71,7 +71,10 @@ constructor(
                     BluetoothDevice.METADATA_MAIN_ICON -> loadDeviceImage(device, force = true)
                     BluetoothDevice.METADATA_UNTETHERED_LEFT_BATTERY,
                     BluetoothDevice.METADATA_UNTETHERED_RIGHT_BATTERY,
-                    BluetoothDevice.METADATA_UNTETHERED_CASE_BATTERY -> refreshDeviceBatteries(device)
+                    BluetoothDevice.METADATA_UNTETHERED_CASE_BATTERY,
+                    BluetoothDevice.METADATA_UNTETHERED_LEFT_CHARGING,
+                    BluetoothDevice.METADATA_UNTETHERED_RIGHT_CHARGING,
+                    BluetoothDevice.METADATA_UNTETHERED_CASE_CHARGING -> refreshDeviceBatteries(device)
                 }
             }
         }
@@ -159,8 +162,28 @@ constructor(
                     readBatteryMetadata(device, BluetoothDevice.METADATA_UNTETHERED_RIGHT_BATTERY),
                 caseBatteryLevel =
                     readBatteryMetadata(device, BluetoothDevice.METADATA_UNTETHERED_CASE_BATTERY),
+                leftCharging =
+                    readChargingMetadata(device, BluetoothDevice.METADATA_UNTETHERED_LEFT_CHARGING),
+                rightCharging =
+                    readChargingMetadata(
+                        device,
+                        BluetoothDevice.METADATA_UNTETHERED_RIGHT_CHARGING,
+                    ),
+                caseCharging =
+                    readChargingMetadata(device, BluetoothDevice.METADATA_UNTETHERED_CASE_CHARGING),
             )
     }
+
+    private fun readChargingMetadata(device: BluetoothDevice, key: Int): Boolean =
+        try {
+            device
+                .getMetadata(key)
+                ?.toString(Charsets.UTF_8)
+                ?.trim()
+                .equals("true", ignoreCase = true)
+        } catch (_: RuntimeException) {
+            false
+        }
 
     private fun readBatteryMetadata(device: BluetoothDevice, key: Int): Int? =
         try {

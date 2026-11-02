@@ -404,6 +404,10 @@
     <string name="dynamic_island_screen_record_active">Recording is active</string>
     <string name="dynamic_island_screen_record_countdown">Starts in %1$ss</string>
     <string name="dynamic_island_alarm_title">Next alarm</string>
+    <string name="dynamic_island_alarm_in_minutes">in <xliff:g id="minutes" example="42">%1$d</xliff:g>m</string>
+    <string name="dynamic_island_alarm_in_hours">in <xliff:g id="hours" example="7">%1$d</xliff:g>h</string>
+    <string name="dynamic_island_alarm_in_hours_minutes">in <xliff:g id="hours" example="7">%1$d</xliff:g>h <xliff:g id="minutes" example="5">%2$d</xliff:g>m</string>
+    <string name="dynamic_island_alarm_in_days">in <xliff:g id="days" example="2">%1$d</xliff:g>d</string>
     <string name="dynamic_island_flashlight_enabled">Enabled</string>
     <string name="dynamic_island_flashlight_short">ON</string>
     <string name="dynamic_island_open_action">Open</string>

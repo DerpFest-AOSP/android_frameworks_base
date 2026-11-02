@@ -20,8 +20,10 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.view.DisplayCutout
 import android.view.HapticFeedbackConstants
+import android.view.View
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.spring
@@ -44,10 +46,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -55,12 +61,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.Measurable
+import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.android.systemui.common.ui.compose.Icon
@@ -73,6 +83,7 @@ import com.android.systemui.statusbar.quickactions.island.ui.model.PopupChipMode
 import com.android.systemui.statusbar.quickactions.island.ui.model.PopupContentModel
 import com.android.systemui.statusbar.quickactions.island.screenrecord.shared.model.ScreenRecordPopupModel
 import kotlin.math.ceil
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
 
@@ -84,6 +95,8 @@ fun StatusBarDynamicIslandChip(
     cutoutSpec: DynamicIslandCutoutSpec,
     onTap: () -> Unit,
     modifier: Modifier = Modifier,
+    pageIndex: Int = 0,
+    onNextPage: () -> Unit = {},
 ) {
     val isMediaChip = viewModel.popupContent is PopupContentModel.Media
     val chipShape = RoundedCornerShape(50)
@@ -123,6 +136,9 @@ fun StatusBarDynamicIslandChip(
         UtilityStatusIslandChip(
             viewModel = viewModel,
             onTap = hapticOnTap,
+            pageCount = pageCount,
+            pageIndex = pageIndex,
+            onNextPage = onNextPage,
             cutoutSpec = cutoutSpec,
             heightScale = heightScale,
             configuredWidth = configuredWidth,
@@ -139,15 +155,11 @@ fun StatusBarDynamicIslandChip(
             is PopupContentModel.Media ->
                 if (popupContent.model.isPlaying) {
                     14.dp
-                } else if (pageCount > 1) {
-                    11.dp
                 } else {
-                    0.dp
+                    pageDotsWidth(pageCount)
                 }
-            is PopupContentModel.ScreenRecord -> 11.dp
-            else -> {
-                if (pageCount > 1) 11.dp else 0.dp
-            }
+            is PopupContentModel.ScreenRecord -> pageDotsWidth(pageCount).coerceAtLeast(11.dp)
+            else -> pageDotsWidth(pageCount)
         }
     val leadingDecorationWidth =
         when {
@@ -158,8 +170,14 @@ fun StatusBarDynamicIslandChip(
         (configuredWidth - 24.dp - leadingDecorationWidth - trailingDecorationWidth)
             .coerceAtLeast(0.dp)
     val collapseState = rememberDynamicIslandCollapseState(viewModel.isPopupShown)
+    // A chip centred on the camera keeps its icon and text on either side of the lens, so short
+    // labels are not hidden behind it.
+    val cameraGap =
+        cutoutSpec.embeddedGapWidth.takeIf { !isMediaChip && cutoutSpec.cutoutCenterX != null }
 
-    Row(
+    CameraSplitRow(
+        leadingCount = viewModel.icons.size,
+        cameraGap = cameraGap,
         modifier =
             modifier
                 .defaultMinSize(minHeight = 32.dp * heightScale)
@@ -230,7 +248,14 @@ fun StatusBarDynamicIslandChip(
                         )
                     }
                 } else if (pageCount > 1) {
-                    UprightContent { SwipeHint(color = chipContentColor.copy(alpha = 0.72f)) }
+                    UprightContent {
+                        PageDots(
+                            count = pageCount,
+                            index = pageIndex,
+                            color = chipContentColor,
+                            onClick = onNextPage,
+                        )
+                    }
                 }
             is PopupContentModel.ScreenRecord ->
                 when (val model = popupContent.model) {
@@ -238,13 +263,17 @@ fun StatusBarDynamicIslandChip(
                         StatusContent(
                             text = viewModel.chipText.orEmpty(),
                             color = chipContentColor,
-                            showSwipeHint = pageCount > 1,
+                            pageCount = pageCount,
+                            pageIndex = pageIndex,
+                            onNextPage = onNextPage,
                         )
                     is ScreenRecordPopupModel.Recording ->
                         StatusContent(
                             text = viewModel.chipText.orEmpty(),
                             color = chipContentColor,
-                            showSwipeHint = pageCount > 1,
+                            pageCount = pageCount,
+                            pageIndex = pageIndex,
+                            onNextPage = onNextPage,
                         )
                 }
             is PopupContentModel.Stopwatch ->
@@ -255,11 +284,20 @@ fun StatusBarDynamicIslandChip(
                                 popupContent.model.baseElapsedRealtimeMs
                             ),
                     color = chipContentColor,
-                    showSwipeHint = pageCount > 1,
+                    pageCount = pageCount,
+                    pageIndex = pageIndex,
+                    onNextPage = onNextPage,
                 )
             else -> {
                 if (pageCount > 1) {
-                    UprightContent { SwipeHint(color = chipContentColor.copy(alpha = 0.72f)) }
+                    UprightContent {
+                        PageDots(
+                            count = pageCount,
+                            index = pageIndex,
+                            color = chipContentColor,
+                            onClick = onNextPage,
+                        )
+                    }
                 }
             }
         }
@@ -270,6 +308,9 @@ fun StatusBarDynamicIslandChip(
 private fun UtilityStatusIslandChip(
     viewModel: PopupChipModel.Shown,
     onTap: () -> Unit,
+    pageCount: Int,
+    pageIndex: Int,
+    onNextPage: () -> Unit,
     cutoutSpec: DynamicIslandCutoutSpec,
     heightScale: Float = 1f,
     configuredWidth: Dp,
@@ -279,9 +320,25 @@ private fun UtilityStatusIslandChip(
     modifier: Modifier = Modifier,
 ) {
     // The cutout gap is physical, so the pill cannot shrink through the camera hole.
+    val contentTint = viewModel.contentTint ?: chipContentColor
+    val startText =
+        when (val popupContent = viewModel.popupContent) {
+            is PopupContentModel.Alarm ->
+                rememberAlarmCountdownText(popupContent.model.triggerTimeMs)
+            else -> viewModel.startText
+        }
+    val dotsWidth = pageDotsWidth(pageCount)
+    val startWidth = if (startText != null) CompactUtilityStartTextWidth else 0.dp
     val contentFloor =
-        UtilitySideChromeWidth + cutoutSpec.embeddedGapWidth + UtilityTextMinWidth
+        UtilitySideChromeWidth +
+            cutoutSpec.embeddedGapWidth +
+            UtilityTextMinWidth +
+            dotsWidth +
+            startWidth
     val connectedIslandWidth = maxOf(contentFloor, configuredWidth)
+    // Centred on a camera, the two sides have to be as wide as each other, or the gap drifts off
+    // the lens towards the shorter side and the text ends up behind it.
+    val splitAroundCamera = cutoutSpec.cutoutCenterX != null
     val utilityText =
         when (val popupContent = viewModel.popupContent) {
             is PopupContentModel.ScreenRecord ->
@@ -299,53 +356,151 @@ private fun UtilityStatusIslandChip(
         }
     val collapseState = rememberDynamicIslandCollapseState(viewModel.isPopupShown)
 
-    Row(
-        modifier =
-            modifier
-                .graphicsLayer { scaleX = collapseState.scale }
-                .defaultMinSize(minHeight = 32.dp * heightScale)
-                .width(connectedIslandWidth)
-                .clip(RoundedCornerShape(50))
-                .background(chipBackgroundColor)
-                .border(width = 1.dp, color = chipOutline, shape = RoundedCornerShape(50))
-                .clickable(onClick = onTap)
-                .graphicsLayer { alpha = collapseState.contentAlpha },
-        horizontalArrangement = Arrangement.spacedBy(0.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Spacer(modifier = Modifier.width(10.dp))
+    val icon: @Composable () -> Unit = {
         UprightContent {
             Icon(
                 icon = viewModel.icons.first().icon,
                 modifier = Modifier.size(16.dp),
-                tint = chipContentColor,
+                tint = contentTint,
             )
         }
-        Spacer(modifier = Modifier.width(cutoutSpec.embeddedGapWidth))
-        UprightContent(modifier = Modifier.weight(1f)) {
-            Box(
-                modifier =
-                    Modifier.fillMaxWidth()
-                        .padding(
-                            start = 6.dp,
-                            top = 7.dp * heightScale,
-                            bottom = 7.dp * heightScale,
-                            end = 6.dp,
-                        ),
-                contentAlignment = Alignment.CenterEnd,
-            ) {
+    }
+    val startLabel: @Composable () -> Unit = {
+        if (startText != null) {
+            UprightContent {
                 Text(
-                    text = utilityText,
+                    text = startText,
                     style = MaterialTheme.typography.labelLarge,
-                    color = chipContentColor,
+                    color = contentTint,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.End,
-                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         }
-        Spacer(modifier = Modifier.width(10.dp))
+    }
+    val pageDots: @Composable () -> Unit = {
+        if (pageCount > 1) {
+            UprightContent {
+                PageDots(
+                    count = pageCount,
+                    index = pageIndex,
+                    color = chipContentColor,
+                    onClick = onNextPage,
+                )
+            }
+        }
+    }
+
+    val chipModifier =
+        modifier
+            .graphicsLayer { scaleX = collapseState.scale }
+            .defaultMinSize(minHeight = 32.dp * heightScale)
+            .then(
+                if (splitAroundCamera) {
+                    Modifier.widthIn(
+                        min = contentFloor,
+                        max = maxOf(contentFloor, CompactUtilityCameraSplitMaxWidth),
+                    )
+                } else {
+                    Modifier.width(connectedIslandWidth)
+                }
+            )
+            .clip(RoundedCornerShape(50))
+            .background(chipBackgroundColor)
+            .border(width = 1.dp, color = chipOutline, shape = RoundedCornerShape(50))
+            .clickable(onClick = onTap)
+            .graphicsLayer { alpha = collapseState.contentAlpha }
+            .then(if (splitAroundCamera) Modifier.padding(horizontal = 10.dp) else Modifier)
+    if (splitAroundCamera) {
+        CameraSplitRow(
+            leadingCount = if (startText != null) 2 else 1,
+            cameraGap = cutoutSpec.embeddedGapWidth,
+            modifier = chipModifier,
+            horizontalArrangement = Arrangement.spacedBy(0.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            icon()
+            startLabel()
+            UprightContent {
+                Text(
+                    text = utilityText,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = contentTint,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            pageDots()
+        }
+    } else {
+        // CameraSplitRow's content is not a Row, so the leftover width has to be taken here.
+        Row(
+            modifier = chipModifier,
+            horizontalArrangement = Arrangement.spacedBy(0.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Spacer(modifier = Modifier.width(10.dp))
+            icon()
+            if (startText != null) {
+                Spacer(modifier = Modifier.width(6.dp))
+                startLabel()
+            }
+            Spacer(modifier = Modifier.width(cutoutSpec.embeddedGapWidth))
+            UprightContent(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier =
+                        Modifier.fillMaxWidth()
+                            .padding(
+                                start = 6.dp,
+                                top = 7.dp * heightScale,
+                                bottom = 7.dp * heightScale,
+                                end = 6.dp,
+                            ),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = utilityText,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = contentTint,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    pageDots()
+                }
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+        }
+    }
+}
+
+/**
+ * The time left until the alarm as short text such as `in 7h 5m`, kept current once a minute. Null
+ * when there is no upcoming alarm to count down to, e.g. while one is ringing.
+ */
+@Composable
+private fun rememberAlarmCountdownText(triggerTimeMs: Long): String? {
+    val context = LocalContext.current
+    val now by
+        produceState(System.currentTimeMillis(), triggerTimeMs) {
+            while (triggerTimeMs > 0L) {
+                delay(AlarmCountdownTickMs)
+                value = System.currentTimeMillis()
+            }
+        }
+    if (triggerTimeMs <= 0L) return null
+    val minutes = ((triggerTimeMs - now + 59_999L) / 60_000L).toInt()
+    if (minutes <= 0) return null
+    val hours = minutes / 60
+    return when {
+        minutes < 60 -> context.getString(R.string.dynamic_island_alarm_in_minutes, minutes)
+        minutes < 24 * 60 && minutes % 60 == 0 ->
+            context.getString(R.string.dynamic_island_alarm_in_hours, hours)
+        minutes < 24 * 60 ->
+            context.getString(R.string.dynamic_island_alarm_in_hours_minutes, hours, minutes % 60)
+        else -> context.getString(R.string.dynamic_island_alarm_in_days, minutes / (24 * 60))
     }
 }
 
@@ -353,7 +508,9 @@ private fun UtilityStatusIslandChip(
 private fun StatusContent(
     text: String,
     color: Color,
-    showSwipeHint: Boolean,
+    pageCount: Int,
+    pageIndex: Int,
+    onNextPage: () -> Unit,
 ) {
     UprightContent {
         Row(
@@ -366,32 +523,138 @@ private fun StatusContent(
                 color = color,
                 maxLines = 1,
             )
-            if (showSwipeHint) {
-                SwipeHint(color = color.copy(alpha = 0.72f))
+            if (pageCount > 1) {
+                PageDots(count = pageCount, index = pageIndex, color = color, onClick = onNextPage)
             }
         }
     }
 }
 
+/** Width of [PageDots] for [count] pages, including the padding that makes it tappable. */
+private fun pageDotsWidth(count: Int): Dp {
+    if (count <= 1) return 0.dp
+    val visible = minOf(count, MaxPageDots)
+    return PageDotActiveWidth + (PageDotSize + PageDotSpacing) * (visible - 1) + PageDotsTapPadding * 2
+}
+
+/**
+ * One dot per stacked chip with the current one stretched, so it shows how many chips are stacked
+ * and where this one is among them. A tap goes to the next chip. With more than [MaxPageDots]
+ * chips, the dots follow the current one.
+ */
 @Composable
-private fun SwipeHint(color: Color) {
+private fun PageDots(count: Int, index: Int, color: Color, onClick: () -> Unit) {
+    val visible = minOf(count, MaxPageDots)
+    val first = (index - visible / 2).coerceIn(0, count - visible)
     Row(
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        modifier =
+            Modifier.clickable(onClick = onClick)
+                .padding(horizontal = PageDotsTapPadding, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(PageDotSpacing),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        repeat(2) {
+        repeat(visible) { slot ->
+            val isCurrent = first + slot == index
+            val width by
+                animateDpAsState(
+                    targetValue = if (isCurrent) PageDotActiveWidth else PageDotSize,
+                    label = "pageDotWidth",
+                )
             Box(
-                modifier = Modifier.size(width = 3.dp, height = 3.dp)
-                    .background(color = color, shape = CircleShape)
+                modifier =
+                    Modifier.size(width = width, height = PageDotSize)
+                        .background(
+                            color = color.copy(alpha = if (isCurrent) 0.9f else 0.45f),
+                            shape = CircleShape,
+                        )
             )
         }
     }
 }
 
+/**
+ * A [Row] that, given a [cameraGap], keeps the first [leadingCount] children before a centred gap
+ * and the rest after it. Both sides take the same width so the gap stays over the camera.
+ */
+@Composable
+private fun CameraSplitRow(
+    leadingCount: Int,
+    cameraGap: Dp?,
+    modifier: Modifier,
+    horizontalArrangement: Arrangement.Horizontal,
+    verticalAlignment: Alignment.Vertical,
+    content: @Composable () -> Unit,
+) {
+    if (cameraGap == null) {
+        Row(
+            modifier = modifier,
+            horizontalArrangement = horizontalArrangement,
+            verticalAlignment = verticalAlignment,
+        ) {
+            content()
+        }
+        return
+    }
+    Layout(content = content, modifier = modifier) { measurables, constraints ->
+        val gapPx = cameraGap.roundToPx()
+        val spacingPx = CameraSplitSpacing.roundToPx()
+        val sideMaxPx = ((constraints.maxWidth - gapPx) / 2).coerceAtLeast(0)
+
+        fun measureSide(items: List<Measurable>): List<Placeable> {
+            var remaining = sideMaxPx
+            return items.map { item ->
+                item
+                    .measure(
+                        Constraints(
+                            maxWidth = remaining.coerceAtLeast(0),
+                            maxHeight = constraints.maxHeight,
+                        )
+                    )
+                    .also { remaining -= it.width + spacingPx }
+            }
+        }
+
+        fun List<Placeable>.span() =
+            if (isEmpty()) 0 else sumOf { it.width } + spacingPx * (size - 1)
+
+        val leading = measureSide(measurables.take(leadingCount))
+        val trailing = measureSide(measurables.drop(leadingCount))
+        val side = maxOf(leading.span(), trailing.span())
+        val width = (side * 2 + gapPx).coerceIn(constraints.minWidth, constraints.maxWidth)
+        val height =
+            (leading + trailing)
+                .maxOfOrNull { it.height }
+                ?.coerceIn(constraints.minHeight, constraints.maxHeight)
+                ?: constraints.minHeight
+        layout(width, height) {
+            var x = 0
+            leading.forEach {
+                it.placeRelative(x, (height - it.height) / 2)
+                x += it.width + spacingPx
+            }
+            x = width
+            trailing.asReversed().forEach {
+                x -= it.width
+                it.placeRelative(x, (height - it.height) / 2)
+                x -= spacingPx
+            }
+        }
+    }
+}
+
+private val CameraSplitSpacing = 8.dp
+private val CompactUtilityStartTextWidth = 36.dp
+private const val AlarmCountdownTickMs = 30_000L
+private const val MaxPageDots = 5
+private val PageDotSize = 4.dp
+private val PageDotActiveWidth = 10.dp
+private val PageDotSpacing = 3.dp
+private val PageDotsTapPadding = 4.dp
 private val MinDynamicIslandWidth = 80.dp
 private val MaxDynamicIslandWidth = 200.dp
 private val UtilitySideChromeWidth = 36.dp
 private val UtilityTextMinWidth = 48.dp
+private val CompactUtilityCameraSplitMaxWidth = 232.dp
 private val DynamicIslandEmbeddedGapFallbackWidth = 38.dp
 private val DynamicIslandEmbeddedGapMinWidth = 34.dp
 private val DynamicIslandEmbeddedGapMaxWidth = 88.dp
@@ -411,6 +674,24 @@ fun rememberDynamicIslandCutoutSpec(): DynamicIslandCutoutSpec {
     val view = LocalView.current
     val verticalOffsetPercent = rememberDynamicIslandVerticalOffsetPercent()
     val statusBarHeight = dimensionResource(R.dimen.status_bar_height)
+    var cameraAlignOffsetYPx by remember { mutableFloatStateOf(0f) }
+    DisposableEffect(view) {
+        val listener =
+            View.OnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+                val hole =
+                    (v.rootWindowInsets?.displayCutout ?: v.display?.cutout)
+                        ?.dynamicIslandHoleRect()
+                cameraAlignOffsetYPx =
+                    dynamicIslandCameraCenterOffsetYPx(
+                        v,
+                        hole,
+                        v.resources.displayMetrics.density,
+                    )
+            }
+        view.addOnLayoutChangeListener(listener)
+        listener.onLayoutChange(view, 0, 0, 0, 0, 0, 0, 0, 0)
+        onDispose { view.removeOnLayoutChangeListener(listener) }
+    }
     val displayCutout = view.rootWindowInsets?.displayCutout ?: view.display?.cutout
     val topCutout = displayCutout?.topBoundingRectOrNull()
     val rootWidthPx =
@@ -423,7 +704,9 @@ fun rememberDynamicIslandCutoutSpec(): DynamicIslandCutoutSpec {
     return with(density) {
         // Percent of the status bar, so the same setting is the same fraction of the bar at
         // every density and resolution.
-        val verticalOffsetDp = statusBarHeight * (verticalOffsetPercent / 100f)
+        // The user's offset stays "extra". The camera alignment is added underneath it.
+        val verticalOffsetDp =
+            statusBarHeight * (verticalOffsetPercent / 100f) + cameraAlignOffsetYPx.toDp()
         if (topCutout == null || rootWidthPx <= 0) {
             DynamicIslandCutoutSpec(
                 embeddedGapWidth = DynamicIslandEmbeddedGapFallbackWidth,

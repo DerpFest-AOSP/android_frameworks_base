@@ -22,6 +22,8 @@ import com.android.systemui.common.shared.model.ContentDescription
 import com.android.systemui.common.shared.model.ContentDescription.Companion.loadContentDescription
 import com.android.systemui.common.shared.model.Icon
 import com.android.systemui.dagger.qualifiers.Application
+import com.android.systemui.flashlight.domain.interactor.FlashlightInteractor
+import com.android.systemui.flashlight.shared.model.FlashlightModel
 import com.android.systemui.lifecycle.ExclusiveActivatable
 import com.android.systemui.lifecycle.Hydrator
 import com.android.systemui.res.R
@@ -40,7 +42,6 @@ import dagger.assisted.AssistedInject
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.map
 
 /** ViewModel backing the flashlight page inside the dynamic island. */
 class FlashlightPopupChipViewModel
@@ -48,6 +49,7 @@ class FlashlightPopupChipViewModel
 constructor(
     @Application private val context: Context,
     private val flashlightController: FlashlightController,
+    private val flashlightInteractor: FlashlightInteractor,
 ) : IslandChipViewModel, ExclusiveActivatable() {
     private val hydrator = Hydrator("FlashlightPopupChipViewModel.hydrator")
 
@@ -76,7 +78,9 @@ constructor(
                         trySend(readFlashlightState())
                         awaitClose { flashlightController.removeCallback(callback) }
                     }
-                    .map(::toPopupChipModel)
+                    .combine(flashlightInteractor.state) { state, flashlightModel ->
+                        toPopupChipModel(state, flashlightModel)
+                    }
                     .combine(
                         observeDynamicIslandFeatureEnabled(context, FLASHLIGHT)
                     ) { model, enabled ->
@@ -88,15 +92,22 @@ constructor(
         hydrator.activate()
     }
 
-    private fun toPopupChipModel(state: FlashlightState): PopupChipModel {
+    private fun toPopupChipModel(
+        state: FlashlightState,
+        flashlightModel: FlashlightModel,
+    ): PopupChipModel {
         if (!state.hasFlashlight || !state.isAvailable || !state.isEnabled) {
             return PopupChipModel.Hidden(PopupChipId.Flashlight)
         }
 
+        val levelState = flashlightModel as? FlashlightModel.Available.Level
         val model =
             FlashlightPopupModel(
-                levelPercent = null,
+                level = levelState?.level,
+                maxLevel = levelState?.max,
                 turnOff = { flashlightController.setFlashlight(false) },
+                setLevelTemporary = { flashlightInteractor.setTemporaryLevel(it) },
+                setLevel = { flashlightInteractor.setLevel(it) },
             )
 
         val contentDescription =
@@ -114,7 +125,14 @@ constructor(
                             ),
                     )
                 ),
-            chipText = context.getString(R.string.dynamic_island_flashlight_short),
+            // With an adjustable strength, the percentage goes after the lens and "ON" before it.
+            chipText =
+                model.strengthPercent?.let { "$it%" }
+                    ?: context.getString(R.string.dynamic_island_flashlight_short),
+            startText =
+                context.getString(R.string.dynamic_island_flashlight_short).takeIf {
+                    model.strengthPercent != null
+                },
             colors = ColorsModel.DynamicIsland,
             contentDescription = contentDescription.loadContentDescription(context),
             popupContent = PopupContentModel.Flashlight(model),

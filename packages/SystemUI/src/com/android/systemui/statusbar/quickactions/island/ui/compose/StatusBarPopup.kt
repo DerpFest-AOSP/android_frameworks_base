@@ -315,6 +315,21 @@ fun StatusBarPopup(
                         }
                     }
 
+                    override fun setTorchLevel(level: Int) {
+                        val content = viewModel.popupContent
+                        if (content is PopupContentModel.Flashlight) content.model.setLevel(level)
+                        else islandActions.setTorchLevel(level)
+                    }
+
+                    override fun setTorchLevelTemporary(level: Int) {
+                        val content = viewModel.popupContent
+                        if (content is PopupContentModel.Flashlight) {
+                            content.model.setLevelTemporary(level)
+                        } else {
+                            islandActions.setTorchLevelTemporary(level)
+                        }
+                    }
+
                     override fun togglePlayPause() {
                         mediaModel?.playOrPause?.action?.run()
                             ?: islandActions.togglePlayPause()
@@ -504,7 +519,10 @@ fun StatusBarPopup(
                         val model = popupContent.model
                         val eventTorch =
                             remember(model) {
-                                IslandEvent.Torch(level = model.levelPercent ?: -1, maxLevel = 100)
+                                IslandEvent.Torch(
+                                    level = model.level ?: -1,
+                                    maxLevel = model.maxLevel ?: -1,
+                                )
                             }
                         Box(modifier = Modifier.widthIn(min = 280.dp, max = 340.dp)) {
                             PrimaryCard {

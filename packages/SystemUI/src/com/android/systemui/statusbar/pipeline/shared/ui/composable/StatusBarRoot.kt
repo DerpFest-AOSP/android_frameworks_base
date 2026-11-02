@@ -68,6 +68,7 @@ import androidx.compose.ui.layout.onLayoutRectChanged
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalViewConfiguration
@@ -139,6 +140,7 @@ import com.android.systemui.statusbar.quickactions.island.ui.DynamicIslandSideEd
 import com.android.systemui.statusbar.quickactions.island.ui.compose.DynamicIslandCutoutEdge
 import com.android.systemui.statusbar.quickactions.island.ui.compose.DynamicIslandEdge
 import com.android.systemui.statusbar.quickactions.island.ui.compose.StatusBarDynamicIslandContainer
+import com.android.systemui.statusbar.quickactions.island.shared.DynamicIslandFeatureSettings.observeDynamicIslandVerticalOffset
 import com.android.systemui.statusbar.quickactions.island.ui.compose.resolveDynamicIslandCutoutEdge
 import com.android.systemui.statusbar.quickactions.island.ui.model.PopupChipId
 import com.android.systemui.statusbar.policy.Clock
@@ -152,6 +154,7 @@ import com.android.systemui.statusbar.systemstatusicons.ui.viewmodel.SystemStatu
 import com.android.systemui.statusbar.ui.viewmodel.StatusBarRegionSamplingViewModel
 import com.android.systemui.util.boundsOnScreen
 import javax.inject.Inject
+import kotlin.math.roundToInt
 import kotlin.math.abs
 import kotlinx.coroutines.DisposableHandle
 import kotlinx.coroutines.awaitCancellation
@@ -500,10 +503,19 @@ fun StatusBarRoot(
                 statusBarViewModel.onIslandBoundsChanged(Rect())
             }
         }
-        DisposableEffect(dockToSide, sideEdge) {
+        val sideDensity = LocalDensity.current
+        val statusBarHeightPx =
+            with(sideDensity) { dimensionResource(R.dimen.status_bar_height).roundToPx() }
+        val sideVerticalOffsetPercent by
+            remember(sideHostContext) { observeDynamicIslandVerticalOffset(sideHostContext) }
+                .collectAsState(initial = 0)
+        DisposableEffect(dockToSide, sideEdge, sideVerticalOffsetPercent, statusBarHeightPx) {
             val edge = sideEdge
             if (dockToSide && edge != null) {
-                sideEdgeHost.show(edge)
+                // No separate horizontal offset here. Turn the vertical one with the pill so it
+                // still moves the island away from a side camera.
+                val yPx = (statusBarHeightPx * sideVerticalOffsetPercent / 100f).roundToInt()
+                sideEdgeHost.show(edge, edge.rotateOffset(0, yPx))
             } else {
                 sideEdgeHost.hide()
             }

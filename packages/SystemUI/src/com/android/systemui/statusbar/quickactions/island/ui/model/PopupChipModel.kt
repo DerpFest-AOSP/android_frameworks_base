@@ -16,6 +16,7 @@
 
 package com.android.systemui.statusbar.quickactions.island.ui.model
 
+import androidx.compose.ui.graphics.Color
 import com.android.systemui.statusbar.quickactions.island.alarm.shared.model.AlarmPopupModel
 import com.android.systemui.statusbar.quickactions.island.flashlight.shared.model.FlashlightPopupModel
 import com.android.systemui.common.shared.model.Icon
@@ -99,11 +100,20 @@ sealed class PopupChipModel {
         /** Icons shown on the chip when no specific hover behavior. */
         val icons: List<ChipIcon>,
         val chipText: String?,
+        /**
+         * Text beside the icon, on the leading side of the camera. Fills the side that the single
+         * icon of a utility chip leaves empty.
+         */
+        val startText: String? = null,
+        /** Replaces the content color of a utility chip. */
+        val contentTint: Color? = null,
         /** Determines the colors used for the chip. Defaults to system themed colors. */
         val colors: ColorsModel = ColorsModel.SystemTheme,
         val isPopupShown: Boolean = false,
         val showPopup: () -> Unit = {},
         val hidePopup: () -> Unit = {},
+        /** Swipes the chip away until what it shows changes. */
+        val hide: () -> Unit = {},
         val hoverBehavior: HoverBehavior = HoverBehavior.None,
         val contentDescription: String? = null,
         val popupContent: PopupContentModel = PopupContentModel.None,

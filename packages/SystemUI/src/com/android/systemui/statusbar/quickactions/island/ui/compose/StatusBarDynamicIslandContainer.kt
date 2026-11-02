@@ -23,6 +23,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
@@ -33,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -194,6 +197,12 @@ fun StatusBarDynamicIslandContainer(
             label = "dynamic_island_chip",
         ) { chipId ->
             val chip = chips.firstOrNull { it.chipId == chipId } ?: return@AnimatedContent
+            // The gesture handlers below keep running across recompositions, so they read the
+            // latest chip and pager state instead of what they were created with.
+            val currentChip by rememberUpdatedState(chip)
+            val currentSelectRelative by rememberUpdatedState { direction: Int ->
+                selectRelative(direction)
+            }
             var horizontalDragPx by remember(chipId, chips.size) { mutableFloatStateOf(0f) }
             val thresholdPx = with(LocalDensity.current) { 36.dp.toPx() }
 
@@ -201,17 +210,24 @@ fun StatusBarDynamicIslandContainer(
                 StatusBarDynamicIslandChip(
                     viewModel = chip,
                     pageCount = chips.size,
+                    pageIndex = chips.indexOfFirst { it.chipId == chipId }.coerceAtLeast(0),
+                    onNextPage = { selectRelative(1) },
                     cutoutSpec = cutoutSpec,
                     modifier =
                         Modifier.onGloballyPositioned { coordinates ->
                                 chipBoundsInScreen = coordinates.boundsInScreen(islandView)
                             }
+                            .swipeUpToHide(chip.chipId, thresholdPx) { currentChip.hide() }
                             .pointerInput(chips.size, chip.chipId) {
                                 detectHorizontalDragGestures(
                                     onDragEnd = {
                                         when {
-                                            horizontalDragPx <= -thresholdPx -> selectRelative(1)
-                                            horizontalDragPx >= thresholdPx -> selectRelative(-1)
+                                            chips.size <= 1 && abs(horizontalDragPx) >= thresholdPx ->
+                                                currentChip.hide()
+                                            horizontalDragPx <= -thresholdPx ->
+                                                currentSelectRelative(1)
+                                            horizontalDragPx >= thresholdPx ->
+                                                currentSelectRelative(-1)
                                         }
                                         horizontalDragPx = 0f
                                     },
@@ -242,3 +258,21 @@ fun StatusBarDynamicIslandContainer(
         }
     }
 }
+
+/** Hides the island on a swipe up; a pull down is left to the shade. */
+private fun Modifier.swipeUpToHide(key: Any, slopPx: Float, onHide: () -> Unit): Modifier =
+    pointerInput(key) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            var change = down
+            while (change.pressed) {
+                change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                val delta = change.position - down.position
+                if (-delta.y >= slopPx && -delta.y > abs(delta.x)) {
+                    change.consume()
+                    onHide()
+                    break
+                }
+            }
+        }
+    }

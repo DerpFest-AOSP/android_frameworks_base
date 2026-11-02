@@ -13,13 +13,17 @@ import android.os.UserHandle
 import android.provider.Settings
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.lifecycle.ExclusiveActivatable
+import com.android.systemui.shade.domain.interactor.ShadeInteractor
 import com.android.systemui.shared.system.ActivityManagerWrapper
 import com.android.systemui.shared.system.TaskStackChangeListener
 import com.android.systemui.shared.system.TaskStackChangeListeners
+import com.android.systemui.statusbar.policy.KeyguardStateController
 import com.android.systemui.statusbar.quickactions.island.alarm.ui.viewmodel.AlarmPopupChipViewModel
 import com.android.systemui.statusbar.quickactions.island.flashlight.ui.viewmodel.FlashlightPopupChipViewModel
 import com.android.systemui.statusbar.quickactions.island.livescore.ui.viewmodel.LiveScorePopupChipViewModel
@@ -35,6 +39,7 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
 /**
@@ -52,6 +57,8 @@ internal constructor(
     private val alarmChip: IslandChipViewModel,
     private val ongoingCallChip: IslandChipViewModel,
     private val promotedOngoingChip: IslandChipViewModel,
+    private val keyguardStateController: KeyguardStateController? = null,
+    private val shadeInteractor: ShadeInteractor? = null,
 ) : ExclusiveActivatable() {
 
     @AssistedInject
@@ -65,6 +72,8 @@ internal constructor(
         alarmChipFactory: AlarmPopupChipViewModel.Factory,
         ongoingCallChipFactory: OngoingCallsPopupChipViewModel.Factory,
         promotedOngoingChipFactory: PromotedOngoingPopupChipViewModel.Factory,
+        keyguardStateController: KeyguardStateController,
+        shadeInteractor: ShadeInteractor,
     ) : this(
         context = context,
         mediaControlChip = mediaControlChipFactory.create(),
@@ -75,6 +84,8 @@ internal constructor(
         alarmChip = alarmChipFactory.create(),
         ongoingCallChip = ongoingCallChipFactory.create(),
         promotedOngoingChip = promotedOngoingChipFactory.create(),
+        keyguardStateController = keyguardStateController,
+        shadeInteractor = shadeInteractor,
     )
 
     private var isDynamicIslandEnabled by mutableStateOf(readDynamicIslandEnabled())
@@ -91,8 +102,24 @@ internal constructor(
     /** The ID of the current chip that is showing its popup, or `null` if no chip is shown. */
     private var currentShownPopupChipId by mutableStateOf<PopupChipId?>(null)
 
+    /** Chips swiped away, with what they showed then; they return once that changes. */
+    private val hiddenChips = mutableStateMapOf<PopupChipId, Any?>()
+
     /** Package of the top activity, so a media chip is not shown over the app it stands for. */
     private var foregroundPackage by mutableStateOf<String?>(null)
+
+    /** True while the lockscreen is showing, so a ringing call does not open the popup there. */
+    private var onLockscreen by mutableStateOf(keyguardStateController?.isShowing == true)
+
+    /** True while the shade covers the status bar. */
+    private var shadeExpanded by mutableStateOf(false)
+
+    private val keyguardCallback =
+        object : KeyguardStateController.Callback {
+            override fun onKeyguardShowingChanged() {
+                onLockscreen = keyguardStateController?.isShowing == true
+            }
+        }
 
     private val taskStackListener =
         object : TaskStackChangeListener {
@@ -150,6 +177,9 @@ internal constructor(
             )
             .filterIsInstance<PopupChipModel.Shown>()
             .filterNot { it.isOwnedByForegroundApp() }
+            .filterNot { chip ->
+                chip.chipId in hiddenChips && hiddenChips[chip.chipId] == chip.hideKey()
+            }
             .map { chip ->
                 chip.copy(
                     isPopupShown = chip.chipId == currentShownPopupChipId,
@@ -157,6 +187,14 @@ internal constructor(
                     hidePopup = {
                         if (currentShownPopupChipId == chip.chipId) {
                             currentShownPopupChipId = null
+                        }
+                    },
+                    hide = {
+                        if (chip.chipId.isHideable()) {
+                            hiddenChips[chip.chipId] = chip.hideKey()
+                            if (currentShownPopupChipId == chip.chipId) {
+                                currentShownPopupChipId = null
+                            }
                         }
                     },
                 )
@@ -175,7 +213,35 @@ internal constructor(
 
             TaskStackChangeListeners.getInstance().registerTaskStackListener(taskStackListener)
             updateForegroundPackage()
+            keyguardStateController?.addCallback(keyguardCallback)
+            onLockscreen = keyguardStateController?.isShowing == true
 
+            launch { shadeInteractor?.isAnyExpanded?.collect { shadeExpanded = it } }
+            launch { showRingingCall() }
+            launch {
+                // A swiped-away chip comes back once it ends or shows something new.
+                snapshotFlow {
+                        listOf(
+                                mediaControlChip.chip,
+                                screenRecordChip.chip,
+                                liveScoreChip.chip,
+                                flashlightChip.chip,
+                                stopwatchChip.chip,
+                                alarmChip.chip,
+                                ongoingCallChip.chip,
+                                promotedOngoingChip.chip,
+                            )
+                            .filterIsInstance<PopupChipModel.Shown>()
+                            .associate { it.chipId to it.hideKey() }
+                    }
+                    .collect { present ->
+                        hiddenChips.keys.toList().forEach { id ->
+                            if (id !in present || present[id] != hiddenChips[id]) {
+                                hiddenChips.remove(id)
+                            }
+                        }
+                    }
+            }
             launch { mediaControlChip.activate() }
             launch { screenRecordChip.activate() }
             launch { liveScoreChip.activate() }
@@ -189,6 +255,7 @@ internal constructor(
             } finally {
                 context.contentResolver.unregisterContentObserver(dynamicIslandObserver)
                 TaskStackChangeListeners.getInstance().unregisterTaskStackListener(taskStackListener)
+                keyguardStateController?.removeCallback(keyguardCallback)
             }
         }
     }
@@ -209,9 +276,58 @@ internal constructor(
      * Whether this chip belongs to the app now in the foreground. The media chip steps aside while
      * its own player is open.
      */
+    /** What a hidden chip has to change to come back: another song, or another stage of a call. */
+    private fun PopupChipModel.Shown.hideKey(): Any? =
+        when (val content = popupContent) {
+            is PopupContentModel.Media ->
+                listOf(
+                    content.model.packageName,
+                    content.model.songName?.toString(),
+                    content.model.artistName?.toString(),
+                )
+            is PopupContentModel.OngoingCall -> !content.event.connected
+            else -> null
+        }
+
+    /** Privacy indicators say that a camera or the screen is in use and are never swiped away. */
+    private fun PopupChipId.isHideable(): Boolean =
+        this != PopupChipId.AvControlsIndicator &&
+            this != PopupChipId.ShareScreenPrivacyIndicator
+
     private fun PopupChipModel.Shown.isOwnedByForegroundApp(): Boolean {
         val open = foregroundPackage ?: return false
-        return (popupContent as? PopupContentModel.Media)?.model?.packageName == open
+        return when (val content = popupContent) {
+            is PopupContentModel.Media -> content.model.packageName == open
+            is PopupContentModel.OngoingCall -> content.event.sbn.packageName == open
+            else -> false
+        }
+    }
+
+    /**
+     * Opens the call popup while a call is ringing and puts it away once the call is picked up,
+     * ends, or moves on. Skipped while the island is hidden on the lockscreen or under the shade.
+     * The chip steps aside on the dialer's own screen through [isOwnedByForegroundApp].
+     */
+    private suspend fun showRingingCall() {
+        var held: PopupChipId? = null
+        snapshotFlow {
+                val call = ongoingCallChip.chip as? PopupChipModel.Shown
+                val event = (call?.popupContent as? PopupContentModel.OngoingCall)?.event
+                val ringing =
+                    event != null &&
+                        !event.connected &&
+                        event.callType == "Phone:incoming"
+                Triple(if (ringing) call.chipId else null, onLockscreen, shadeExpanded)
+            }
+            .distinctUntilChanged()
+            .collect { (ringingId, locked, shade) ->
+                held?.let { if (currentShownPopupChipId == it) currentShownPopupChipId = null }
+                held = null
+                if (ringingId != null && isDynamicIslandEnabled && !locked && !shade) {
+                    currentShownPopupChipId = ringingId
+                    held = ringingId
+                }
+            }
     }
 
     private fun PopupChipModel.mediaPackageName(): String? {

@@ -186,12 +186,18 @@ constructor(
             biometric.biometricEvent,
             settings.isDynamicIslandCallsActive,
         ) { call, t, bio, isDynamicIslandCallsActive ->
-                (if (isTypeEnabled("call") || isDynamicIslandCallsActive) call else emptyList()) +
+            val calls =
+                if (isTypeEnabled("call") || isDynamicIslandCallsActive) call else emptyList()
+            // Blink flashlight on call toggles the torch at the configured rate. Each on
+            // transition shows up as a new "torch" event, which re-pins the chip and resets
+            // its state several times a second, so the call can't be answered or declined.
+            val ringing = calls.any { it.callType == "Phone:incoming" }
+            calls +
                 listOfNotNull(
-                    t?.takeIf { isTypeEnabled("torch") },
+                    t?.takeIf { isTypeEnabled("torch") && !ringing },
                     bio?.takeIf { isTypeEnabled("biometric_unlock") },
                 )
-            }
+        }
 
         val isLockscreenMediaActiveFlow = combine(
             settings.isLockscreenMediaEnabled,

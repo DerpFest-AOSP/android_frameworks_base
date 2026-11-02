@@ -27,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.BluetoothDisabled
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.Vibration
@@ -40,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
@@ -95,10 +97,20 @@ internal fun BluetoothExpanded(event: IslandEvent.Bluetooth, interactor: IslandA
     val earbuds =
         listOfNotNull(
             event.leftBatteryLevel?.let {
-                BudBattery(R.string.ax_dynamic_bar_left_earbud, it, mirror = false)
+                BudBattery(
+                    R.string.ax_dynamic_bar_left_earbud,
+                    it,
+                    mirror = false,
+                    charging = event.leftCharging,
+                )
             },
             event.rightBatteryLevel?.let {
-                BudBattery(R.string.ax_dynamic_bar_right_earbud, it, mirror = true)
+                BudBattery(
+                    R.string.ax_dynamic_bar_right_earbud,
+                    it,
+                    mirror = true,
+                    charging = event.rightCharging,
+                )
             },
         )
     val showSingleBattery = earbuds.isEmpty() && event.caseBatteryLevel == null
@@ -161,6 +173,7 @@ internal fun BluetoothExpanded(event: IslandEvent.Bluetooth, interactor: IslandA
                         style = MaterialTheme.typography.labelSmall,
                         maxLines = 1,
                     )
+                    if (event.caseCharging) ChargingBolt(GreenAccent, size = 12.dp)
                     Text(
                         "$level%",
                         color = if (level > 20) GreenAccent else RedAccent,
@@ -185,7 +198,22 @@ internal fun BluetoothExpanded(event: IslandEvent.Bluetooth, interactor: IslandA
     )
 }
 
-private data class BudBattery(val labelRes: Int, val level: Int, val mirror: Boolean)
+private data class BudBattery(
+    val labelRes: Int,
+    val level: Int,
+    val mirror: Boolean,
+    val charging: Boolean,
+)
+
+@Composable
+private fun ChargingBolt(tint: Color, size: Dp) {
+    Icon(
+        imageVector = Icons.Filled.Bolt,
+        contentDescription = stringResource(R.string.ax_dynamic_bar_charging),
+        tint = tint,
+        modifier = Modifier.size(size),
+    )
+}
 
 @Composable
 private fun BluetoothEarbudBatteries(batteries: List<BudBattery>) {
@@ -221,13 +249,19 @@ private fun BluetoothEarbudBatteries(batteries: List<BudBattery>) {
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Text(
-                        text = "${battery.level}%",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (battery.level > 20) GreenAccent else RedAccent,
-                        maxLines = 1,
-                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (battery.charging) ChargingBolt(GreenAccent, size = 16.dp)
+                        Text(
+                            text = "${battery.level}%",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (battery.level > 20) GreenAccent else RedAccent,
+                            maxLines = 1,
+                        )
+                    }
                 }
             }
         }
