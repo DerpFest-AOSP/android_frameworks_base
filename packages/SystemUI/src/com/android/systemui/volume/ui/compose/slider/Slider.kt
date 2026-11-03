@@ -147,12 +147,7 @@ fun Slider(
     require(stepDistance >= 0f) { "stepDistance must not be negative" }
     val sliderState = rememberSliderState(value = value, valueRange = valueRange)
     val hapticsViewModel =
-        haptics.rememberViewModel(
-            sliderState.value,
-            valueRange,
-            interactionSource,
-            sliderState.isDragging,
-        )
+        haptics.rememberViewModel(sliderState.value, valueRange, interactionSource)
     val debouncedValue by
         debouncedValueState(
             incomingValue = value,
@@ -177,11 +172,7 @@ fun Slider(
                 }
                 animatable.animateTo(targetValue = debouncedValue, animationSpec = animationSpec) {
                     sliderState.value = this.value
-                    if (
-                        haptics is Haptics.Enabled &&
-                            !haptics.isDiscrete() &&
-                            sliderState.isDragging
-                    ) {
+                    if (haptics is Haptics.Enabled && !haptics.isDiscrete()) {
                         hapticsViewModel?.onValueChange(this.value)
                     }
                 }
@@ -324,7 +315,6 @@ private fun Haptics.rememberViewModel(
     value: Float,
     valueRange: ClosedFloatingPointRange<Float>,
     interactionSource: MutableInteractionSource,
-    isDragging: Boolean,
 ): SliderHapticsViewModel? {
     return when (this) {
         is Haptics.Disabled -> null
@@ -342,13 +332,11 @@ private fun Haptics.rememberViewModel(
                     .also { hapticsViewModel ->
                         if (isDiscrete()) {
                             var lastValue by remember { mutableFloatStateOf(value) }
-                            LaunchedEffect(value, isDragging) {
+                            LaunchedEffect(value) {
                                 val roundedValue = round(value)
                                 if (roundedValue != lastValue) {
                                     lastValue = roundedValue
-                                    if (isDragging) {
-                                        hapticsViewModel.onValueChange(roundedValue)
-                                    }
+                                    hapticsViewModel.onValueChange(roundedValue)
                                 }
                             }
                         }
