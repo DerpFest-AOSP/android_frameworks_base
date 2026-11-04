@@ -90,7 +90,6 @@ constructor(
             addAll(RECORDER_PACKAGES)
         }
 
-        private const val MAX_NOTIFICATION_EVENTS = 10
         private const val MAX_SEEN_SIGNATURES = 256
     }
 
@@ -695,7 +694,7 @@ constructor(
         synchronized(notificationLock) {
             if (event.sbn.key !in activeNotificationKeys) return
             _notificationEvents.update { list ->
-                (listOf(event) + list.filter { it.id != event.id }).take(MAX_NOTIFICATION_EVENTS)
+                listOf(event) + list.filter { it.id != event.id }
             }
         }
     }
