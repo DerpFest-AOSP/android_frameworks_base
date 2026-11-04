@@ -22,7 +22,6 @@ import com.android.systemui.axdynamicbar.model.RecordingState
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.util.ScrimUtils
-import java.util.Collections
 import java.util.Objects
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
@@ -89,8 +88,6 @@ constructor(
             addAll(ALARM_PACKAGES)
             addAll(RECORDER_PACKAGES)
         }
-
-        private const val MAX_SEEN_SIGNATURES = 256
     }
 
     private val _timerEvent = MutableStateFlow<IslandEvent.Timer?>(null)
@@ -152,13 +149,7 @@ constructor(
 
     var activeMediaPackageProvider: (() -> String?)? = null
 
-    private val seenSignatures: MutableMap<String, Long> =
-        Collections.synchronizedMap(
-            object : LinkedHashMap<String, Long>(64, 0.75f, true) {
-                override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Long>?) =
-                    size > MAX_SEEN_SIGNATURES
-            }
-        )
+    private val seenSignatures = mutableMapOf<String, Long>()
 
     /** Keys whose post is still current. Cleared on removal so a late coalesce cannot pin the sbn. */
     private val activeNotificationKeys: MutableSet<String> = ConcurrentHashMap.newKeySet()
