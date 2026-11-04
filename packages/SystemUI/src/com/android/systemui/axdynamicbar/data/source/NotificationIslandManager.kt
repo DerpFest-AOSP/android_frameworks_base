@@ -22,7 +22,9 @@ import com.android.systemui.axdynamicbar.model.RecordingState
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.util.ScrimUtils
+import java.util.Collections
 import java.util.Objects
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -31,6 +33,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 @SysUISingleton
@@ -86,6 +89,9 @@ constructor(
             addAll(ALARM_PACKAGES)
             addAll(RECORDER_PACKAGES)
         }
+
+        private const val MAX_NOTIFICATION_EVENTS = 10
+        private const val MAX_SEEN_SIGNATURES = 256
     }
 
     private val _timerEvent = MutableStateFlow<IslandEvent.Timer?>(null)
@@ -147,7 +153,17 @@ constructor(
 
     var activeMediaPackageProvider: (() -> String?)? = null
 
-    private val seenSignatures = mutableMapOf<String, Long>()
+    private val seenSignatures: MutableMap<String, Long> =
+        Collections.synchronizedMap(
+            object : LinkedHashMap<String, Long>(64, 0.75f, true) {
+                override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Long>?) =
+                    size > MAX_SEEN_SIGNATURES
+            }
+        )
+
+    /** Keys whose post is still current. Cleared on removal so a late coalesce cannot pin the sbn. */
+    private val activeNotificationKeys: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    private val notificationLock = Any()
 
     var onTimerEvent: ((IslandEvent.Timer) -> Unit)? = null
     var onAlarmEvent: ((IslandEvent.Alarm) -> Unit)? = null
@@ -220,8 +236,10 @@ constructor(
                     _nowPlayingEvent.value = null
                 }
 
-                _notificationEvents.value =
-                    _notificationEvents.value.filter { it.sbn.key != sbn.key }
+                synchronized(notificationLock) {
+                    activeNotificationKeys.remove(sbn.key)
+                    _notificationEvents.update { list -> list.filter { it.sbn.key != sbn.key } }
+                }
 
                 notificationRemovedFlow.tryEmit(sbn.key)
             }
@@ -611,7 +629,10 @@ constructor(
                         groupKey = groupKey,
                         notificationImage = notificationImage,
                     )
-                applicationScope.launch { notificationFlow.emit(event) }
+                synchronized(notificationLock) { activeNotificationKeys.add(sbn.key) }
+                if (!notificationFlow.tryEmit(event)) {
+                    applicationScope.launch { notificationFlow.emit(event) }
+                }
                 onNotificationPosted?.invoke(event)
             }
         }
@@ -627,6 +648,10 @@ constructor(
         listening = false
         ScrimUtils.get().removeListener(scrimListener)
         seenSignatures.clear()
+        synchronized(notificationLock) {
+            activeNotificationKeys.clear()
+            _notificationEvents.value = emptyList()
+        }
         timerJob?.cancel()
         timerJob = null
         timerNotificationKey = null
@@ -638,7 +663,6 @@ constructor(
         dismissedSportsKeys.clear()
         _alarmEvent.value = null
         _callEvents.value = emptyList()
-        _notificationEvents.value = emptyList()
         _promotedOngoingEvents.value = emptyList()
         _sportsEvents.value = emptyList()
         _nowPlayingEvent.value = null
@@ -662,14 +686,18 @@ constructor(
     }
 
     fun dismissNotification(event: IslandEvent.Notification) {
-        _notificationEvents.value = _notificationEvents.value.filter { it.id != event.id }
+        synchronized(notificationLock) {
+            _notificationEvents.update { list -> list.filter { it.id != event.id } }
+        }
     }
 
     fun coalesceNotification(event: IslandEvent.Notification) {
-        val current = _notificationEvents.value.toMutableList()
-        current.removeAll { it.id == event.id }
-        current.add(0, event)
-        _notificationEvents.value = current
+        synchronized(notificationLock) {
+            if (event.sbn.key !in activeNotificationKeys) return
+            _notificationEvents.update { list ->
+                (listOf(event) + list.filter { it.id != event.id }).take(MAX_NOTIFICATION_EVENTS)
+            }
+        }
     }
 
     fun dismissAudioRecording() {
