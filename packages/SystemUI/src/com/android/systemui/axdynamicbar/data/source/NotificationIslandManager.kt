@@ -151,7 +151,10 @@ constructor(
 
     private val seenSignatures = mutableMapOf<String, Long>()
 
-    /** Keys whose post is still current. Cleared on removal so a late coalesce cannot pin the sbn. */
+    /**
+     * Keys that may still be shown. Cleared on removal and on dismiss so a late coalesce cannot
+     * put the notification back. A later post adds the key again.
+     */
     private val activeNotificationKeys: MutableSet<String> = ConcurrentHashMap.newKeySet()
     private val notificationLock = Any()
 
@@ -677,6 +680,7 @@ constructor(
 
     fun dismissNotification(event: IslandEvent.Notification) {
         synchronized(notificationLock) {
+            activeNotificationKeys.remove(event.sbn.key)
             _notificationEvents.update { list -> list.filter { it.id != event.id } }
         }
     }
