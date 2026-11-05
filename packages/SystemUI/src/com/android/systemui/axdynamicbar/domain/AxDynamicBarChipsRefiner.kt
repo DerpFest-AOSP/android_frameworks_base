@@ -20,6 +20,8 @@ import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.statusbar.chips.call.ui.viewmodel.CallChipViewModel
 import com.android.systemui.statusbar.chips.screenrecord.ui.viewmodel.ScreenRecordChipViewModel
 import com.android.systemui.statusbar.chips.ui.model.MultipleOngoingActivityChipsModel
+import com.android.systemui.statusbar.chips.ui.model.OngoingActivityChipModel
+import com.android.systemui.statusbar.chips.ui.viewmodel.IslandChipClaims
 import com.android.systemui.statusbar.chips.ui.viewmodel.OngoingActivityChipsRefiner
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
@@ -32,6 +34,7 @@ import kotlinx.coroutines.flow.drop
 @SysUISingleton
 class AxDynamicBarChipsRefiner @Inject constructor(
     private val settings: AxDynamicBarSettings,
+    private val policy: AospChipAbsorptionPolicy,
 ) : OngoingActivityChipsRefiner {
 
     private val _chipsFlow = MutableStateFlow(MultipleOngoingActivityChipsModel())
@@ -49,7 +52,11 @@ class AxDynamicBarChipsRefiner @Inject constructor(
     override fun transform(input: MultipleOngoingActivityChipsModel): MultipleOngoingActivityChipsModel {
         _chipsFlow.value = input
         if (settings.isEnabled.value) {
-            return input.copy(active = input.active.map { chip -> chip.copy(isHidden = true) })
+            // Hide only the chips the island absorbed. Anything else stays in the status bar.
+            return input.copy(
+                active = input.active.map { chip -> chip.hiddenIfCovered() },
+                overflow = input.overflow.map { chip -> chip.hiddenIfCovered() },
+            )
         }
 
         val hideCalls = settings.isDynamicIslandCallsActive.value
@@ -65,5 +72,13 @@ class AxDynamicBarChipsRefiner @Inject constructor(
                     if (coveredByIsland) chip.copy(isHidden = true) else chip
                 },
         )
+    }
+
+    private fun OngoingActivityChipModel.Active.hiddenIfCovered(): OngoingActivityChipModel.Active {
+        val claims = IslandChipClaims.claims.value
+        val claimed =
+            key in claims.notificationKeys ||
+                (claims.screenRecord && key == ScreenRecordChipViewModel.KEY)
+        return if (policy.isAbsorbed(this) || claimed) copy(isHidden = true) else this
     }
 }

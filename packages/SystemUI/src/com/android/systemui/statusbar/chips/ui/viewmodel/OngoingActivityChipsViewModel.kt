@@ -17,6 +17,7 @@
 package com.android.systemui.statusbar.chips.ui.viewmodel
 
 import android.graphics.RectF
+import com.android.systemui.axdynamicbar.domain.AxDynamicBarChipsRefiner
 import com.android.systemui.display.dagger.SystemUIDisplaySubcomponent.DisplayAware
 import com.android.systemui.display.dagger.SystemUIDisplaySubcomponent.PerDisplaySingleton
 import com.android.systemui.display.domain.interactor.DisplayStateInteractor
@@ -255,9 +256,13 @@ constructor(
 
     val chips: StateFlow<MultipleOngoingActivityChipsModel> =
         combine(unrefinedChips, refinerInvalidations) { unrefinedChips, _ ->
-                chipsRefiners.fold(unrefinedChips) { currentOutput, refiner ->
-                    refiner.transform(currentOutput)
-                }
+                // The dynamic-island refiner snapshots the full chip list for the bar, so it has to
+                // run before a later refiner drops the chips the island already shows.
+                chipsRefiners
+                    .sortedBy { if (it is AxDynamicBarChipsRefiner) 0 else 1 }
+                    .fold(unrefinedChips) { currentOutput, refiner ->
+                        refiner.transform(currentOutput)
+                    }
             }
             .stateIn(scope, SharingStarted.Lazily, MultipleOngoingActivityChipsModel())
 

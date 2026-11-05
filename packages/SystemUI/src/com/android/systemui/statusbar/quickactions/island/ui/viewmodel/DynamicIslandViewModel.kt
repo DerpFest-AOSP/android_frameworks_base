@@ -23,6 +23,8 @@ import com.android.systemui.shade.domain.interactor.ShadeInteractor
 import com.android.systemui.shared.system.ActivityManagerWrapper
 import com.android.systemui.shared.system.TaskStackChangeListener
 import com.android.systemui.shared.system.TaskStackChangeListeners
+import com.android.systemui.statusbar.chips.call.ui.viewmodel.CallChipViewModel
+import com.android.systemui.statusbar.chips.ui.viewmodel.IslandChipClaims
 import com.android.systemui.statusbar.policy.KeyguardStateController
 import com.android.systemui.statusbar.quickactions.island.alarm.ui.viewmodel.AlarmPopupChipViewModel
 import com.android.systemui.statusbar.quickactions.island.flashlight.ui.viewmodel.FlashlightPopupChipViewModel
@@ -218,6 +220,7 @@ internal constructor(
 
             launch { shadeInteractor?.isAnyExpanded?.collect { shadeExpanded = it } }
             launch { showRingingCall() }
+            launch { snapshotFlow { islandClaims }.collect { IslandChipClaims.update(it) } }
             launch {
                 // A swiped-away chip comes back once it ends or shows something new.
                 snapshotFlow {
@@ -256,6 +259,7 @@ internal constructor(
                 context.contentResolver.unregisterContentObserver(dynamicIslandObserver)
                 TaskStackChangeListeners.getInstance().unregisterTaskStackListener(taskStackListener)
                 keyguardStateController?.removeCallback(keyguardCallback)
+                IslandChipClaims.update(IslandChipClaims.Claims())
             }
         }
     }
@@ -288,6 +292,23 @@ internal constructor(
             is PopupContentModel.OngoingCall -> !content.event.connected
             else -> null
         }
+
+    /** What the island shows itself, so the stock status bar chips leave those out. */
+    private val islandClaims: IslandChipClaims.Claims by derivedStateOf {
+        if (!isDynamicIslandEnabled) return@derivedStateOf IslandChipClaims.Claims()
+        IslandChipClaims.Claims(
+            notificationKeys =
+                shownPopupChips.mapNotNullTo(mutableSetOf()) { chip ->
+                    when (val content = chip.popupContent) {
+                        is PopupContentModel.OngoingCall ->
+                            CallChipViewModel.KEY_PREFIX + content.event.sbn.key
+                        is PopupContentModel.PromotedOngoing -> content.event.sbn.key
+                        else -> null
+                    }
+                },
+            screenRecord = shownPopupChips.any { it.chipId == PopupChipId.ScreenRecord },
+        )
+    }
 
     /** Privacy indicators say that a camera or the screen is in use and are never swiped away. */
     private fun PopupChipId.isHideable(): Boolean =
