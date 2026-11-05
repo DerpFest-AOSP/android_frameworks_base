@@ -108,6 +108,7 @@ fun StatusBarPopup(
     islandActions: IslandActions,
     chipBoundsInScreen: Rect? = null,
     sideEdge: DynamicIslandCutoutEdge? = null,
+    stackedChips: List<PopupChipModel.Shown>? = null,
 ) {
     val context = LocalContext.current
     val density = Density(context)
@@ -395,7 +396,13 @@ fun StatusBarPopup(
                             this.transformOrigin = transformOrigin
                         }
             ) {
-                IslandPopupBody(viewModel, actionsFor(viewModel), mediaColor)
+                if (stackedChips != null) {
+                    IslandCardStack(chips = stackedChips, isVisible = isVisible) { stackedChip ->
+                        IslandPopupBody(stackedChip, actionsFor(stackedChip), mediaColor)
+                    }
+                } else {
+                    IslandPopupBody(viewModel, actionsFor(viewModel), mediaColor)
+                }
             }
         }
     }
