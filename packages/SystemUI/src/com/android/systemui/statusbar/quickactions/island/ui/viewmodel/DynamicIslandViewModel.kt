@@ -28,6 +28,7 @@ import com.android.systemui.statusbar.chips.ui.viewmodel.IslandChipClaims
 import com.android.systemui.statusbar.policy.KeyguardStateController
 import com.android.systemui.statusbar.quickactions.island.alarm.ui.viewmodel.AlarmPopupChipViewModel
 import com.android.systemui.statusbar.quickactions.island.flashlight.ui.viewmodel.FlashlightPopupChipViewModel
+import com.android.systemui.statusbar.quickactions.island.liveactivity.ui.viewmodel.LiveActivityPopupChipsViewModel
 import com.android.systemui.statusbar.quickactions.island.livescore.ui.viewmodel.LiveScorePopupChipViewModel
 import com.android.systemui.statusbar.quickactions.island.media.ui.viewmodel.MediaControlChipViewModel
 import com.android.systemui.statusbar.quickactions.island.ongoingcall.ui.viewmodel.OngoingCallsPopupChipViewModel
@@ -61,6 +62,7 @@ internal constructor(
     private val promotedOngoingChip: IslandChipViewModel,
     private val keyguardStateController: KeyguardStateController? = null,
     private val shadeInteractor: ShadeInteractor? = null,
+    private val liveActivityChips: LiveActivityPopupChipsViewModel? = null,
 ) : ExclusiveActivatable() {
 
     @AssistedInject
@@ -76,6 +78,7 @@ internal constructor(
         promotedOngoingChipFactory: PromotedOngoingPopupChipViewModel.Factory,
         keyguardStateController: KeyguardStateController,
         shadeInteractor: ShadeInteractor,
+        liveActivityChipsFactory: LiveActivityPopupChipsViewModel.Factory,
     ) : this(
         context = context,
         mediaControlChip = mediaControlChipFactory.create(),
@@ -88,6 +91,7 @@ internal constructor(
         promotedOngoingChip = promotedOngoingChipFactory.create(),
         keyguardStateController = keyguardStateController,
         shadeInteractor = shadeInteractor,
+        liveActivityChips = liveActivityChipsFactory.create(),
     )
 
     private var isDynamicIslandEnabled by mutableStateOf(readDynamicIslandEnabled())
@@ -175,9 +179,9 @@ internal constructor(
                 bundle.alarm,
                 bundle.flashlight,
                 bundle.ongoingCall,
-                bundle.promotedOngoing,
             )
             .filterIsInstance<PopupChipModel.Shown>()
+            .plus(liveActivityChips?.chips.orEmpty())
             .filterNot { it.isOwnedByForegroundApp() }
             .filterNot { chip ->
                 chip.chipId in hiddenChips && hiddenChips[chip.chipId] == chip.hideKey()
@@ -235,6 +239,7 @@ internal constructor(
                                 promotedOngoingChip.chip,
                             )
                             .filterIsInstance<PopupChipModel.Shown>()
+                            .plus(liveActivityChips?.chips.orEmpty())
                             .associate { it.chipId to it.hideKey() }
                     }
                     .collect { present ->
@@ -253,6 +258,7 @@ internal constructor(
             launch { alarmChip.activate() }
             launch { ongoingCallChip.activate() }
             launch { promotedOngoingChip.activate() }
+            liveActivityChips?.let { launch { it.activate() } }
             try {
                 awaitCancellation()
             } finally {
@@ -290,6 +296,8 @@ internal constructor(
                     content.model.artistName?.toString(),
                 )
             is PopupContentModel.OngoingCall -> !content.event.connected
+            is PopupContentModel.LiveActivity ->
+                listOf(content.model.title, content.model.text, content.model.shortText, content.model.progress)
             else -> null
         }
 
@@ -303,6 +311,7 @@ internal constructor(
                         is PopupContentModel.OngoingCall ->
                             CallChipViewModel.KEY_PREFIX + content.event.sbn.key
                         is PopupContentModel.PromotedOngoing -> content.event.sbn.key
+                        is PopupContentModel.LiveActivity -> content.model.key
                         else -> null
                     }
                 },
@@ -320,6 +329,7 @@ internal constructor(
         return when (val content = popupContent) {
             is PopupContentModel.Media -> content.model.packageName == open
             is PopupContentModel.OngoingCall -> content.event.sbn.packageName == open
+            is PopupContentModel.LiveActivity -> content.model.packageName == open
             else -> false
         }
     }

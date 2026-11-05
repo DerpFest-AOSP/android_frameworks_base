@@ -72,6 +72,7 @@ import com.android.systemui.axdynamicbar.ui.compose.AlarmExpanded
 import com.android.systemui.axdynamicbar.ui.compose.CallExpanded
 import com.android.systemui.axdynamicbar.ui.compose.MediaCard
 import com.android.systemui.axdynamicbar.ui.compose.PrimaryCard
+import com.android.systemui.statusbar.quickactions.island.liveactivity.ui.compose.LiveActivityPopup
 import com.android.systemui.axdynamicbar.ui.compose.PromotedOngoingExpanded
 import com.android.systemui.axdynamicbar.ui.compose.ScreenRecordExpanded
 import com.android.systemui.axdynamicbar.ui.compose.SportsExpanded
@@ -291,88 +292,76 @@ fun StatusBarPopup(
             }
         }
 
-        val mediaModel =
-            (viewModel.popupContent as? PopupContentModel.Media)?.model
-        val popupActions =
-            remember(islandActions, viewModel, mediaModel) {
-                object : IslandActions by islandActions {
-                    override fun collapseIsland() {
-                        viewModel.hidePopup()
-                        islandActions.collapseIsland()
-                    }
+        fun actionsFor(chip: PopupChipModel.Shown): IslandActions {
+            val mediaModel = (chip.popupContent as? PopupContentModel.Media)?.model
+            return object : IslandActions by islandActions {
+                override fun collapseIsland() {
+                    chip.hidePopup()
+                    islandActions.collapseIsland()
+                }
 
-                    override fun dismissEvent(event: IslandEvent) {
-                        if (event is IslandEvent.Torch) {
-                            turnOffFlashlightIfShown()
-                        }
-                        islandActions.dismissEvent(event)
-                        viewModel.hidePopup()
+                override fun dismissEvent(event: IslandEvent) {
+                    if (event is IslandEvent.Torch) {
+                        turnOffFlashlightIfShown()
                     }
+                    islandActions.dismissEvent(event)
+                    chip.hidePopup()
+                }
 
-                    override fun toggleTorch() {
-                        if (!turnOffFlashlightIfShown()) {
-                            islandActions.toggleTorch()
-                        }
-                    }
-
-                    override fun setTorchLevel(level: Int) {
-                        val content = viewModel.popupContent
-                        if (content is PopupContentModel.Flashlight) content.model.setLevel(level)
-                        else islandActions.setTorchLevel(level)
-                    }
-
-                    override fun setTorchLevelTemporary(level: Int) {
-                        val content = viewModel.popupContent
-                        if (content is PopupContentModel.Flashlight) {
-                            content.model.setLevelTemporary(level)
-                        } else {
-                            islandActions.setTorchLevelTemporary(level)
-                        }
-                    }
-
-                    override fun togglePlayPause() {
-                        mediaModel?.playOrPause?.action?.run()
-                            ?: islandActions.togglePlayPause()
-                    }
-
-                    override fun skipNext() {
-                        mediaModel?.nextAction?.action?.run()
-                            ?: islandActions.skipNext()
-                    }
-
-                    override fun skipPrev() {
-                        mediaModel?.previousAction?.action?.run()
-                            ?: islandActions.skipPrev()
-                    }
-
-                    override fun seekTo(position: Long) {
-                        mediaModel?.seekTo?.invoke(position)
-                            ?: islandActions.seekTo(position)
-                    }
-
-                    override fun openMediaApp() {
-                        mediaModel?.openApp?.invoke()
-                            ?: islandActions.openMediaApp()
-                    }
-
-                    override fun sendCustomAction(action: String) {
-                        mediaModel?.customActionFor(action)?.action?.run()
-                            ?: islandActions.sendCustomAction(action)
-                    }
-
-                    private fun turnOffFlashlightIfShown(): Boolean {
-                        val content = viewModel.popupContent
-                        if (content !is PopupContentModel.Flashlight) return false
-                        content.model.turnOff.invoke()
-                        return true
+                override fun toggleTorch() {
+                    if (!turnOffFlashlightIfShown()) {
+                        islandActions.toggleTorch()
                     }
                 }
-            }
 
-        val hapticsFactory =
-            remember(islandActions) {
-                islandActions.sliderHapticsViewModelFactory ?: unsupportedHapticsFactory()
+                override fun setTorchLevel(level: Int) {
+                    val content = chip.popupContent
+                    if (content is PopupContentModel.Flashlight) content.model.setLevel(level)
+                    else islandActions.setTorchLevel(level)
+                }
+
+                override fun setTorchLevelTemporary(level: Int) {
+                    val content = chip.popupContent
+                    if (content is PopupContentModel.Flashlight) {
+                        content.model.setLevelTemporary(level)
+                    } else {
+                        islandActions.setTorchLevelTemporary(level)
+                    }
+                }
+
+                override fun togglePlayPause() {
+                    mediaModel?.playOrPause?.action?.run() ?: islandActions.togglePlayPause()
+                }
+
+                override fun skipNext() {
+                    mediaModel?.nextAction?.action?.run() ?: islandActions.skipNext()
+                }
+
+                override fun skipPrev() {
+                    mediaModel?.previousAction?.action?.run() ?: islandActions.skipPrev()
+                }
+
+                override fun seekTo(position: Long) {
+                    mediaModel?.seekTo?.invoke(position) ?: islandActions.seekTo(position)
+                }
+
+                override fun openMediaApp() {
+                    mediaModel?.openApp?.invoke() ?: islandActions.openMediaApp()
+                }
+
+                override fun sendCustomAction(action: String) {
+                    mediaModel?.customActionFor(action)?.action?.run()
+                        ?: islandActions.sendCustomAction(action)
+                }
+
+                fun turnOffFlashlightIfShown(): Boolean {
+                    val content = chip.popupContent
+                    if (content !is PopupContentModel.Flashlight) return false
+                    content.model.turnOff.invoke()
+                    return true
+                }
             }
+        }
 
         DisposableEffect(popupView) {
             val listener =
@@ -406,7 +395,22 @@ fun StatusBarPopup(
                             this.transformOrigin = transformOrigin
                         }
             ) {
-                when (val popupContent = viewModel.popupContent) {
+                IslandPopupBody(viewModel, actionsFor(viewModel), mediaColor)
+            }
+        }
+    }
+}
+
+@Composable
+private fun IslandPopupBody(
+    chip: PopupChipModel.Shown,
+    popupActions: IslandActions,
+    mediaColor: Int,
+) {
+    val context = LocalContext.current
+    val hapticsFactory =
+        popupActions.sliderHapticsViewModelFactory ?: unsupportedHapticsFactory()
+    when (val popupContent = chip.popupContent) {
                     is PopupContentModel.Media -> {
                         val model = popupContent.model
                         val eventMedia =
@@ -479,7 +483,7 @@ fun StatusBarPopup(
                                             startElapsedRealtimeMs = model.startElapsedRealtimeMs,
                                             onStop = {
                                                 model.stopRecording()
-                                                viewModel.hidePopup()
+                                                chip.hidePopup()
                                             },
                                         )
                                 }
@@ -615,6 +619,11 @@ fun StatusBarPopup(
                             }
                         }
                     }
+                    is PopupContentModel.LiveActivity -> {
+                        Box(modifier = Modifier.widthIn(min = 300.dp, max = 400.dp)) {
+                            PrimaryCard { LiveActivityPopup(model = popupContent.model) }
+                        }
+                    }
                     is PopupContentModel.PromotedOngoing -> {
                         Box(modifier = Modifier.widthIn(min = 320.dp, max = 400.dp)) {
                             PrimaryCard {
@@ -633,9 +642,6 @@ fun StatusBarPopup(
                         }
                     }
                     PopupContentModel.None -> Unit
-                }
-            }
-        }
     }
 }
 
