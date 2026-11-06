@@ -99,6 +99,7 @@ fun StatusBarDynamicIslandChip(
     onNextPage: () -> Unit = {},
 ) {
     val isMediaChip = viewModel.popupContent is PopupContentModel.Media
+    val isCallChip = viewModel.popupContent is PopupContentModel.OngoingCall
     val chipShape = RoundedCornerShape(50)
     val colors = viewModel.colors
     val heightScale = rememberDynamicIslandHeightScale()
@@ -180,8 +181,10 @@ fun StatusBarDynamicIslandChip(
         cameraGap = cameraGap,
         modifier =
             modifier
-                .defaultMinSize(minHeight = 32.dp * heightScale)
-                .width(configuredWidth)
+                .defaultMinSize(
+                    minHeight = (32.dp + if (isCallChip) CallExtraHeight else 0.dp) * heightScale
+                )
+                .width(if (isCallChip) maxOf(configuredWidth, CallMinWidth) else configuredWidth)
                 .graphicsLayer { scaleX = collapseState.scale }
                 .clip(chipShape)
                 .background(chipBackgroundColor)
@@ -650,6 +653,8 @@ private val PageDotSize = 4.dp
 private val PageDotActiveWidth = 10.dp
 private val PageDotSpacing = 3.dp
 private val PageDotsTapPadding = 4.dp
+private val CallExtraHeight = 10.dp
+private val CallMinWidth = 150.dp
 private val MinDynamicIslandWidth = 80.dp
 private val MaxDynamicIslandWidth = 200.dp
 private val UtilitySideChromeWidth = 36.dp

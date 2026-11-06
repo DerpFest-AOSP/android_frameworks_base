@@ -69,7 +69,6 @@ import com.android.systemui.axdynamicbar.shared.IslandActions
 import com.android.systemui.axdynamicbar.shared.IslandCardAction
 import com.android.systemui.axdynamicbar.ui.compose.AccordMediaSurface
 import com.android.systemui.axdynamicbar.ui.compose.AlarmExpanded
-import com.android.systemui.axdynamicbar.ui.compose.CallExpanded
 import com.android.systemui.axdynamicbar.ui.compose.MediaCard
 import com.android.systemui.axdynamicbar.ui.compose.PrimaryCard
 import com.android.systemui.statusbar.quickactions.island.liveactivity.ui.compose.LiveActivityPopup
@@ -642,11 +641,7 @@ private fun IslandPopupBody(
                         }
                     }
                     is PopupContentModel.OngoingCall -> {
-                        Box(modifier = Modifier.widthIn(min = 320.dp, max = 400.dp)) {
-                            PrimaryCard {
-                                CallExpanded(event = popupContent.event, interactor = popupActions)
-                            }
-                        }
+                        CallIslandCard(event = popupContent.event)
                     }
                     PopupContentModel.None -> Unit
     }

@@ -1,6 +1,7 @@
 package com.android.systemui.axdynamicbar.model
 
 import android.app.Notification
+import android.app.PendingIntent
 import android.app.RemoteInput
 import android.graphics.drawable.Drawable
 import android.net.Uri
@@ -310,9 +311,21 @@ sealed class IslandEvent(open val priority: Int, val id: String) : Comparable<Is
         val actions: List<NotificationAction> = emptyList(),
         /** True once the dialer's chronometer is running, which is the connected call. */
         val connected: Boolean = false,
+        val controls: CallControls = CallControls(),
     ) : IslandEvent(priority = 100, id = "call_${sbn.key}") {
         override fun withoutDrawables() = copy(appIcon = null, callerPhoto = null)
     }
+
+    /** The call's own buttons; a null state means the calling app doesn't offer it. */
+    data class CallControls(
+        val answer: PendingIntent? = null,
+        val decline: PendingIntent? = null,
+        val hangUp: PendingIntent? = null,
+        val speakerOn: Boolean? = null,
+        val speaker: PendingIntent? = null,
+        val muted: Boolean? = null,
+        val mute: PendingIntent? = null,
+    )
 
     data class Notification(
         val sbn: StatusBarNotification,

@@ -354,6 +354,13 @@
     <string name="ax_dynamic_bar_sports_halftime">Halftime</string>
     <string name="ax_dynamic_bar_sports_upcoming">Upcoming</string>
     <string name="ax_dynamic_bar_call">Call</string>
+    <string name="ax_dynamic_bar_call_answer">Answer</string>
+    <string name="ax_dynamic_bar_call_decline">Decline</string>
+    <string name="ax_dynamic_bar_call_end">End</string>
+    <string name="ax_dynamic_bar_call_speaker">Speaker</string>
+    <string name="ax_dynamic_bar_call_mute">Mute</string>
+    <string name="ax_dynamic_bar_call_more">More</string>
+    <string name="ax_dynamic_bar_call_calling">Calling</string>
     <string name="ax_dynamic_bar_kill_app">Kill app</string>
 
     <!-- Indication on the keyguard that is shown when the device is charging with a dash charger. Should match keyguard_plugged_in_dash_charging [CHAR LIMIT=40]-->
