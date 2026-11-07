@@ -30,6 +30,7 @@ import static android.view.translation.UiTranslationManager.STATE_UI_TRANSLATION
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SuppressLint;
+import android.icu.util.ULocale;
 import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
@@ -37,6 +38,8 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.pm.ServiceInfo;
+import android.net.ConnectivityManager;
+import android.net.Network;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -44,6 +47,8 @@ import android.os.IRemoteCallback;
 import android.os.RemoteCallbackList;
 import android.os.RemoteException;
 import android.os.ResultReceiver;
+import android.os.SystemClock;
+import android.os.UserHandle;
 import android.service.translation.TranslationService;
 import android.service.translation.TranslationServiceInfo;
 import android.util.ArrayMap;
@@ -83,6 +88,19 @@ final class TranslationManagerServiceImpl extends
     @SuppressLint("IsLoggableTagLength")
     private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
 
+    /**
+     * Android System Intelligence reports a language pair as on-device while TranslateKit still
+     * has a package in that pair outside the ENABLED state. Session creation does not download
+     * it. The downloader is a non-exported receiver, so only the system process can reach it.
+     */
+    private static final String AI_TRANSLATE_PACKAGE = "com.google.android.as";
+    private static final String AI_TRANSLATE_DOWNLOAD_RECEIVER =
+            "com.google.android.apps.miphone.aiai.translate.settings.settingsui."
+                    + "AutoTranslateFirstTimeUseIntentReceiver";
+    private static final String AI_TRANSLATE_DOWNLOAD_ACTION =
+            "com.google.android.apps.miphone.aiai.translate.DOWNLOAD_NOW";
+    private static final long LANGUAGE_PACK_REQUEST_INTERVAL_MS = 10 * 60 * 1000L;
+
     @GuardedBy("mLock")
     @Nullable
     private RemoteTranslationService mRemoteTranslationService;
@@ -104,6 +122,9 @@ final class TranslationManagerServiceImpl extends
     private final RemoteCallbackList<IRemoteCallback> mTranslationCapabilityCallbacks =
             new RemoteCallbackList<>();
     private final ArraySet<IBinder> mWaitingFinishedCallbackActivities = new ArraySet<>();
+    private final Object mLanguagePackRequestsLock = new Object();
+    @GuardedBy("mLanguagePackRequestsLock")
+    private final ArrayMap<String, Long> mLanguagePackRequests = new ArrayMap<>();
 
     /**
      * Key is translated activity token, value is the specification and state for the translation.
@@ -219,11 +240,93 @@ final class TranslationManagerServiceImpl extends
             IResultReceiver resultReceiver) throws RemoteException {
         final RemoteTranslationService remoteService = ensureRemoteServiceLocked();
         if (remoteService != null) {
-            remoteService.onSessionCreated(translationContext, sessionId, resultReceiver);
+            remoteService.onSessionCreated(translationContext, sessionId,
+                    maybeRequestLanguagePack(translationContext, resultReceiver));
         } else {
             Slog.v(TAG, "onSessionCreatedLocked(): no remote service.");
             resultReceiver.send(STATUS_SYNC_CALL_FAIL, null);
         }
+    }
+
+    /**
+     * When Android System Intelligence refuses the session, ask it to download the pair. The
+     * receiver is not exported, and this process is the one ActivityManager allows through.
+     */
+    private IResultReceiver maybeRequestLanguagePack(@NonNull TranslationContext translationContext,
+            @NonNull IResultReceiver resultReceiver) {
+        final String serviceName = getComponentNameLocked();
+        final ComponentName service = serviceName == null
+                ? null : ComponentName.unflattenFromString(serviceName);
+        if (service == null || !AI_TRANSLATE_PACKAGE.equals(service.getPackageName())) {
+            return resultReceiver;
+        }
+        final int userId = mUserId;
+        return new IResultReceiver.Stub() {
+            @Override
+            public void send(int resultCode, Bundle resultData) throws RemoteException {
+                if (resultCode == STATUS_SYNC_CALL_FAIL) {
+                    requestLanguagePackDownload(translationContext, userId);
+                }
+                resultReceiver.send(resultCode, resultData);
+            }
+        };
+    }
+
+    private void requestLanguagePackDownload(@NonNull TranslationContext translationContext,
+            int userId) {
+        final String source = packLanguage(translationContext.getSourceSpec());
+        final String target = packLanguage(translationContext.getTargetSpec());
+        if (source == null || target == null || source.equals(target)) {
+            return;
+        }
+        final Context context = getContext();
+        if (context == null) {
+            return;
+        }
+        final ConnectivityManager connectivity =
+                context.getSystemService(ConnectivityManager.class);
+        final Network network = connectivity == null ? null : connectivity.getActiveNetwork();
+        if (network == null) {
+            return;
+        }
+        final String key = source + "\0" + target;
+        final long now = SystemClock.elapsedRealtime();
+        synchronized (mLanguagePackRequestsLock) {
+            final Long previous = mLanguagePackRequests.get(key);
+            if (previous != null && now - previous < LANGUAGE_PACK_REQUEST_INTERVAL_MS) {
+                return;
+            }
+            mLanguagePackRequests.put(key, now);
+        }
+        final Intent intent = new Intent(AI_TRANSLATE_DOWNLOAD_ACTION)
+                .setComponent(new ComponentName(
+                        AI_TRANSLATE_PACKAGE, AI_TRANSLATE_DOWNLOAD_RECEIVER))
+                .putExtra("download_language_data_source_language_key", source)
+                .putExtra("download_language_data_target_language_key", target)
+                .putExtra("download_language_data_full_translate_key", true)
+                .putExtra("download_language_data_wait_for_wifi_key", false)
+                .putExtra("download_language_data_language_pair_ready_key", false);
+        Slog.i(TAG, "Requesting Android System Intelligence language pack " + source
+                + " -> " + target);
+        final long identity = Binder.clearCallingIdentity();
+        try {
+            context.sendBroadcastAsUser(intent, UserHandle.of(userId));
+        } finally {
+            Binder.restoreCallingIdentity(identity);
+        }
+    }
+
+    @Nullable
+    private static String packLanguage(@Nullable TranslationSpec spec) {
+        if (spec == null || spec.getLocale() == null) {
+            return null;
+        }
+        final ULocale locale = spec.getLocale();
+        if ("zh".equals(locale.getLanguage()) && "Hant".equals(locale.getScript())) {
+            return "zh-Hant";
+        }
+        final String language = locale.getLanguage();
+        return language.isEmpty() ? null : language;
     }
 
     private int getAppUidByComponentName(Context context, ComponentName componentName, int userId) {

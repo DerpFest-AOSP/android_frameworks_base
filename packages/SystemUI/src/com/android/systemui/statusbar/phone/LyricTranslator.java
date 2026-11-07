@@ -53,8 +53,9 @@ import java.util.regex.Pattern;
  * Translates lyric lines. Language detection uses the platform text classifier. Translation
  * prefers the system on-device translator, then a network request when that session cannot be
  * created. Android System Intelligence can advertise a pair as on-device and still refuse the
- * session when the pack is not enabled, and creating the session does not download it. A
- * translation supplied by the lyric source is kept when it is already in the target language.
+ * session when a TranslateKit package in that pair is not enabled. The platform then asks that
+ * service to download the pair. A translation supplied by the lyric source is kept when it is
+ * already in the target language.
  */
 final class LyricTranslator {
     private static final String TAG = "LyricTranslator";
