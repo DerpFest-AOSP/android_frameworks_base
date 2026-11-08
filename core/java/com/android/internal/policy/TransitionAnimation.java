@@ -90,7 +90,7 @@ public class TransitionAnimation {
     private static final int CLIP_REVEAL_TRANSLATION_Y_DP = 8;
     private static final int THUMBNAIL_APP_TRANSITION_DURATION = 336;
 
-    public static final int DEFAULT_APP_TRANSITION_DURATION = 336;
+    public static final int DEFAULT_APP_TRANSITION_DURATION = 480;
 
     /**
      * Maximum allowed animation duration (in milliseconds).
@@ -577,7 +577,7 @@ public class TransitionAnimation {
             Animation scale = new ScaleAnimation(scaleW, 1, scaleH, 1,
                     computePivot(mTmpRect.left, scaleW),
                     computePivot(mTmpRect.top, scaleH));
-            scale.setInterpolator(mDecelerateInterpolator);
+            scale.setInterpolator(new SpringInterpolator(0.82f, 15f));
 
             Animation alpha = new AlphaAnimation(0, 1);
             alpha.setInterpolator(mThumbnailFadeOutInterpolator);
