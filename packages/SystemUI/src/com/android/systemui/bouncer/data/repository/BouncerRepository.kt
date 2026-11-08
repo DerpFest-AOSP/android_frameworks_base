@@ -21,6 +21,7 @@ import android.os.UserHandle
 import android.provider.Settings
 import android.provider.Settings.Global.ONE_HANDED_KEYGUARD_SIDE
 import com.android.systemui.bouncer.shared.model.BouncerInputSide
+import com.android.systemui.bouncer.shared.model.TabletPinPosition
 import com.android.systemui.bouncer.shared.model.toBouncerInputSide
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Application
@@ -86,6 +87,9 @@ constructor(
 
     /** X coordinate of the last recorded touch position on the lockscreen. */
     val lastRecordedLockscreenTouchPosition = MutableStateFlow<Float?>(null)
+
+    /** Gesture placement is transient and does not alter the saved one-handed preference. */
+    val tabletPinPosition = MutableStateFlow(TabletPinPosition.CENTER)
 
     /** Save the preferred bouncer input side. */
     fun setPreferredBouncerInputSide(inputSide: BouncerInputSide) {

@@ -252,7 +252,19 @@ constructor(
         powerInteractor.onUserTouch()
         falsingInteractor.onTouchEvent(event)
         when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN -> gestureRejection = null
+            MotionEvent.ACTION_DOWN -> {
+                gestureRejection = null
+                if (
+                    resources.configuration.smallestScreenWidthDp >= 600 &&
+                        currentScene == Scenes.Lockscreen &&
+                        Overlays.Bouncer !in sceneInteractor.transitionState.currentOverlays
+                ) {
+                    toBouncerTransitionViewModel.recordTabletPinGesture(
+                        event.x,
+                        resources.displayMetrics.widthPixels.toFloat(),
+                    )
+                }
+            }
             MotionEvent.ACTION_UP,
             MotionEvent.ACTION_CANCEL -> {
                 val transition = sceneInteractor.transitionState as? TransitionState.Transition
