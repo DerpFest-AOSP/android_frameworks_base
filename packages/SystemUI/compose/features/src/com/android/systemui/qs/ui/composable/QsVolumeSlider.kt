@@ -83,6 +83,9 @@ fun QsVolumeSliderRow(
             hapticsViewModelFactory = viewModel.getSliderHapticsViewModelFactory(),
             dimensions = dimensions,
             trackCornerSize = trackCornerSize,
+            // This slider stays at the last level it drew. Opening Quick Settings animates
+            // it to the current level, and that catch-up should not vibrate.
+            hapticOnExternalChange = false,
         )
         Spacer(Modifier.width(8.dp))
         IconButton(

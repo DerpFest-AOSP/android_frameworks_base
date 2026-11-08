@@ -128,6 +128,7 @@ import com.android.systemui.qs.ui.compose.rememberContrastColorOn
 import com.android.systemui.qs.ui.compose.rememberQsGradientColors
 import com.android.systemui.res.R
 import com.android.systemui.util.policy.PolicyRestriction
+import kotlin.math.abs
 import lineageos.providers.LineageSettings
 import platform.test.motion.compose.values.MotionTestValueKey
 import platform.test.motion.compose.values.motionTestValues
@@ -251,6 +252,9 @@ fun BrightnessSlider(
         com.android.internal.R.bool.config_automatic_brightness_available
     )
     var showAutoBrightness by remember { mutableStateOf(readShowAutoBrightness(cr)) }
+    var gestureSamples by remember { mutableIntStateOf(0) }
+    var playTravelHaptics by remember { mutableStateOf(false) }
+    val travelTarget by rememberUpdatedState(value)
 
     DisposableEffect(Unit) {
         val observer = object : ContentObserver(null) {
@@ -277,6 +281,20 @@ fun BrightnessSlider(
         }
     }
 
+    // A tap sets the target once. The thumb then animates there, and those samples are what
+    // play the tick. A drag already reports its own samples, and an external brightness
+    // change never comes through onValueChangeFinished.
+    LaunchedEffect(animatedValue, playTravelHaptics) {
+        if (!playTravelHaptics) return@LaunchedEffect
+        val haptics = hapticsViewModel ?: return@LaunchedEffect
+        haptics.onValueChange(animatedValue)
+        val span = (valueRange.last - valueRange.first).coerceAtLeast(1).toFloat()
+        if (abs(animatedValue - travelTarget.toFloat()) <= span * 0.005f) {
+            haptics.onValueChangeEnded()
+            playTravelHaptics = false
+        }
+    }
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
@@ -289,6 +307,8 @@ fun BrightnessSlider(
             onValueChange = {
                 if (enabled) {
                     if (!overriddenByAppState) {
+                        gestureSamples++
+                        playTravelHaptics = false
                         hapticsViewModel?.onValueChange(it)
                         value = it.toInt()
                         onDrag(value)
@@ -300,6 +320,14 @@ fun BrightnessSlider(
                     if (!overriddenByAppState) {
                         hapticsViewModel?.onValueChangeEnded()
                         onStop(value)
+                        val span =
+                            (valueRange.last - valueRange.first).coerceAtLeast(1).toFloat()
+                        val remaining = abs(animatedValue - value.toFloat())
+                        playTravelHaptics =
+                            gestureSamples <= 2 &&
+                                hapticsViewModel != null &&
+                                remaining > span * 0.02f
+                        gestureSamples = 0
                     }
                 }
             },

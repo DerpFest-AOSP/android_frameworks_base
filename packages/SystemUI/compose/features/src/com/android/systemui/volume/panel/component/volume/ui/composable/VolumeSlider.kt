@@ -80,6 +80,7 @@ fun VolumeSlider(
     dimensions: VolumeSliderDimensions = VolumeSliderDimensions.Defaults,
     materialSliderColors: SliderColors = SystemUISliderColors.Defaults,
     trackCornerSize: Dp = SliderTrackRoundedCorner,
+    hapticOnExternalChange: Boolean = true,
 ) {
     val gradient = rememberVolumeSliderGradient(isVertical = false)
     val trackAndThumbColors =
@@ -201,6 +202,7 @@ fun VolumeSlider(
                                 orientation = Orientation.Horizontal,
                             )
                         } ?: Haptics.Disabled,
+                    hapticOnExternalChange = hapticOnExternalChange,
                     modifier =
                         Modifier.weight(1f).height(dimensions.thumbHeight).sysuiResTag(state.label),
                 )

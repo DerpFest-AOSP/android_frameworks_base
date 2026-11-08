@@ -143,6 +143,7 @@ fun Slider(
             enabled = isEnabled,
         )
     },
+    hapticOnExternalChange: Boolean = true,
 ) {
     require(stepDistance >= 0f) { "stepDistance must not be negative" }
     val sliderState = rememberSliderState(value = value, valueRange = valueRange)
@@ -172,7 +173,13 @@ fun Slider(
                 }
                 animatable.animateTo(targetValue = debouncedValue, animationSpec = animationSpec) {
                     sliderState.value = this.value
-                    if (haptics is Haptics.Enabled && !haptics.isDiscrete()) {
+                    // Volume keys reach this animation without a drag. The Quick Settings
+                    // slider opts out so its catch-up from a stale level stays silent.
+                    if (
+                        hapticOnExternalChange &&
+                            haptics is Haptics.Enabled &&
+                            !haptics.isDiscrete()
+                    ) {
                         hapticsViewModel?.onValueChange(this.value)
                     }
                 }
