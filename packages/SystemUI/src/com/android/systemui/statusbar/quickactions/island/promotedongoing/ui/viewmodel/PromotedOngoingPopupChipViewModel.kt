@@ -5,13 +5,11 @@
 
 package com.android.systemui.statusbar.quickactions.island.promotedongoing.ui.viewmodel
 
-import android.content.Context
 import androidx.compose.runtime.getValue
 import com.android.systemui.axdynamicbar.domain.AxDynamicBarInteractor
 import com.android.systemui.axdynamicbar.model.IslandEvent
 import com.android.systemui.common.shared.model.ContentDescription
 import com.android.systemui.common.shared.model.Icon
-import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.lifecycle.ExclusiveActivatable
 import com.android.systemui.lifecycle.Hydrator
 import com.android.systemui.statusbar.quickactions.island.ui.model.ChipIcon
@@ -26,43 +24,45 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
+/**
+ * One status-bar chip per [IslandEvent.PromotedOngoing]. Opening a chip uses that notification's
+ * own view, the same card the dynamic bar already opens.
+ */
 class PromotedOngoingPopupChipViewModel
 @AssistedInject
 constructor(
-    @Application private val context: Context,
     private val axDynamicBarInteractor: AxDynamicBarInteractor,
 ) : IslandChipViewModel, ExclusiveActivatable() {
     private val hydrator = Hydrator("PromotedOngoingPopupChipViewModel.hydrator")
 
-    override val chip: PopupChipModel by
+    val chips: List<PopupChipModel.Shown> by
         hydrator.hydratedStateOf(
-            traceName = "chip",
-            initialValue = PopupChipModel.Hidden(PopupChipId.PromotedOngoing),
+            traceName = "chips",
+            initialValue = emptyList(),
             source =
                 axDynamicBarInteractor.settings.isDynamicIslandOngoingActive.flatMapLatest { enabled
                     ->
                     if (!enabled) {
-                        flowOf(PopupChipModel.Hidden(PopupChipId.PromotedOngoing))
+                        flowOf(emptyList())
                     } else {
                         axDynamicBarInteractor.uiState.map { uiState ->
-                            val event =
-                                uiState.events.firstOrNull { it is IslandEvent.PromotedOngoing }
-                                    as? IslandEvent.PromotedOngoing
-                            if (event == null) {
-                                PopupChipModel.Hidden(PopupChipId.PromotedOngoing)
-                            } else {
-                                toPopupChipModel(event)
+                            uiState.events.filterIsInstance<IslandEvent.PromotedOngoing>().map {
+                                toPopupChipModel(it)
                             }
                         }
                     }
                 },
         )
 
+    /** The island lists [chips]. This stays hidden so the same update is not added twice. */
+    override val chip: PopupChipModel
+        get() = PopupChipModel.Hidden(PopupChipId.PromotedOngoing)
+
     override suspend fun onActivated(): Nothing {
         hydrator.activate()
     }
 
-    private fun toPopupChipModel(event: IslandEvent.PromotedOngoing): PopupChipModel {
+    private fun toPopupChipModel(event: IslandEvent.PromotedOngoing): PopupChipModel.Shown {
         val iconModel =
             event.appIcon?.let { drawable ->
                 Icon.Loaded(drawable, ContentDescription.Loaded(event.appName))
@@ -80,7 +80,7 @@ constructor(
                 ""
             }
         return PopupChipModel.Shown(
-            chipId = PopupChipId.PromotedOngoing,
+            chipId = PopupChipId.PromotedOngoingItem(event.sbn.key),
             icons = listOf(ChipIcon(icon = iconModel)),
             chipText = chipText,
             colors = ColorsModel.DynamicIsland,

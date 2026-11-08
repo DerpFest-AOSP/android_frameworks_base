@@ -71,7 +71,6 @@ import com.android.systemui.axdynamicbar.ui.compose.AccordMediaSurface
 import com.android.systemui.axdynamicbar.ui.compose.AlarmExpanded
 import com.android.systemui.axdynamicbar.ui.compose.MediaCard
 import com.android.systemui.axdynamicbar.ui.compose.PrimaryCard
-import com.android.systemui.statusbar.quickactions.island.liveactivity.ui.compose.LiveActivityPopup
 import com.android.systemui.axdynamicbar.ui.compose.PromotedOngoingExpanded
 import com.android.systemui.axdynamicbar.ui.compose.ScreenRecordExpanded
 import com.android.systemui.axdynamicbar.ui.compose.SportsExpanded
@@ -623,11 +622,6 @@ private fun IslandPopupBody(
                                     cardActions = cardActions,
                                 )
                             }
-                        }
-                    }
-                    is PopupContentModel.LiveActivity -> {
-                        Box(modifier = Modifier.widthIn(min = 300.dp, max = 400.dp)) {
-                            PrimaryCard { LiveActivityPopup(model = popupContent.model) }
                         }
                     }
                     is PopupContentModel.PromotedOngoing -> {

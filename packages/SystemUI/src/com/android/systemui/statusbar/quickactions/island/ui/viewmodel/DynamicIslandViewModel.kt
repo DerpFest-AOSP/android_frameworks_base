@@ -28,7 +28,6 @@ import com.android.systemui.statusbar.chips.ui.viewmodel.IslandChipClaims
 import com.android.systemui.statusbar.policy.KeyguardStateController
 import com.android.systemui.statusbar.quickactions.island.alarm.ui.viewmodel.AlarmPopupChipViewModel
 import com.android.systemui.statusbar.quickactions.island.flashlight.ui.viewmodel.FlashlightPopupChipViewModel
-import com.android.systemui.statusbar.quickactions.island.liveactivity.ui.viewmodel.LiveActivityPopupChipsViewModel
 import com.android.systemui.statusbar.quickactions.island.livescore.ui.viewmodel.LiveScorePopupChipViewModel
 import com.android.systemui.statusbar.quickactions.island.media.ui.viewmodel.MediaControlChipViewModel
 import com.android.systemui.statusbar.quickactions.island.ongoingcall.ui.viewmodel.OngoingCallsPopupChipViewModel
@@ -64,7 +63,6 @@ internal constructor(
     private val promotedOngoingChip: IslandChipViewModel,
     private val keyguardStateController: KeyguardStateController? = null,
     private val shadeInteractor: ShadeInteractor? = null,
-    private val liveActivityChips: LiveActivityPopupChipsViewModel? = null,
 ) : ExclusiveActivatable() {
 
     @AssistedInject
@@ -80,7 +78,6 @@ internal constructor(
         promotedOngoingChipFactory: PromotedOngoingPopupChipViewModel.Factory,
         keyguardStateController: KeyguardStateController,
         shadeInteractor: ShadeInteractor,
-        liveActivityChipsFactory: LiveActivityPopupChipsViewModel.Factory,
     ) : this(
         context = context,
         mediaControlChip = mediaControlChipFactory.create(),
@@ -93,7 +90,6 @@ internal constructor(
         promotedOngoingChip = promotedOngoingChipFactory.create(),
         keyguardStateController = keyguardStateController,
         shadeInteractor = shadeInteractor,
-        liveActivityChips = liveActivityChipsFactory.create(),
     )
 
     private var isDynamicIslandEnabled by mutableStateOf(readDynamicIslandEnabled())
@@ -154,6 +150,10 @@ internal constructor(
         }
     }
 
+    /** Every ongoing update the island is showing, one chip per notification. */
+    private val promotedOngoingChips: List<PopupChipModel.Shown>
+        get() = (promotedOngoingChip as? PromotedOngoingPopupChipViewModel)?.chips.orEmpty()
+
     private val incomingPopupChipBundle: PopupChipBundle by derivedStateOf {
         PopupChipBundle(
             media = mediaControlChip.chip,
@@ -183,7 +183,7 @@ internal constructor(
                 bundle.ongoingCall,
             )
             .filterIsInstance<PopupChipModel.Shown>()
-            .plus(liveActivityChips?.chips.orEmpty())
+            .plus(promotedOngoingChips)
             .filterNot { it.isOwnedByForegroundApp() }
             .filterNot { chip ->
                 chip.chipId in hiddenChips && hiddenChips[chip.chipId] == chip.hideKey()
@@ -241,7 +241,7 @@ internal constructor(
                                 promotedOngoingChip.chip,
                             )
                             .filterIsInstance<PopupChipModel.Shown>()
-                            .plus(liveActivityChips?.chips.orEmpty())
+                            .plus(promotedOngoingChips)
                             .associate { it.chipId to it.hideKey() }
                     }
                     .collect { present ->
@@ -260,7 +260,6 @@ internal constructor(
             launch { alarmChip.activate() }
             launch { ongoingCallChip.activate() }
             launch { promotedOngoingChip.activate() }
-            liveActivityChips?.let { launch { it.activate() } }
             try {
                 awaitCancellation()
             } finally {
@@ -298,8 +297,13 @@ internal constructor(
                     content.model.artistName?.toString(),
                 )
             is PopupContentModel.OngoingCall -> !content.event.connected
-            is PopupContentModel.LiveActivity ->
-                listOf(content.model.title, content.model.text, content.model.shortText, content.model.progress)
+            is PopupContentModel.PromotedOngoing ->
+                listOf(
+                    content.event.title,
+                    content.event.text,
+                    content.event.shortText,
+                    content.event.progress,
+                )
             else -> null
         }
 
@@ -313,7 +317,6 @@ internal constructor(
                         is PopupContentModel.OngoingCall ->
                             CallChipViewModel.KEY_PREFIX + content.event.sbn.key
                         is PopupContentModel.PromotedOngoing -> content.event.sbn.key
-                        is PopupContentModel.LiveActivity -> content.model.key
                         else -> null
                     }
                 },
@@ -331,7 +334,7 @@ internal constructor(
         return when (val content = popupContent) {
             is PopupContentModel.Media -> content.model.packageName == open
             is PopupContentModel.OngoingCall -> content.event.sbn.packageName == open
-            is PopupContentModel.LiveActivity -> content.model.packageName == open
+            is PopupContentModel.PromotedOngoing -> content.event.sbn.packageName == open
             else -> false
         }
     }

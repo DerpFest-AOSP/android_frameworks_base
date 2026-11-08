@@ -68,18 +68,36 @@ constructor(
             .stateIn(applicationScope, SharingStarted.Eagerly, false)
 
     val chipState: StateFlow<AxDynamicBarChipState?> =
-        interactor.uiState
-            .map { uiState ->
-                if (!uiState.shouldShow) return@map null
-                val filteredEvents = uiState.events.filter { event ->
-                    interactor.settings.isEventEnabled(event) ||
-                        (event is IslandEvent.Media && interactor.isOnKeyguard.value &&
-                            (interactor.settings.isLockscreenMediaEnabled.value || interactor.settings.isLockscreenMediaLyricsEnabled.value))
-                }
-                if (filteredEvents.isEmpty() && uiState.notificationAlert == null) return@map null
+        combine(
+                interactor.uiState,
+                interactor.isOnKeyguard,
+                interactor.settings.isDynamicIslandOngoingActive,
+            ) { uiState, onKeyguard, islandHasOngoing ->
+                if (!uiState.shouldShow) return@combine null
+                val filteredEvents =
+                    uiState.events.filter { event ->
+                        // The centered island already shows each ongoing update on its own chip.
+                        if (
+                            !onKeyguard &&
+                                islandHasOngoing &&
+                                event is IslandEvent.PromotedOngoing
+                        ) {
+                            return@filter false
+                        }
+                        interactor.settings.isEventEnabled(event) ||
+                            (event is IslandEvent.Media &&
+                                onKeyguard &&
+                                (interactor.settings.isLockscreenMediaEnabled.value ||
+                                    interactor.settings.isLockscreenMediaLyricsEnabled.value))
+                    }
+                if (filteredEvents.isEmpty() && uiState.notificationAlert == null) return@combine null
 
                 val alert = uiState.notificationAlert
-                val topEvent = filteredEvents.getOrNull(uiState.pinnedEventIndex) ?: filteredEvents.firstOrNull() ?: alert ?: return@map null
+                val topEvent =
+                    filteredEvents.getOrNull(uiState.pinnedEventIndex)
+                        ?: filteredEvents.firstOrNull()
+                        ?: alert
+                        ?: return@combine null
                 AxDynamicBarChipState(
                     event = topEvent,
                     eventCount = filteredEvents.filter { it !is IslandEvent.Notification }.size,

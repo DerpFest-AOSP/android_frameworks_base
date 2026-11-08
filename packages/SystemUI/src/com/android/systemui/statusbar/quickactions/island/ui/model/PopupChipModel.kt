@@ -18,7 +18,6 @@ package com.android.systemui.statusbar.quickactions.island.ui.model
 
 import androidx.compose.ui.graphics.Color
 import com.android.systemui.statusbar.quickactions.island.alarm.shared.model.AlarmPopupModel
-import com.android.systemui.statusbar.quickactions.island.liveactivity.shared.model.LiveActivityPopupModel
 import com.android.systemui.statusbar.quickactions.island.flashlight.shared.model.FlashlightPopupModel
 import com.android.systemui.common.shared.model.Icon
 import com.android.systemui.statusbar.quickactions.island.livescore.shared.model.LiveScoreChipModel
@@ -48,7 +47,8 @@ sealed class PopupChipId(val value: String) {
 
     data object PromotedOngoing : PopupChipId("PromotedOngoing")
 
-    data class LiveActivity(val key: String) : PopupChipId("LiveActivity:$key")
+    /** One chip for a single promoted ongoing notification. */
+    data class PromotedOngoingItem(val key: String) : PopupChipId("PromotedOngoing:$key")
 
     data object AvControlsIndicator : PopupChipId("AvControlsIndicator")
 
@@ -84,8 +84,6 @@ sealed interface PopupContentModel {
     data class Alarm(val model: AlarmPopupModel) : PopupContentModel
 
     data class PromotedOngoing(val event: IslandEvent.PromotedOngoing) : PopupContentModel
-
-    data class LiveActivity(val model: LiveActivityPopupModel) : PopupContentModel
 
     data class OngoingCall(val event: IslandEvent.Call) : PopupContentModel
 }
