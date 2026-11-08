@@ -115,6 +115,10 @@ import android.graphics.drawable.Drawable
 import java.util.Calendar
 
 private val ChipHeight = 36.dp
+// The battery chip used labelSmall (~11sp), smaller than the AOD date and weather
+// line (widget_label_font_size, 16dp). 16sp matches those lines.
+private val BatteryChipText: TextStyle
+    @Composable get() = PillPrimary.copy(fontSize = 16.sp, lineHeight = 20.sp)
 private val ChipShape = ShapeChip
 private val ChipIconSize = ChipHeight - SpaceLg
 private val ActionSize = SpacePanel
@@ -731,14 +735,14 @@ private fun KeyguardBatteryChip(
                     ) {
                         Text(
                             parts[0],
-                            style = PillPrimary,
+                            style = BatteryChipText,
                             color = contentColor,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
                             parts[1],
-                            style = PillPrimary.copy(fontSize = 10.sp),
+                            style = BatteryChipText,
                             color = contentColor.copy(alpha = AlphaSecondary),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -747,7 +751,7 @@ private fun KeyguardBatteryChip(
                 } else {
                     Text(
                         if (parts.isNotEmpty()) parts[0] else batteryString,
-                        style = PillPrimary,
+                        style = BatteryChipText,
                         color = contentColor.copy(alpha = AlphaSecondary),
                         maxLines = 1,
                         overflow = TextOverflow.Clip,
@@ -758,7 +762,7 @@ private fun KeyguardBatteryChip(
             }
             Text(
                 "${info.level}%",
-                style = PillPrimary,
+                style = BatteryChipText,
                 color = contentColor,
                 maxLines = 1,
             )
@@ -772,12 +776,12 @@ private fun KeyguardBatteryChip(
             if (secondaryLabel != null) {
                 Text(
                     " · ",
-                    style = MaterialTheme.typography.labelSmall,
+                    style = BatteryChipText,
                     color = contentColor.copy(alpha = AlphaTertiary),
                 )
                 Text(
                     secondaryLabel,
-                    style = MaterialTheme.typography.labelSmall,
+                    style = BatteryChipText,
                     color = contentColor.copy(alpha = AlphaSecondary),
                     maxLines = 1,
                 )
@@ -787,12 +791,12 @@ private fun KeyguardBatteryChip(
             if (timeRemaining != null) {
                 Text(
                     " · ",
-                    style = MaterialTheme.typography.labelSmall,
+                    style = BatteryChipText,
                     color = contentColor.copy(alpha = AlphaTertiary),
                 )
                 Text(
                     timeRemaining,
-                    style = MaterialTheme.typography.labelSmall,
+                    style = BatteryChipText,
                     color = contentColor.copy(alpha = AlphaSecondary),
                     maxLines = 1,
                 )
@@ -907,14 +911,14 @@ private fun KeyguardPrimaryText(event: IslandEvent, color: Color, modifier: Modi
                 Column(modifier = modifier, verticalArrangement = Arrangement.Center) {
                     Text(
                         parts[0],
-                        style = PillPrimary,
+                        style = BatteryChipText,
                         color = color,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         parts[1],
-                        style = PillPrimary.copy(fontSize = 10.sp),
+                        style = BatteryChipText,
                         color = color.copy(alpha = AlphaSecondary),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
