@@ -520,7 +520,8 @@ public class LauncherProxyService implements CallbackController<LauncherProxyLis
             verifyCallerAndClearCallingIdentity("onSleepEvent", () -> {
                 mHandler.post(() -> {
                     mContext.getSystemService(PowerManager.class)
-                            .goToSleep(event.getEventTime());
+                            .goToSleep(event.getEventTime(),
+                                    PowerManager.GO_TO_SLEEP_REASON_POWER_BUTTON, 0);
                     event.recycle();
                 });
             });

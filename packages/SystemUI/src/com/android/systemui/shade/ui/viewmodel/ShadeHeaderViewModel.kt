@@ -203,7 +203,11 @@ constructor(
         if (!isDoubleTapToSleepEnabled || falsingManager.isFalseDoubleTap) {
             return
         }
-        powerManager.goToSleep(systemClock.uptimeMillis())
+        powerManager.goToSleep(
+            systemClock.uptimeMillis(),
+            PowerManager.GO_TO_SLEEP_REASON_POWER_BUTTON,
+            0,
+        )
     }
 
     /** Notifies that the privacy chip was clicked. */

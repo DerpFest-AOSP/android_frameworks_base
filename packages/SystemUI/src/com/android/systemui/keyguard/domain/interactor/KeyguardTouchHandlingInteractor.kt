@@ -307,7 +307,11 @@ class KeyguardTouchHandlingInteractor(
     fun onDoubleClick() {
         if (isDoubleTapHandlingEnabled.value) {
             Log.d(TAG, "going to sleep due to double tap")
-            powerManager.goToSleep(systemClock.uptimeMillis())
+            powerManager.goToSleep(
+                systemClock.uptimeMillis(),
+                PowerManager.GO_TO_SLEEP_REASON_POWER_BUTTON,
+                0,
+            )
         } else {
             pulsingGestureListener.onDoubleTapEvent()
         }

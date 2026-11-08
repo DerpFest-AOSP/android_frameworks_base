@@ -841,7 +841,8 @@ public final class NotificationPanelViewController implements
             @Override
             public boolean onDoubleTap(MotionEvent e) {
                 if (mPowerManager != null) {
-                    mPowerManager.goToSleep(e.getEventTime());
+                    mPowerManager.goToSleep(e.getEventTime(),
+                            PowerManager.GO_TO_SLEEP_REASON_POWER_BUTTON, 0);
                 }
                 return true;
             }

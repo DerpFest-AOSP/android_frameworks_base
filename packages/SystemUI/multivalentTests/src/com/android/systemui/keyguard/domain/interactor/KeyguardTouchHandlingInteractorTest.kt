@@ -74,6 +74,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.ArgumentMatchers.anyInt
 import org.mockito.ArgumentMatchers.anyLong
+import org.mockito.kotlin.eq
 import org.mockito.Mock
 import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
@@ -406,7 +407,8 @@ class KeyguardTouchHandlingInteractorTest : SysuiTestCase() {
             underTest.onDoubleClick()
 
             assertThat(isEnabled).isTrue()
-            verify(powerManager).goToSleep(anyLong())
+            verify(powerManager)
+                .goToSleep(anyLong(), eq(PowerManager.GO_TO_SLEEP_REASON_POWER_BUTTON), eq(0))
         }
     }
 
@@ -440,7 +442,7 @@ class KeyguardTouchHandlingInteractorTest : SysuiTestCase() {
             underTest.onDoubleClick()
 
             assertThat(isEnabled).isFalse()
-            verify(powerManager, never()).goToSleep(anyLong())
+            verify(powerManager, never()).goToSleep(anyLong(), anyInt(), anyInt())
         }
     }
 

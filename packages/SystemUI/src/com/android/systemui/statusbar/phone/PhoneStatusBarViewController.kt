@@ -368,7 +368,11 @@ private constructor(
                 if (!gestureMoved && pendingDoubleTap) {
                     lastTapUpTime = 0L
                     pendingDoubleTap = false
-                    powerManager?.goToSleep(event.eventTime)
+                    powerManager?.goToSleep(
+                        event.eventTime,
+                        PowerManager.GO_TO_SLEEP_REASON_POWER_BUTTON,
+                        0,
+                    )
                 } else if (!gestureMoved) {
                     lastTapUpTime = event.eventTime
                     lastTapUpX = event.x

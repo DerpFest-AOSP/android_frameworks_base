@@ -78,7 +78,8 @@ class QQSGestureListener @Inject constructor(
                 (onQsHeader || onLegacyKeyguard) &&
                 !falsingManager.isFalseDoubleTap
         ) {
-            powerManager.goToSleep(e.getEventTime())
+            powerManager.goToSleep(
+                    e.getEventTime(), PowerManager.GO_TO_SLEEP_REASON_POWER_BUTTON, 0)
             return true
         }
         return false
