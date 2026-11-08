@@ -13,6 +13,8 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import com.android.systemui.statusbar.quickactions.island.ui.compose.CallExtraHeight
+import com.android.systemui.statusbar.quickactions.island.ui.compose.CallMinWidth
 import com.android.systemui.statusbar.quickactions.island.media.shared.model.MediaControlChipModel
 import com.android.systemui.statusbar.quickactions.island.media.ui.compose.LockscreenLyricsView
 import androidx.compose.animation.core.Animatable
@@ -419,10 +421,12 @@ private fun KeyguardChipBody(
     val parts = rememberChargingParts(batteryString)
     val isMultiLineCharging = event is IslandEvent.Charging && parts.size >= 2
     val isKeyguardMedia = event is IslandEvent.Media
+    val isCall = event is IslandEvent.Call
 
     val dynamicHeight = when {
         isMultiLineCharging -> 48.dp
         isKeyguardMedia -> 48.dp
+        isCall -> ChipHeight + CallExtraHeight
         else -> ChipHeight
     }
 
@@ -431,7 +435,7 @@ private fun KeyguardChipBody(
             modifier = Modifier
                 .height(dynamicHeight)
                 .widthIn(
-                    min = 48.dp,
+                    min = if (isCall) CallMinWidth else 48.dp,
                     max = 260.dp
                 )
                 .clip(

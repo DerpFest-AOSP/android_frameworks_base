@@ -105,8 +105,10 @@ import com.android.systemui.res.R
 import com.android.systemui.scene.ui.view.WindowRootView
 import com.android.systemui.shade.ui.composable.VariableDayDate
 import com.android.systemui.statusbar.StatusBarAlwaysUseRegionSampling
+import com.android.systemui.axdynamicbar.model.IslandEvent
 import com.android.systemui.axdynamicbar.ui.AxDynamicBarChipViewModel
 import com.android.systemui.axdynamicbar.ui.compose.AxDynamicBarChip
+import com.android.systemui.statusbar.quickactions.island.ui.compose.CallMinWidth
 import com.android.systemui.statusbar.chips.ui.compose.OngoingActivityChips
 import com.android.systemui.statusbar.core.NewStatusBarIcons
 import com.android.systemui.statusbar.core.StatusBarEventForwardingModernization
@@ -667,10 +669,16 @@ private fun addStartSideComposable(
                     }
 
                 val axEnabled by axDynamicBarChipViewModel.interactor.settings.isEnabled.collectAsState()
+                val barState by axDynamicBarChipViewModel.chipState.collectAsState()
                 if (axEnabled) {
                     // chipsMaxWidth is 0 until the clock and start-side bounds are measured, and
                     // also when that measurement is missed. A max of 0 collapses the chip.
-                    val dynamicBarMaxWidth = chipsMaxWidth.coerceAtLeast(25.dp)
+                    // A call pill stays at least CallMinWidth so the tap misses the proximity sensor.
+                    val callOnBar =
+                        (barState?.notificationAlert ?: barState?.event) is IslandEvent.Call
+                    val dynamicBarMaxWidth =
+                        if (callOnBar) maxOf(chipsMaxWidth, CallMinWidth)
+                        else chipsMaxWidth.coerceAtLeast(25.dp)
                     AxDynamicBarChip(
                         viewModel = axDynamicBarChipViewModel,
                         modifier = Modifier.widthIn(max = dynamicBarMaxWidth),

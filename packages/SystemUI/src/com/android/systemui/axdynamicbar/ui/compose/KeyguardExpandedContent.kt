@@ -105,6 +105,7 @@ import com.android.systemui.axdynamicbar.model.IslandEvent
 import com.android.systemui.axdynamicbar.model.RecordingState
 import com.android.systemui.axdynamicbar.shared.*
 import com.android.systemui.haptics.slider.compose.ui.SliderHapticsViewModel
+import com.android.systemui.statusbar.quickactions.island.ui.compose.CallIslandCard
 import com.android.systemui.media.controls.ui.view.WaveformSeekBar
 import kotlinx.coroutines.delay
 
@@ -210,6 +211,8 @@ internal fun KeyguardExpandedContent(
             is IslandEvent.Timer -> KeyguardTimerPanel(event, interactor)
             is IslandEvent.Stopwatch -> KeyguardStopwatchPanel(event, interactor)
             is IslandEvent.AudioRecording -> KeyguardAudioRecordingPanel(event, interactor)
+            is IslandEvent.Call ->
+                CallIslandCard(event = event, modifier = Modifier.fillMaxWidth())
             else -> KeyguardGenericPanel(event, interactor, hapticsViewModelFactory)
         }
     }

@@ -85,6 +85,8 @@ import com.android.systemui.axdynamicbar.shared.textKeyFor
 import com.android.systemui.axdynamicbar.shared.toScaledBitmap
 import com.android.systemui.axdynamicbar.ui.AxDynamicBarChipViewModel
 import com.android.systemui.res.R
+import com.android.systemui.statusbar.quickactions.island.ui.compose.CallExtraHeight
+import com.android.systemui.statusbar.quickactions.island.ui.compose.CallMinWidth
 import kotlin.math.abs
 
 private val ChipShape = ShapeXl
@@ -110,6 +112,8 @@ fun AxDynamicBarChip(
         LocalConfiguration.current.screenWidthDp.dp.toPx()
     }
 
+    val shownEvent = state?.notificationAlert ?: state?.event
+    val isCallChip = shownEvent is IslandEvent.Call
     val touchSlop = LocalViewConfiguration.current.touchSlop
     val expandableController = rememberExpandableController(color = Color.Transparent, shape = ChipShape)
     var currentExpandable by remember { mutableStateOf<SystemUiExpandable?>(null) }
@@ -122,7 +126,10 @@ fun AxDynamicBarChip(
         exit = fadeOut(motionScheme.fastEffectsSpec()) + scaleOut(targetScale = 0.8f, animationSpec = motionScheme.fastSpatialSpec()),
         modifier = modifier
             .padding(start = 4.dp, end = 2.dp)
-            .widthIn(min = 25.dp, max = 90.dp)
+            .widthIn(
+                min = if (isCallChip) CallMinWidth else 25.dp,
+                max = if (isCallChip) 200.dp else 90.dp,
+            )
             .pointerInput(viewModel) {
                 awaitEachGesture {
                     val down = awaitFirstDown(pass = PointerEventPass.Initial)
@@ -230,6 +237,7 @@ fun AxDynamicBarChip(
                     )
                 val useCircleStyle = chipStyle == 1 &&
                         !isAlert &&
+                        event !is IslandEvent.Call &&
                         event !is IslandEvent.AudioRecording &&
                         event !is IslandEvent.Timer &&
                         event !is IslandEvent.Stopwatch &&
@@ -252,8 +260,14 @@ fun AxDynamicBarChip(
                     } else {
                     Row(
                         modifier =
-                            Modifier.height(ChipHeight)
-                                .widthIn(max = 100.dp)
+                            Modifier.height(
+                                    if (event is IslandEvent.Call) ChipHeight + CallExtraHeight
+                                    else ChipHeight
+                                )
+                                .widthIn(
+                                    min = if (event is IslandEvent.Call) CallMinWidth else 0.dp,
+                                    max = if (event is IslandEvent.Call) 200.dp else 100.dp,
+                                )
                                 .clip(ChipShape)
                                 .background(fillColor)
                                 .then(
