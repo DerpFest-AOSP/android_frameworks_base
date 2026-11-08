@@ -26,7 +26,10 @@ import com.android.systemui.SysuiTestCase
 import com.android.systemui.biometrics.data.repository.fingerprintPropertyRepository
 import com.android.systemui.common.shared.colors.SurfaceEffectColors
 import com.android.systemui.coroutines.collectLastValue
+import com.android.systemui.flags.DisableSceneContainer
 import com.android.systemui.flags.EnableSceneContainer
+import com.android.systemui.keyguard.data.repository.fakeDeviceEntryFingerprintAuthRepository
+import com.android.systemui.keyguard.data.repository.fakeKeyguardRepository
 import com.android.systemui.keyguard.data.repository.fakeKeyguardTransitionRepository
 import com.android.systemui.keyguard.shared.model.KeyguardState
 import com.android.systemui.keyguard.shared.model.TransitionState
@@ -38,6 +41,7 @@ import com.android.systemui.kosmos.testScope
 import com.android.systemui.testKosmos
 import com.android.systemui.window.data.repository.fakeWindowRootViewBlurRepository
 import com.google.common.truth.Truth.assertThat
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
@@ -161,6 +165,31 @@ class DeviceEntryBackgroundViewModelTest : SysuiTestCase() {
             )
             runCurrent()
             assertThat(alpha).isEqualTo(0f)
+        }
+
+    @Test
+    @DisableSceneContainer
+    fun alpha_isZeroWhenGlyphIsHiddenWhileUdfpsListens() =
+        testScope.runTest {
+            kosmos.fingerprintPropertyRepository.supportsUdfps()
+            kosmos.fakeDeviceEntryFingerprintAuthRepository.setIsRunning(true)
+            val alpha by collectLastValue(underTest.alpha)
+
+            kosmos.fakeKeyguardTransitionRepository.sendTransitionSteps(
+                listOf(dozingToLockscreen(0f, STARTED), dozingToLockscreen(1f, FINISHED)),
+                testScope,
+            )
+            runCurrent()
+            assertThat(alpha).isEqualTo(1f)
+
+            kosmos.fakeKeyguardRepository.setHasTrust(true)
+            advanceTimeBy(DeviceEntryIconViewModel.UNLOCKED_DELAY_MS * 2)
+            runCurrent()
+            assertThat(alpha).isEqualTo(0f)
+
+            kosmos.fakeKeyguardRepository.setHasTrust(false)
+            runCurrent()
+            assertThat(alpha).isEqualTo(1f)
         }
 
     @Test

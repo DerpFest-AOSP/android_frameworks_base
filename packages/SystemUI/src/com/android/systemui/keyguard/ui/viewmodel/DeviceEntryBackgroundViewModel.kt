@@ -25,6 +25,7 @@ import com.android.systemui.common.ui.domain.interactor.ConfigurationInteractor
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.keyguard.domain.interactor.KeyguardTransitionInteractor
 import com.android.systemui.keyguard.shared.model.KeyguardState
+import com.android.systemui.keyguard.ui.view.DeviceEntryIconView
 import com.android.systemui.scene.domain.interactor.SceneInteractor
 import com.android.systemui.scene.shared.flag.SceneContainerFlag
 import com.android.systemui.scene.shared.model.Scenes
@@ -34,6 +35,7 @@ import dagger.Lazy
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -114,9 +116,17 @@ constructor(
             }
         }
     val alpha: Flow<Float> =
-        deviceEntryIconViewModel.useBackgroundProtection.flatMapLatest { useBackground ->
-            if (useBackground) {
-                setOf(
+        combine(
+                deviceEntryIconViewModel.useBackgroundProtection,
+                deviceEntryIconViewModel.iconType,
+            ) { useBackground, iconType ->
+                // NONE draws no glyph. The blur circle uses this alpha, so hide it too.
+                useBackground && iconType != DeviceEntryIconView.IconType.NONE
+            }
+            .distinctUntilChanged()
+            .flatMapLatest { showBackground ->
+                if (showBackground) {
+                    setOf(
                         alternateBouncerToAodTransitionViewModel.deviceEntryBackgroundViewAlpha,
                         alternateBouncerToDozingTransitionViewModel.deviceEntryBackgroundViewAlpha,
                         aodToLockscreenTransitionViewModel.deviceEntryBackgroundViewAlpha,
@@ -164,10 +174,10 @@ constructor(
                             }
                         }
                     }
-            } else {
-                flowOf(0f)
+                } else {
+                    flowOf(0f)
+                }
             }
-        }
 
     private fun calculateDeviceEntryIconBackgroundAlpha(state: KeyguardState): Float {
         return when (state) {
