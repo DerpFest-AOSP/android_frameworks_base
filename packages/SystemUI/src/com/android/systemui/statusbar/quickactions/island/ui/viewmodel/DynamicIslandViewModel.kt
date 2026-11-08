@@ -40,8 +40,10 @@ import com.android.systemui.statusbar.quickactions.island.ui.model.PopupChipMode
 import com.android.systemui.statusbar.quickactions.island.ui.model.PopupContentModel
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
@@ -336,29 +338,69 @@ internal constructor(
 
     /**
      * Opens the call popup while a call is ringing and puts it away once the call is picked up,
-     * ends, or moves on. Skipped while the island is hidden on the lockscreen or under the shade.
-     * The chip steps aside on the dialer's own screen through [isOwnedByForegroundApp].
+     * ends, or moves on. A call that is not ringing, such as one placed from the dialer, opens
+     * for a few seconds the first time it shows. Skipped while the island is hidden on the
+     * lockscreen or under the shade. The chip steps aside on the dialer's own screen through
+     * [isOwnedByForegroundApp].
      */
     private suspend fun showRingingCall() {
-        var held: PopupChipId? = null
-        snapshotFlow {
-                val call = ongoingCallChip.chip as? PopupChipModel.Shown
-                val event = (call?.popupContent as? PopupContentModel.OngoingCall)?.event
-                val ringing =
-                    event != null &&
-                        !event.connected &&
-                        event.callType == "Phone:incoming"
-                Triple(if (ringing) call.chipId else null, onLockscreen, shadeExpanded)
-            }
-            .distinctUntilChanged()
-            .collect { (ringingId, locked, shade) ->
-                held?.let { if (currentShownPopupChipId == it) currentShownPopupChipId = null }
-                held = null
-                if (ringingId != null && isDynamicIslandEnabled && !locked && !shade) {
-                    currentShownPopupChipId = ringingId
-                    held = ringingId
+        coroutineScope {
+            var held: PopupChipId? = null
+            var autoJob: Job? = null
+            val expandedCalls = mutableSetOf<String>()
+            snapshotFlow {
+                    val call = ongoingCallChip.chip as? PopupChipModel.Shown
+                    val event = (call?.popupContent as? PopupContentModel.OngoingCall)?.event
+                    val ringing =
+                        event != null &&
+                            !event.connected &&
+                            event.callType == "Phone:incoming"
+                    CallAutoOpen(
+                        chipId = if (event != null) call.chipId else null,
+                        key = event?.sbn?.key,
+                        ringing = ringing,
+                        locked = onLockscreen,
+                        shade = shadeExpanded,
+                    )
                 }
-            }
+                .distinctUntilChanged()
+                .collect { state ->
+                    val canOpen = isDynamicIslandEnabled && !state.locked && !state.shade
+                    if (state.ringing && state.chipId != null && canOpen) {
+                        autoJob?.cancel()
+                        state.key?.let { expandedCalls += it }
+                        if (held != state.chipId) {
+                            currentShownPopupChipId = state.chipId
+                            held = state.chipId
+                        }
+                        return@collect
+                    }
+                    if (held != null) {
+                        if (currentShownPopupChipId == held) currentShownPopupChipId = null
+                        held = null
+                    }
+                    val key = state.key
+                    val chipId = state.chipId
+                    if (key == null || chipId == null) {
+                        autoJob?.cancel()
+                        expandedCalls.clear()
+                        return@collect
+                    }
+                    if (!canOpen) {
+                        autoJob?.cancel()
+                        if (currentShownPopupChipId == chipId) currentShownPopupChipId = null
+                        return@collect
+                    }
+                    if (key in expandedCalls) return@collect
+                    expandedCalls += key
+                    currentShownPopupChipId = chipId
+                    autoJob?.cancel()
+                    autoJob = launch {
+                        delay(CALL_AUTO_EXPAND_MS)
+                        if (currentShownPopupChipId == chipId) currentShownPopupChipId = null
+                    }
+                }
+        }
     }
 
     private fun PopupChipModel.mediaPackageName(): String? {
@@ -380,3 +422,13 @@ internal constructor(
         fun create(): DynamicIslandViewModel
     }
 }
+
+private data class CallAutoOpen(
+    val chipId: PopupChipId?,
+    val key: String?,
+    val ringing: Boolean,
+    val locked: Boolean,
+    val shade: Boolean,
+)
+
+private const val CALL_AUTO_EXPAND_MS = 5_000L
