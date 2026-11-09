@@ -95,7 +95,7 @@ internal class TabletHandleMenuMotion(
             render()
             animation =
                 ValueAnimator.ofFloat(0f, 1f).apply {
-                    this.duration = duration
+                    this.duration = (duration * DURATION_SCALE).toLong()
                     interpolator = LinearInterpolator()
                     addUpdateListener { animator ->
                         // A newly opened menu owns the caption, even while an older menu is
@@ -196,6 +196,7 @@ internal class TabletHandleMenuMotion(
     private fun mix(from: Float, to: Float, fraction: Float) = from + (to - from) * fraction
 
     companion object {
+        private const val DURATION_SCALE = 1.15f
         private const val JOIN_FRACTION = 0.19f
         const val DOT_SIZE = 6f
         const val DOT_SPACING = 12f

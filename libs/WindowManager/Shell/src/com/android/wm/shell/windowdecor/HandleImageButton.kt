@@ -84,7 +84,7 @@ class HandleImageButton(context: Context?, attrs: AttributeSet?) : ImageButton(c
         val endSpan = min(line / 2 - dot / 2, startSpan)
         val span = startSpan + (endSpan - startSpan) * tabletJoinProgress
         val centerWidth = dot + (line - dot) * tabletJoinProgress
-        val radius = 0.5f * density + (lineHeight / 2 - 0.5f * density) * tabletJoinProgress
+        val radius = height / 2
         val cx = width / 2f
         val top = (this.height - height) / 2f
         dotsPath.rewind()
