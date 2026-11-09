@@ -19,6 +19,7 @@ package com.android.systemui.qs.tiles;
 import static com.android.internal.logging.MetricsLogger.VIEW_UNKNOWN;
 
 import android.content.Intent;
+import android.database.ContentObserver;
 import android.os.Handler;
 import android.os.Looper;
 import android.service.quicksettings.Tile;
@@ -56,6 +57,14 @@ public class ReadingModeTile extends QSTileImpl<BooleanState> {
     private static final Intent DISPLAY_SETTINGS = new Intent("android.settings.DISPLAY_SETTINGS");
 
     private LineageHardwareManager mHardware;
+    private boolean mListening;
+
+    private final ContentObserver mObserver = new ContentObserver(mHandler) {
+        @Override
+        public void onChange(boolean selfChange) {
+            refreshState();
+        }
+    };
 
     @Inject
     public ReadingModeTile(
@@ -82,7 +91,8 @@ public class ReadingModeTile extends QSTileImpl<BooleanState> {
     @Override
     protected void handleClick(@Nullable Expandable expandable) {
         boolean newStatus = !isReadingModeEnabled();
-        mHardware.set(LineageHardwareManager.FEATURE_READING_ENHANCEMENT, newStatus);
+        LineageSettings.System.putInt(mContext.getContentResolver(),
+                LineageSettings.System.DISPLAY_READING_MODE, newStatus ? 1 : 0);
         refreshState();
     }
 
@@ -127,10 +137,36 @@ public class ReadingModeTile extends QSTileImpl<BooleanState> {
 
     @Override
     public void handleSetListening(boolean listening) {
-        // Do nothing
+        super.handleSetListening(listening);
+        if (mListening == listening) {
+            return;
+        }
+        mListening = listening;
+        if (listening) {
+            mContext.getContentResolver().registerContentObserver(
+                    LineageSettings.System.getUriFor(
+                            LineageSettings.System.DISPLAY_READING_MODE),
+                    false, mObserver);
+        } else {
+            mContext.getContentResolver().unregisterContentObserver(mObserver);
+        }
+    }
+
+    @Override
+    protected void handleDestroy() {
+        super.handleDestroy();
+        if (mListening) {
+            mListening = false;
+            mContext.getContentResolver().unregisterContentObserver(mObserver);
+        }
     }
 
     private boolean isReadingModeEnabled() {
-        return mHardware.get(LineageHardwareManager.FEATURE_READING_ENHANCEMENT);
+        if (LineageSettings.System.getString(mContext.getContentResolver(),
+                LineageSettings.System.DISPLAY_READING_MODE) == null) {
+            return mHardware.get(LineageHardwareManager.FEATURE_READING_ENHANCEMENT);
+        }
+        return LineageSettings.System.getInt(mContext.getContentResolver(),
+                LineageSettings.System.DISPLAY_READING_MODE, 0) != 0;
     }
 }
