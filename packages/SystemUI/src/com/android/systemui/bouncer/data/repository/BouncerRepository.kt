@@ -17,7 +17,6 @@
 package com.android.systemui.bouncer.data.repository
 
 import android.content.Context
-import android.os.UserHandle
 import android.provider.Settings
 import android.provider.Settings.Global.ONE_HANDED_KEYGUARD_SIDE
 import com.android.systemui.bouncer.shared.model.BouncerInputSide
@@ -28,8 +27,10 @@ import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.flags.FeatureFlagsClassic
 import com.android.systemui.flags.Flags
 import com.android.systemui.res.R
+import com.android.systemui.shared.settings.data.repository.SystemSettingsRepository
 import com.android.systemui.util.settings.GlobalSettings
 import javax.inject.Inject
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /** Provides access to bouncer-related application state. */
@@ -40,27 +41,28 @@ constructor(
     @Application private val applicationContext: Context,
     private val globalSettings: GlobalSettings,
     private val flags: FeatureFlagsClassic,
+    systemSettingsRepository: SystemSettingsRepository,
 ) {
     val scale: MutableStateFlow<Float> = MutableStateFlow(1.0f)
 
-    /** Whether the user switcher should be displayed within the bouncer UI on large screens. */
-    val isUserSwitcherEnabledInConfig: Boolean
-        get() {
-            val settingOverride = Settings.System.getIntForUser(
-                applicationContext.contentResolver,
-                Settings.System.BOUNCER_USER_SWITCHER_ENABLED,
-                -1,
-                UserHandle.USER_CURRENT
-            )
-            val configEnabled =
+    /**
+     * Bouncer user-switcher override. 1 = show, 0 = hide, anything else follows the device config.
+     * The scene-container bouncer reads this directly; it does not depend on the fullscreen
+     * user-switcher dialog flag.
+     */
+    val bouncerUserSwitcherSetting: Flow<Int> =
+        systemSettingsRepository.intSetting(Settings.System.BOUNCER_USER_SWITCHER_ENABLED, -1)
+
+    /** Whether the user switcher should be displayed within the bouncer UI. */
+    fun isUserSwitcherEnabled(settingOverride: Int): Boolean {
+        return when (settingOverride) {
+            1 -> true
+            0 -> false
+            else ->
                 applicationContext.resources.getBoolean(R.bool.config_enableBouncerUserSwitcher) &&
                     flags.isEnabled(Flags.FULL_SCREEN_USER_SWITCHER)
-            return when (settingOverride) {
-                1 -> flags.isEnabled(Flags.FULL_SCREEN_USER_SWITCHER)
-                0 -> false
-                else -> configEnabled
-            }
         }
+    }
 
     /** Whether the one handed bouncer is supported for this device. */
     val isOneHandedBouncerSupportedInConfig: Boolean

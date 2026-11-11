@@ -20,6 +20,7 @@ import android.content.applicationContext
 import com.android.systemui.flags.featureFlagsClassic
 import com.android.systemui.kosmos.Kosmos
 import com.android.systemui.kosmos.Kosmos.Fixture
+import com.android.systemui.shared.settings.data.repository.systemSettingsRepository
 import com.android.systemui.util.settings.fakeGlobalSettings
 
 val Kosmos.bouncerRepository by Fixture {
@@ -27,5 +28,6 @@ val Kosmos.bouncerRepository by Fixture {
         applicationContext = applicationContext,
         flags = featureFlagsClassic,
         globalSettings = fakeGlobalSettings,
+        systemSettingsRepository = systemSettingsRepository,
     )
 }

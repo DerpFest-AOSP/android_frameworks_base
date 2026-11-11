@@ -105,10 +105,13 @@ constructor(
 
     /** Whether the user switcher should be displayed within the bouncer UI on large screens. */
     val isUserSwitcherVisible: Flow<Boolean> =
-        authenticationInteractor.authenticationMethod.map { authMethod ->
+        combine(
+            authenticationInteractor.authenticationMethod,
+            repository.bouncerUserSwitcherSetting,
+        ) { authMethod, settingOverride ->
             when (authMethod) {
                 Sim -> false
-                else -> repository.isUserSwitcherEnabledInConfig
+                else -> repository.isUserSwitcherEnabled(settingOverride)
             }
         }
 
@@ -166,13 +169,14 @@ constructor(
         combine(
             configurationInteractor.onAnyConfigurationChange,
             repository.preferredBouncerInputSide,
-        ) { _, _ ->
+            repository.bouncerUserSwitcherSetting,
+        ) { _, _, settingOverride ->
             // always read the setting as that can change outside of this
             // repository (tests/manual testing)
             val preferredInputSide = repository.getPreferredInputSideSetting()
             when {
                 preferredInputSide != null -> preferredInputSide
-                repository.isUserSwitcherEnabledInConfig -> BouncerInputSide.RIGHT
+                repository.isUserSwitcherEnabled(settingOverride) -> BouncerInputSide.RIGHT
                 repository.isOneHandedBouncerSupportedInConfig -> BouncerInputSide.LEFT
                 else -> null
             }

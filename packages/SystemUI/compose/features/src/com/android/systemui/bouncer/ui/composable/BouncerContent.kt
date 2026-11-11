@@ -147,9 +147,31 @@ fun ContentScope.BouncerContent(
     modifier: Modifier = Modifier,
 ) {
     val isOneHandedModeSupported by viewModel.isOneHandedModeSupported.collectAsStateWithLifecycle()
-    val layout = calculateLayout(isOneHandedModeSupported = isOneHandedModeSupported)
+    val isUserSwitcherVisible by viewModel.isUserSwitcherVisible.collectAsStateWithLifecycle()
+    val layout =
+        bouncerLayoutWithUserSwitcher(
+            calculateLayout(isOneHandedModeSupported = isOneHandedModeSupported),
+            isUserSwitcherVisible,
+        )
 
     BouncerContentLayout(layout, viewModel, dialogFactory, modifier = modifier)
+}
+
+/**
+ * Phone-sized scene-container layouts have no user-switcher slot. When the bouncer user-switcher
+ * setting is on, use the same arrangement as the legacy container: above the input in portrait,
+ * beside it in a short landscape split.
+ */
+private fun bouncerLayoutWithUserSwitcher(
+    layout: BouncerOverlayLayout,
+    isUserSwitcherVisible: Boolean,
+): BouncerOverlayLayout {
+    if (!isUserSwitcherVisible) return layout
+    return when (layout) {
+        BouncerOverlayLayout.STANDARD_BOUNCER -> BouncerOverlayLayout.BELOW_USER_SWITCHER
+        BouncerOverlayLayout.SPLIT_BOUNCER -> BouncerOverlayLayout.BESIDE_USER_SWITCHER
+        else -> layout
+    }
 }
 
 @Composable
