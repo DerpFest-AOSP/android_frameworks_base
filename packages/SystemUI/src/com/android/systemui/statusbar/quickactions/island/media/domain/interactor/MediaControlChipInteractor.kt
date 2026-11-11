@@ -328,15 +328,14 @@ constructor(
                     lyricsFetchJob?.cancel()
                     val generation = lyricsFetchGeneration.incrementAndGet()
                     lastFetchedKey = key
-                    currentLyrics.value = null
-                    currentSyncedLyrics.value = null
-                    currentTimedLyrics.value = emptyList()
+                    // Keep the lines on screen until this fetch actually returns. Clearing first
+                    // removes the card and fades it back in, which flashes on every track change.
                     lyricsFetchJob =
                         backgroundScope.launch {
-                            var result: StatusBarLyricFetcher.Result? = null
                             var attempt = 0
+                            var clearedStale = false
                             while (isActive && generation == lyricsFetchGeneration.get()) {
-                                result =
+                                val result =
                                     runInterruptible {
                                         StatusBarLyricFetcher.fetch(
                                             context,
@@ -349,18 +348,27 @@ constructor(
                                             track.durationMs,
                                         )
                                     }
-                                if (result != null || attempt >= MAX_LYRIC_FETCH_RETRIES) {
+                                if (generation != lyricsFetchGeneration.get()) {
+                                    return@launch
+                                }
+                                if (result != null) {
+                                    currentLyrics.value = result.plainLyrics
+                                    currentSyncedLyrics.value = result.syncedLyrics
+                                    currentTimedLyrics.value = result.toTimedLines()
+                                    return@launch
+                                }
+                                if (!clearedStale) {
+                                    clearedStale = true
+                                    currentLyrics.value = null
+                                    currentSyncedLyrics.value = null
+                                    currentTimedLyrics.value = emptyList()
+                                }
+                                if (attempt >= MAX_LYRIC_FETCH_RETRIES) {
                                     break
                                 }
                                 attempt++
                                 delay(LYRIC_FETCH_RETRY_DELAY_MS)
                             }
-                            if (generation != lyricsFetchGeneration.get()) {
-                                return@launch
-                            }
-                            currentLyrics.value = result?.plainLyrics
-                            currentSyncedLyrics.value = result?.syncedLyrics
-                            currentTimedLyrics.value = result?.toTimedLines().orEmpty()
                         }
                 }
         }

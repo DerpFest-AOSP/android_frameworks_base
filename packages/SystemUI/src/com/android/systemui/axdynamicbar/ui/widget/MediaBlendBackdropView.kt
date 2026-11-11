@@ -71,6 +71,7 @@ constructor(
     private var enhanceJob: Job? = null
     /** Skip redundant pipeline when Compose re-invokes AndroidView(update) every frame */
     private var boundAlbumArt: Drawable? = null
+    private var animateArtChange = true
 
     private var choreographerRunning = false
     private var lastFrameTimeNanos = 0L
@@ -220,7 +221,7 @@ constructor(
      * Binds session album art ([Drawable]) for saturation + blurred mesh. Repeated calls with the same
      * drawable instance are ignored until [releaseBackdrop].
      */
-    fun bindAlbumArt(drawable: Drawable?) {
+    fun bindAlbumArt(drawable: Drawable?, animate: Boolean = true) {
         if (drawable == null) {
             boundAlbumArt = null
             clearBackdropInternal(stopRotation = true)
@@ -228,6 +229,7 @@ constructor(
         }
         if (drawable === boundAlbumArt && previousBitmapOriginal != null) return
         boundAlbumArt = drawable
+        animateArtChange = animate
 
         enhanceJob?.cancel()
         enhanceJob =
@@ -281,9 +283,26 @@ constructor(
     }
 
     private fun populateLayers(enhancedBitmap: Bitmap) {
+        val switchers = arrayOf(imageCornerTl, imageCornerBr, imageBg)
+        val animations =
+            if (animateArtChange) {
+                null
+            } else {
+                switchers.map { it.inAnimation to it.outAnimation }
+            }
+        if (animations != null) {
+            switchers.forEach { switcher ->
+                switcher.inAnimation = null
+                switcher.outAnimation = null
+            }
+        }
         imageCornerTl.setImageDrawable(cropTopLeftQuarter(enhancedBitmap).toDrawable(resources))
         imageCornerBr.setImageDrawable(cropBottomRightQuarter(enhancedBitmap).toDrawable(resources))
         imageBg.setImageDrawable(enhancedBitmap.toDrawable(resources))
+        animations?.forEachIndexed { index, (fadeIn, fadeOut) ->
+            switchers[index].inAnimation = fadeIn
+            switchers[index].outAnimation = fadeOut
+        }
     }
 
     private fun clearBackdropInternal(stopRotation: Boolean) {

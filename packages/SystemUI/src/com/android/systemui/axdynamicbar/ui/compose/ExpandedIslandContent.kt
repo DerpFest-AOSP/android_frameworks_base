@@ -171,6 +171,7 @@ fun ExpandedIslandContent(
                                 AccordMediaSurface(
                                     event,
                                     Modifier.widthIn(min = 320.dp, max = 400.dp).height(200.dp),
+                                    animateAlbumArt = false,
                                 ) {
                                     LyricsCard(model = model)
                                 }

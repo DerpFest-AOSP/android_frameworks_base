@@ -328,6 +328,7 @@ internal fun AccordMediaSurface(
     event: IslandEvent.Media,
     modifier: Modifier = Modifier,
     underGlass: @Composable BoxScope.() -> Unit = {},
+    animateAlbumArt: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     val colors = rememberMediaColors(event)
@@ -352,7 +353,7 @@ internal fun AccordMediaSurface(
                 AndroidView(
                     factory = { MediaBlendBackdropView(it) },
                     modifier = Modifier.matchParentSize(),
-                    update = { view -> view.bindAlbumArt(event.albumArt) },
+                    update = { view -> view.bindAlbumArt(event.albumArt, animateAlbumArt) },
                     onRelease = { view -> view.releaseBackdrop() },
                 )
             }

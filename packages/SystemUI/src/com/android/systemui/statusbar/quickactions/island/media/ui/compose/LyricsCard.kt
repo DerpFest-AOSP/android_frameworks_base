@@ -103,11 +103,14 @@ fun LyricsCard(
             }
 
             val lazyListState = rememberLazyListState()
-
-            LaunchedEffect(activeIndex) {
-                if (activeIndex >= 0 && activeIndex < lyricLines.size) {
-                    lazyListState.springScrollToCenter(activeIndex)
+            var positionedLines by remember { mutableStateOf(lyricLines) }
+            LaunchedEffect(lyricLines, activeIndex) {
+                if (activeIndex < 0 || activeIndex >= lyricLines.size) return@LaunchedEffect
+                if (positionedLines !== lyricLines) {
+                    positionedLines = lyricLines
+                    lazyListState.scrollToItem(activeIndex)
                 }
+                lazyListState.springScrollToCenter(activeIndex)
             }
 
             LazyColumn(
@@ -278,7 +281,7 @@ private fun AnimatedLyricsLine(
     )
     val scaleAnim = remember { Animatable(if (emphasized && text.isNotEmpty()) ENTRANCE_SCALE else scale) }
     val riseAnim = remember { Animatable(if (emphasized && text.isNotEmpty()) ENTRANCE_RISE_DP else 0f) }
-    LaunchedEffect(emphasized, text) {
+    LaunchedEffect(emphasized) {
         if (text.isEmpty()) {
             scaleAnim.snapTo(ENTRANCE_SCALE)
             riseAnim.snapTo(0f)
