@@ -4,13 +4,16 @@ import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.RenderEffect
 import android.graphics.Shader
+import android.graphics.drawable.BitmapDrawable
 import android.os.Build
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
 import android.util.TypedValue
 import android.widget.SeekBar
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -22,6 +25,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -32,6 +36,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -68,9 +73,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.asComposeRenderEffect
@@ -87,7 +101,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.android.systemui.axdynamicbar.shared.IslandActions
@@ -96,6 +113,7 @@ import com.android.systemui.axdynamicbar.ui.widget.MediaBlendBackdropView
 import com.android.systemui.axdynamicbar.shared.*
 import com.android.systemui.media.controls.ui.drawable.SquigglyProgress
 import com.android.systemui.res.R
+import androidx.core.graphics.drawable.toBitmap
 import kotlinx.coroutines.delay
 
 private val AlbumArtSize = 80.dp
@@ -309,6 +327,7 @@ private fun rememberMediaGlassBackgroundLayers(accent: Color, hasArt: Boolean): 
 internal fun AccordMediaSurface(
     event: IslandEvent.Media,
     modifier: Modifier = Modifier,
+    underGlass: @Composable BoxScope.() -> Unit = {},
     content: @Composable () -> Unit,
 ) {
     val colors = rememberMediaColors(event)
@@ -355,6 +374,7 @@ internal fun AccordMediaSurface(
             }
         }
 
+        underGlass()
         Box(Modifier.matchParentSize().background(glassBrushes.albumWash))
         Box(Modifier.matchParentSize().background(glassBrushes.vignette))
         Box(Modifier.matchParentSize().background(glassBrushes.vignetteSides))
@@ -368,139 +388,543 @@ internal fun MediaCard(event: IslandEvent.Media, interactor: IslandActions) {
     val colors = rememberMediaColors(event)
     val accent = colors.accent
     val onCard = Color.White
-    val onCardSub = onCard.copy(alpha = 0.55f)
 
-    AccordMediaSurface(event, Modifier.fillMaxWidth().wrapContentHeight()) {
-        Column(
-            modifier =
-                Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Box(
-                    modifier =
-                        Modifier.size(CinematicArtBoxSize)
-                            .clip(CinematicArtInnerRadius)
-                            .background(Color.White.copy(alpha = 0.12f)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    when {
-                        event.albumArt != null ->
-                            Image(
-                                bitmap = event.albumArt!!.toScaledBitmap(CinematicArtBoxSize),
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize().clip(CinematicArtInnerRadius),
-                            )
-                        event.appIcon != null ->
-                            Image(
-                                bitmap = event.appIcon!!.toScaledBitmap(42.dp),
-                                contentDescription = null,
-                                modifier = Modifier.size(42.dp).clip(RoundedCornerShape(9.dp)),
-                                contentScale = ContentScale.Crop,
-                            )
-                        else ->
-                            Icon(
-                                Icons.Filled.MusicNote,
-                                null,
-                                tint = onCard.copy(alpha = 0.50f),
-                                modifier = Modifier.size(30.dp),
-                            )
-                    }
-                }
-
-                val openApp = {
-                    interactor.openMediaApp()
-                    interactor.collapseIsland()
-                }
-                val titleTarget =
-                    event.track.ifEmpty { stringResource(R.string.ax_dynamic_bar_now_playing) }
-                AnimatedContent(
-                    targetState = titleTarget to event.artist,
-                    modifier = Modifier.weight(1f),
-                    transitionSpec = {
-                        (
-                            fadeIn(
-                                animationSpec = tween(240, easing = FastOutSlowInEasing),
-                            ) + slideInVertically(
-                                animationSpec = tween(240, easing = FastOutSlowInEasing),
-                                initialOffsetY = { fullHeight -> fullHeight / 10 },
-                            )
-                        ) togetherWith (
-                            fadeOut(
-                                animationSpec = tween(200, easing = FastOutSlowInEasing),
-                            ) + slideOutVertically(
-                                animationSpec = tween(200, easing = FastOutSlowInEasing),
-                                targetOffsetY = { fullHeight -> -fullHeight / 10 },
-                            )
-                        )
-                    },
-                    label = "cinematic_media_metadata",
-                ) { (trackLine, artistLine) ->
-                    Column(
+    val openApp = {
+        interactor.openMediaApp()
+        interactor.collapseIsland()
+    }
+    val art = rememberStableAlbumArt(event.albumArt)
+    val spread = rememberTrackSpread(event.track to event.artist, art)
+    val fill = spread.fill
+    val holding = spread.holding
+    var shownTrack by remember { mutableStateOf(event.track) }
+    var shownArtist by remember { mutableStateOf(event.artist) }
+    // The name changes with the square. During the wait the hero is still the previous picture.
+    if (!holding) {
+        shownTrack = event.track
+        shownArtist = event.artist
+    }
+    val animating = !holding && fill < 0.999f
+    val samePicture = spread.settled != null && spread.settled === spread.incoming
+    val outgoingAlpha =
+        when {
+            !animating -> 1f
+            samePicture -> 1f
+            else -> outgoingHero(fill)
+        }
+    val veilAlpha =
+        when {
+            holding -> 1f
+            animating && !samePicture -> colorOverlayAlpha(fill)
+            else -> 0f
+        }
+    AccordMediaSurface(
+        event,
+        Modifier.fillMaxWidth().wrapContentHeight(),
+        underGlass = {
+            val veil = spread.settled
+            if (veil != null && veilAlpha > 0.01f) {
+                // The live backdrop is already the new track. Cover it with the previous blur and
+                // let the same uneven lobes reveal the new color, including behind the controls.
+                MediaBackdropSpread(
+                    art = veil,
+                    fill = if (holding) 0f else fill,
+                    modifier = Modifier.matchParentSize().graphicsLayer { alpha = veilAlpha },
+                )
+            }
+        },
+    ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                val heroStill = spread.settled
+                val heroNext = spread.incoming
+                if (heroStill != null || heroNext != null) {
+                    val sharpAlpha = if (holding) 0f else sharpSpreadAlpha(fill)
+                    Box(
                         modifier =
-                            Modifier.fillMaxWidth().clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                            ) { openApp() },
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                            Modifier.fillMaxWidth()
+                                .height(MediaFluidHeroHeight)
+                                .clipToBounds()
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                ) {
+                                    openApp()
+                                },
                     ) {
-                        Text(
-                            text = trackLine,
-                            style =
-                                TextStyle(
-                                    color = onCard,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = (-0.2).sp,
-                                ),
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        if (artistLine.isNotEmpty()) {
-                            Text(
-                                text = artistLine,
-                                style =
-                                    TextStyle(
-                                        color = onCardSub,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Medium,
-                                    ),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.fillMaxWidth(),
+                        if (heroStill != null && outgoingAlpha > 0.01f) {
+                            MediaSettledArt(
+                                art = heroStill,
+                                alpha = outgoingAlpha,
+                                modifier = Modifier.fillMaxSize(),
                             )
                         }
+                        if (animating && heroNext != null) {
+                            if (sharpAlpha > 0.01f) {
+                                MediaSharpSpread(
+                                    art = heroNext,
+                                    fill = fill,
+                                    modifier =
+                                        Modifier.fillMaxSize().graphicsLayer { alpha = sharpAlpha },
+                                )
+                            }
+                            MediaSettledArt(
+                                art = heroNext,
+                                alpha = settledArtPresence(fill),
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                            val coverAlpha = squarePresence(fill)
+                            if (coverAlpha > 0.01f) {
+                                Image(
+                                    bitmap = heroNext,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier =
+                                        Modifier.align(Alignment.TopCenter)
+                                            .padding(top = MediaFluidSquareTop)
+                                            .size(MediaFluidSquare)
+                                            .graphicsLayer { alpha = coverAlpha }
+                                            .clip(RoundedCornerShape(MediaFluidSquareRadius)),
+                                )
+                            }
+                        }
+                        MediaCardTitle(
+                            track = shownTrack,
+                            artist = shownArtist,
+                            onOpen = openApp,
+                            modifier =
+                                Modifier.align(Alignment.BottomStart)
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp)
+                                    .padding(bottom = 22.dp),
+                        )
+                    }
+                } else {
+                    Row(
+                        modifier =
+                            Modifier.fillMaxWidth()
+                                .padding(horizontal = 14.dp)
+                                .padding(top = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Box(
+                            modifier =
+                                Modifier.size(CinematicArtBoxSize)
+                                    .clip(CinematicArtInnerRadius)
+                                    .background(Color.White.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            val fallback = event.appIcon
+                            if (fallback != null) {
+                                Image(
+                                    bitmap = fallback.toScaledBitmap(42.dp),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(42.dp).clip(RoundedCornerShape(9.dp)),
+                                    contentScale = ContentScale.Crop,
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Filled.MusicNote,
+                                    contentDescription = null,
+                                    tint = onCard.copy(alpha = 0.50f),
+                                    modifier = Modifier.size(30.dp),
+                                )
+                            }
+                        }
+                        MediaCardTitle(
+                            track = shownTrack,
+                            artist = shownArtist,
+                            onOpen = openApp,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+                Column(
+                    modifier =
+                        Modifier.fillMaxWidth()
+                            .padding(horizontal = 14.dp)
+                            .padding(top = 8.dp, bottom = 14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    MediaControls(
+                        event = event,
+                        interactor = interactor,
+                        accent = accent,
+                        cinematic = true,
+                    )
+                    if (event.duration > 0L) {
+                        Spacer(Modifier.height(12.dp))
+                        MediaSeekBar(
+                            event = event,
+                            interactor = interactor,
+                            accent = accent,
+                            cinematic = true,
+                        )
                     }
                 }
             }
+        }
+    }
 
-            Spacer(Modifier.height(14.dp))
+/**
+ * One decode per picture. Progress ticks rebuild [IslandEvent.Media] with a new drawable around
+ * the same bitmap; keying on that bitmap keeps the card from allocating again while audio plays.
+ */
+@Composable
+private fun rememberStableAlbumArt(art: android.graphics.drawable.Drawable?): ImageBitmap? {
+    val key: Any? =
+        when (art) {
+            null -> null
+            is BitmapDrawable -> art.bitmap
+            else -> art.constantState ?: art
+        }
+    return remember(key) {
+        if (art == null || key == null) {
+            null
+        } else {
+            runCatching { art.toBitmap(256, 256).asImageBitmap() }.getOrNull()
+        }
+    }
+}
 
-            MediaControls(
-                event = event,
-                interactor = interactor,
-                accent = accent,
-                cinematic = true,
+private class TrackSpread(
+    val settled: ImageBitmap?,
+    val incoming: ImageBitmap?,
+    val holding: Boolean,
+    val fill: Float,
+)
+
+/**
+ * The full-bleed picture stays up while the new cover settles, then the spread run starts. Starting
+ * on the first bitmap Spotify sends cuts the hero to a square and swaps that square a frame later.
+ */
+@Composable
+private fun rememberTrackSpread(trackKey: Pair<String, String>, art: ImageBitmap?): TrackSpread {
+    var settled by remember { mutableStateOf(art) }
+    var incoming by remember { mutableStateOf(art) }
+    var latchedTrack by remember { mutableStateOf(trackKey) }
+    var holding by remember { mutableStateOf(false) }
+    var runToken by remember { mutableStateOf(0) }
+    var settleOnly by remember { mutableStateOf(false) }
+    val currentArt by rememberUpdatedState(art)
+    val currentSettled by rememberUpdatedState(settled)
+    if (latchedTrack != trackKey) {
+        // A skip during a running spread should freeze the cover already on screen.
+        if (!holding && incoming != null && incoming !== settled) settled = incoming
+        holding = true
+    }
+    val fill = rememberMediaCoverFill(runToken, settleOnly)
+    val currentFill by rememberUpdatedState(fill)
+    LaunchedEffect(trackKey) {
+        if (latchedTrack == trackKey && !holding) return@LaunchedEffect
+        var seen = currentArt
+        var quiet = 0
+        var sample = 0
+        while (sample < 8) {
+            sample++
+            delay(40)
+            val now = currentArt
+            if (now != null && now === seen) {
+                quiet++
+                if (quiet >= 2 && now !== currentSettled) break
+            } else {
+                quiet = 0
+                seen = now
+            }
+        }
+        val next = currentArt ?: currentSettled
+        val changed = next != null && next !== currentSettled
+        incoming = next
+        latchedTrack = trackKey
+        holding = false
+        if (changed || currentFill < 0.999f) {
+            settleOnly = !changed
+            runToken += 1
+        }
+    }
+    if (!holding && fill >= 0.999f && incoming != null && settled !== incoming) {
+        settled = incoming
+    }
+    // Cover that showed up after the card opened, before any track change.
+    if (!holding && art != null && settled == null) {
+        settled = art
+        incoming = art
+    }
+    return TrackSpread(settled, incoming, holding, fill)
+}
+
+/**
+ * Settled until [trigger] changes, then runs from empty to covered. The value is reset in
+ * composition so the first drawn frame is already the start of the spread, not a flash of the end.
+ * [settle] snaps back to covered instead, used when a skip lands on the cover already showing.
+ */
+@Composable
+private fun rememberMediaCoverFill(trigger: Any, settle: Boolean): Float {
+    var fill by remember { mutableStateOf(1f) }
+    var currentKey by remember { mutableStateOf(trigger) }
+    if (currentKey != trigger) {
+        currentKey = trigger
+        fill = if (settle) 1f else 0f
+    }
+    LaunchedEffect(trigger) {
+        if (fill >= 0.999f) return@LaunchedEffect
+        val anim = Animatable(0f)
+        anim.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(durationMillis = 2000, easing = LinearEasing),
+        ) {
+            fill = value
+        }
+    }
+    return fill
+}
+
+/**
+ * Previous backdrop, held over the new one. The lobes erase it, so the card's own blurred art
+ * shows through in the same uneven spread and is all that remains once the fill finishes.
+ */
+@Composable
+private fun MediaBackdropSpread(art: ImageBitmap, fill: Float, modifier: Modifier = Modifier) {
+    val blur =
+        remember {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                RenderEffect.createBlurEffect(128f, 128f, Shader.TileMode.CLAMP)
+                    .asComposeRenderEffect()
+            } else {
+                null
+            }
+        }
+    Box(modifier.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }) {
+        Image(
+            bitmap = art,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier =
+                Modifier.matchParentSize().graphicsLayer {
+                    if (blur != null) renderEffect = blur
+                    scaleX = 1.12f
+                    scaleY = 1.12f
+                },
+        )
+        Box(Modifier.matchParentSize().background(AccordFrontShadeColor))
+        Canvas(Modifier.matchParentSize()) { drawSpreadMask(fill, BlendMode.DstOut) }
+    }
+}
+
+/**
+ * The picture itself, drawn only inside the hero. The canvas is the hero, so the photo cannot
+ * reach the controls. It softens at the bottom of that band.
+ */
+@Composable
+private fun MediaSharpSpread(art: ImageBitmap, fill: Float, modifier: Modifier = Modifier) {
+    val layer =
+        remember { Modifier.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen } }
+    Canvas(modifier.then(layer)) {
+        drawSpreadMask(fill)
+        drawCroppedAlbum(art, BlendMode.SrcIn)
+        drawRect(
+            brush =
+                Brush.verticalGradient(
+                    0f to Color.Black,
+                    0.72f to Color.Black,
+                    1f to Color.Transparent,
+                ),
+            blendMode = BlendMode.DstIn,
+        )
+    }
+}
+
+private fun DrawScope.drawSpreadMask(fill: Float, blendMode: BlendMode = BlendMode.SrcOver) {
+    val solid = mix(0.40f, 0.97f, fill.coerceIn(0f, 1f))
+    fun lobe(cx: Float, cy: Float, maxR: Float, delay: Float, stretchY: Float) {
+        val radius = maxR * maxOf(size.width, size.height) * spreadGrow(fill, delay)
+        if (radius <= 1f) return
+        val center = Offset(size.width * cx, size.height * cy)
+        val rx = radius
+        val ry = radius * stretchY
+        drawOval(
+            brush =
+                Brush.radialGradient(
+                    0f to Color.Black,
+                    solid to Color.Black,
+                    1f to Color.Transparent,
+                    center = center,
+                    radius = maxOf(rx, ry),
+                ),
+            topLeft = Offset(center.x - rx, center.y - ry),
+            size = Size(rx * 2f, ry * 2f),
+            blendMode = blendMode,
+        )
+    }
+    lobe(0.50f, 0.16f, 0.36f, 0.00f, 1.05f)
+    lobe(0.76f, 0.08f, 0.30f, 0.00f, 0.95f)
+    lobe(0.22f, 0.22f, 0.28f, 0.08f, 1.10f)
+    lobe(0.88f, 0.38f, 0.30f, 0.16f, 1.20f)
+    lobe(0.12f, 0.44f, 0.28f, 0.24f, 1.15f)
+    lobe(0.52f, 0.60f, 0.34f, 0.32f, 1.25f)
+    lobe(0.84f, 0.78f, 0.32f, 0.45f, 1.10f)
+    lobe(0.16f, 0.86f, 0.34f, 0.52f, 1.20f)
+}
+
+@Composable
+private fun MediaCardTitle(
+    track: String,
+    artist: String,
+    onOpen: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val onCard = Color.White
+    val onCardSub = onCard.copy(alpha = 0.72f)
+    val title = track.ifEmpty { stringResource(R.string.ax_dynamic_bar_now_playing) }
+    AnimatedContent(
+        targetState = title to artist,
+        modifier =
+            modifier.clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) {
+                onOpen()
+            },
+        transitionSpec = {
+            (
+                fadeIn(animationSpec = tween(240, easing = FastOutSlowInEasing)) +
+                    slideInVertically(
+                        animationSpec = tween(240, easing = FastOutSlowInEasing),
+                        initialOffsetY = { fullHeight -> fullHeight / 10 },
+                    )
+                ) togetherWith (
+                fadeOut(animationSpec = tween(200, easing = FastOutSlowInEasing)) +
+                    slideOutVertically(
+                        animationSpec = tween(200, easing = FastOutSlowInEasing),
+                        targetOffsetY = { fullHeight -> -fullHeight / 10 },
+                    )
+                )
+        },
+        label = "cinematic_media_metadata",
+    ) { (trackLine, artistLine) ->
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = trackLine,
+                style =
+                    TextStyle(
+                        color = onCard,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = (-0.2).sp,
+                    ),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
-
-            if (event.duration > 0L) {
-                Spacer(Modifier.height(12.dp))
-                MediaSeekBar(
-                    event = event,
-                    interactor = interactor,
-                    accent = accent,
-                    cinematic = true,
+            if (artistLine.isNotEmpty()) {
+                Text(
+                    text = artistLine,
+                    style =
+                        TextStyle(
+                            color = onCardSub,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                        ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
     }
 }
+
+private fun mix(start: Float, end: Float, fraction: Float): Float =
+    start + (end - start) * fraction
+
+private fun spreadGrow(fill: Float, delay: Float): Float {
+    if (fill <= delay) return 0f
+    return ((fill - delay) / (1f - delay)).coerceIn(0f, 1f)
+}
+
+/** The full-bleed picture leaves as the square arrives, then the square is swallowed by the spread. */
+private fun outgoingHero(fill: Float): Float = (1f - fill / 0.16f).coerceIn(0f, 1f)
+
+/**
+ * The small cover fades in with the handoff, then leaves once the early lobes have grown over it.
+ * The rest of the fill continues with no square.
+ */
+private fun squarePresence(fill: Float): Float {
+    val enter = (fill / 0.16f).coerceIn(0f, 1f)
+    val exit = if (fill <= 0.32f) 1f else (1f - (fill - 0.32f) / 0.20f).coerceIn(0f, 1f)
+    return enter * exit
+}
+
+/**
+ * The previous backdrop stays opaque while the new color is still spreading, then eases away so
+ * the card is left on the live blurred art.
+ */
+private fun colorOverlayAlpha(fill: Float): Float {
+    if (fill <= 0.90f) return 1f
+    return (1f - (fill - 0.90f) / 0.10f).coerceIn(0f, 1f)
+}
+
+/** The sharp spread gives way to the settled hero art, in the same band. */
+private fun sharpSpreadAlpha(fill: Float): Float = 1f - settledArtPresence(fill)
+
+/** Hero art fades in over the spread, in the same band it occupies once the card is settled. */
+private fun settledArtPresence(fill: Float): Float {
+    if (fill <= 0.72f) return 0f
+    return ((fill - 0.72f) / 0.28f).coerceIn(0f, 1f)
+}
+
+@Composable
+private fun MediaSettledArt(art: ImageBitmap, alpha: Float, modifier: Modifier = Modifier) {
+    if (alpha <= 0.01f) return
+    Image(
+        bitmap = art,
+        contentDescription = null,
+        contentScale = ContentScale.Crop,
+        modifier =
+            modifier
+                .graphicsLayer {
+                    this.alpha = alpha
+                    compositingStrategy = CompositingStrategy.Offscreen
+                }
+                .drawWithContent {
+                    drawContent()
+                    drawRect(
+                        brush =
+                            Brush.verticalGradient(
+                                0f to Color.Black,
+                                0.76f to Color.Black,
+                                1f to Color.Transparent,
+                            ),
+                        blendMode = BlendMode.DstIn,
+                    )
+                },
+    )
+}
+
+private fun DrawScope.drawCroppedAlbum(art: ImageBitmap, blendMode: BlendMode = BlendMode.SrcOver) {
+    val dstW = size.width
+    val dstH = size.height
+    if (dstW < 1f || dstH < 1f || art.width < 1 || art.height < 1) return
+    val srcW = art.width.toFloat()
+    val srcH = art.height.toFloat()
+    val scale = maxOf(dstW / srcW, dstH / srcH)
+    val cropW = (dstW / scale).coerceAtMost(srcW)
+    val cropH = (dstH / scale).coerceAtMost(srcH)
+    val srcLeft = ((srcW - cropW) / 2f).toInt().coerceAtLeast(0)
+    val srcTop = ((srcH - cropH) / 2f).toInt().coerceAtLeast(0)
+    val srcWidth = cropW.toInt().coerceAtLeast(1).coerceAtMost(art.width - srcLeft)
+    val srcHeight = cropH.toInt().coerceAtLeast(1).coerceAtMost(art.height - srcTop)
+    drawImage(
+        image = art,
+        srcOffset = IntOffset(srcLeft, srcTop),
+        srcSize = IntSize(srcWidth, srcHeight),
+        dstSize = IntSize(dstW.toInt().coerceAtLeast(1), dstH.toInt().coerceAtLeast(1)),
+        blendMode = blendMode,
+    )
+}
+
+private val MediaFluidHeroHeight = 196.dp
+private val MediaFluidSquare = 112.dp
+private val MediaFluidSquareTop = 16.dp
+private val MediaFluidSquareRadius = 18.dp
 
 @Composable
 internal fun MediaExpanded(
