@@ -287,8 +287,15 @@ public final class KeyboxChainGenerator {
             }
 
             byte[] bootKey = rootOfTrustOctet(originalRootOfTrust, 0);
+            if (isZeroBootKey(bootKey)) {
+                byte[] generated = VerifiedBootState.getVerifiedBootKeyBytes();
+                if (!isZeroBootKey(generated)) {
+                    Log.i(TAG, "Replaced all-zero hardware boot key with the generated key");
+                    bootKey = generated;
+                }
+            }
             byte[] bootHash = rootOfTrustOctet(originalRootOfTrust, 3);
-            if (bootKey == null || bootHash == null) {
+            if (isZeroBootKey(bootKey) || bootHash == null) {
                 Log.w(TAG, "Hardware leaf has no verified-boot hash");
                 return null;
             }
@@ -348,6 +355,18 @@ public final class KeyboxChainGenerator {
             Log.w(TAG, "Failed to re-sign hardware attestation leaf", e);
             return null;
         }
+    }
+
+    private static boolean isZeroBootKey(byte[] key) {
+        if (key == null || key.length == 0) {
+            return true;
+        }
+        for (byte value : key) {
+            if (value != 0) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static byte[] rootOfTrustOctet(ASN1Encodable rootOfTrust, int index) {

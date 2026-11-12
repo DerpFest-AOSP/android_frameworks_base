@@ -62,15 +62,17 @@ public final class VerifiedBootState {
 
     /**
      * Publish the TEE's verified-boot hash when the bootloader left
-     * {@code ro.boot.vbmeta.digest} unset. The property is replaceable, so
-     * DroidGuard and the hardware leaf then name the same measurement.
+     * {@code ro.boot.vbmeta.digest} unset or zeroed. The property is
+     * replaceable, so DroidGuard and the hardware leaf then name the same
+     * measurement.
      */
     public static void publishTeeBootHash() {
         if (isValidDigestHex(SystemProperties.get(REAL_VBMETA_DIGEST_PROP, ""))) {
             return;
         }
         byte[] hash = readTeeBootHash();
-        if (hash == null || hash.length != DIGEST_SIZE_BYTES) {
+        if (hash == null || hash.length != DIGEST_SIZE_BYTES
+                || !isValidDigestHex(toHex(hash))) {
             Log.w(TAG, "TEE boot hash unavailable");
             return;
         }
@@ -226,6 +228,7 @@ public final class VerifiedBootState {
         if (value == null || value.length() != DIGEST_SIZE_BYTES * 2) {
             return false;
         }
+        boolean allZero = true;
         for (int i = 0; i < value.length(); i++) {
             char c = value.charAt(i);
             if ((c < '0' || c > '9')
@@ -233,8 +236,11 @@ public final class VerifiedBootState {
                     && (c < 'A' || c > 'F')) {
                 return false;
             }
+            if (c != '0') {
+                allZero = false;
+            }
         }
-        return true;
+        return !allZero;
     }
 
     private static byte[] hexToBytes(String hex) {
