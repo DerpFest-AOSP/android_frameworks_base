@@ -199,12 +199,13 @@ constructor(
         panelLifecycleOwner = lifecycleOwner
 
         val isCurrentlyExpanded = viewModel.isExpanded.value
+        // Not focusable until a reply field asks. Expanding must not take the
+        // foreground app's window focus or its IME session.
         val flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
             WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR or
             WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-            if (isCurrentlyExpanded) 0
-            else WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
 
         val params =
             WindowManager.LayoutParams(
@@ -254,7 +255,6 @@ constructor(
         val view = overlayView ?: return@ensureMainThread
         val params = view.layoutParams as? WindowManager.LayoutParams ?: return@ensureMainThread
         if (expanded || replyCaptureActive) {
-            params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
             params.height = WindowManager.LayoutParams.MATCH_PARENT
             windowManager.updateViewLayout(view, params)
         } else {

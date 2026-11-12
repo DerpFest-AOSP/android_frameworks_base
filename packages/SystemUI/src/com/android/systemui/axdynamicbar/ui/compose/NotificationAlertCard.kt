@@ -47,6 +47,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,6 +65,7 @@ import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -103,8 +105,11 @@ import com.android.systemui.axdynamicbar.shared.chipContentColorOn
 import com.android.systemui.axdynamicbar.shared.sendWithBal
 import com.android.systemui.axdynamicbar.shared.toScaledBitmap
 import com.android.systemui.res.R
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 
 private const val MAX_COLLAPSED_ACTIONS = 2
+internal const val REPLY_WINDOW_FOCUS_TIMEOUT_MS = 500L
 private const val MAX_EXPANDED_ACTIONS = 3
 private val ThumbnailSize = 44.dp
 
@@ -822,10 +827,16 @@ private fun ReplyField(
     val focusRequester = remember { FocusRequester() }
     val currentOnFocusChange by rememberUpdatedState(onFocusChange)
     val currentInteractor by rememberUpdatedState(interactor)
+    val windowInfo = LocalWindowInfo.current
 
     LaunchedEffect(Unit) {
         interactor.onAlertReplyActiveChanged(true)
         interactor.onFocusableRequested?.invoke(true)
+        // updateViewLayout has not given this window focus yet. Requesting it
+        // in the same frame is rejected, so the keyboard never opens.
+        withTimeoutOrNull(REPLY_WINDOW_FOCUS_TIMEOUT_MS) {
+            snapshotFlow { windowInfo.isWindowFocused }.first { it }
+        }
         focusRequester.requestFocus()
     }
 
