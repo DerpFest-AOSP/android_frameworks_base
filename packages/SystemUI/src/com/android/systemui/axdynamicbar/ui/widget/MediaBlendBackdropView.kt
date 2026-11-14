@@ -33,6 +33,7 @@ import com.android.systemui.res.R
 import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.pow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -63,7 +64,8 @@ constructor(
     private val imageBg: ImageSwitcher
     private val rotateFrame: ConstraintLayout
     private val blurredFrame: ConstraintLayout
-    private val overlayColorInt = ContextCompat.getColor(context, R.color.ax_blend_front_shade)
+    private val restingShade = ContextCompat.getColor(context, R.color.ax_blend_front_shade)
+    private var overlayColorInt = restingShade
     private var previousBitmapOriginal: Bitmap? = null
 
     private val supervisor = SupervisorJob()
@@ -85,8 +87,65 @@ constructor(
         private const val SATURATION_FACTOR = 2f
         private const val ROTATION_CYCLE = 360
         private const val IMAGE_TRANSITION_MS = 400L
-        /** Tighter cap so CenterCrop + blur reads as color haze, not sharp linework. */
-        private const val MAX_ALBUM_BITMAP_SIDE_PX = 512
+        /**
+         * Cupertino decodes to about 60px before the blur, so the backdrop is a color field rather
+         * than a second, recognizable copy of the cover.
+         */
+        private const val MAX_ALBUM_BITMAP_SIDE_PX = 60
+
+        /**
+         * Cupertino's #59000000 is enough on a dark cover. On a bright one, add only as much black as
+         * white text needs, so the field stays near a relative luminance of [TEXT_BACKDROP_LUMINANCE].
+         */
+        private const val TEXT_BACKDROP_LUMINANCE = 0.16f
+        private const val CUPERTINO_SHADE_ALPHA = 0x59 / 255f
+        private const val MAX_SHADE_ALPHA = 0.88f
+
+        internal fun readableMediaShadeArgb(relativeLuminance: Float): Int {
+            val needed =
+                if (relativeLuminance <= TEXT_BACKDROP_LUMINANCE) {
+                    0f
+                } else {
+                    (1f - TEXT_BACKDROP_LUMINANCE / relativeLuminance).coerceIn(0f, MAX_SHADE_ALPHA)
+                }
+            val alpha = max(CUPERTINO_SHADE_ALPHA, needed)
+            return (alpha * 255f).toInt().coerceIn(0, 255) shl 24
+        }
+
+        internal fun averageRelativeLuminance(bitmap: Bitmap): Float {
+            val width = bitmap.width
+            val height = bitmap.height
+            if (width < 1 || height < 1) return 0f
+            var sum = 0.0
+            var count = 0
+            val stepX = max(1, width / 12)
+            val stepY = max(1, height / 12)
+            var y = 0
+            while (y < height) {
+                var x = 0
+                while (x < width) {
+                    val pixel = bitmap.getPixel(x, y)
+                    sum +=
+                        pixelRelativeLuminance(
+                            (pixel shr 16) and 0xFF,
+                            (pixel shr 8) and 0xFF,
+                            pixel and 0xFF,
+                        )
+                    count++
+                    x += stepX
+                }
+                y += stepY
+            }
+            return if (count == 0) 0f else (sum / count).toFloat()
+        }
+
+        internal fun pixelRelativeLuminance(red: Int, green: Int, blue: Int): Double {
+            fun channel(component: Int): Double {
+                val value = component / 255.0
+                return if (value <= 0.04045) value / 12.92 else ((value + 0.055) / 1.055).pow(2.4)
+            }
+            return 0.2126 * channel(red) + 0.7152 * channel(green) + 0.0722 * channel(blue)
+        }
 
         /** Raster size for [R.drawable.ax_blend_curve_veil] (kept moderate for one-time allocation). */
         private const val CURVE_VEIL_RASTER_PX = 384
@@ -247,9 +306,12 @@ constructor(
                 if (!bitmapRoughlyMatchesPrevious(extracted, previousBitmapOriginal)) {
                     previousBitmapOriginal = extracted
                     val enhanced = enhanceBitmapSaturation(extracted)
+                    val shade = readableMediaShadeArgb(averageRelativeLuminance(extracted))
                     withContext(Dispatchers.Main.immediate) {
                         if (!isAttachedToWindow) return@withContext
+                        overlayColorInt = shade
                         populateLayers(enhanced)
+                        invalidate()
                         startRotationLoop()
                     }
                 }
@@ -315,6 +377,8 @@ constructor(
         imageCornerTl.rotation = 0f
         imageCornerBr.rotation = 0f
         rotateFrame.rotation = 0f
+        overlayColorInt = restingShade
+        invalidate()
         if (stopRotation) {
             stopRotationLoop()
         }

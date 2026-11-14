@@ -304,6 +304,6 @@
 
     <!-- Opaque floor under cinematic media art so a translucent overlay never shows wallpaper. -->
     <color name="ax_blend_card_base">#FF161616</color>
-    <!-- Darker than Accord frontShadeColor (#59000000) so white media text stays readable. -->
-    <color name="ax_blend_front_shade">#80000000</color>
+    <!-- Cupertino's veil, used until album art is bound. A bright cover deepens it per album. -->
+    <color name="ax_blend_front_shade">#59000000</color>
 </resources>

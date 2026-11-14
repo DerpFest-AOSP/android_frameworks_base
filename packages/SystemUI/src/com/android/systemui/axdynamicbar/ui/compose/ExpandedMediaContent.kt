@@ -83,6 +83,7 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.ColorFilter
@@ -233,8 +234,46 @@ private val MediaBackdropAlbumArtMaxDp = 196.dp
  */
 private const val MEDIA_BACKDROP_SATURATION = 1.55f
 
-/** Darker than Accord `frontShadeColor` (#59000000) so white media text stays readable. */
-private val AccordFrontShadeColor = Color(0x80000000)
+/** Cupertino's veil for the pre-blur fallback. The live backdrop deepens this per album. */
+private val AccordFrontShadeColor = Color(0x59000000)
+
+/** Keeps the title readable where it sits on the sharp photo, which the backdrop veil cannot darken. */
+private val MediaReadabilityShadow =
+    Shadow(
+        color = Color.Black.copy(alpha = 0.72f),
+        offset = Offset(0f, 0.6f),
+        blurRadius = 8f,
+    )
+
+private fun readableShadeFor(art: ImageBitmap): Int {
+    val width = art.width
+    val height = art.height
+    if (width < 1 || height < 1) return AccordFrontShadeColor.toArgb()
+    val stepX = maxOf(1, width / 12)
+    val stepY = maxOf(1, height / 12)
+    val row = IntArray(width)
+    var sum = 0.0
+    var count = 0
+    var y = 0
+    while (y < height) {
+        art.readPixels(buffer = row, startY = y, width = width, height = 1)
+        var x = 0
+        while (x < width) {
+            val pixel = row[x]
+            sum +=
+                MediaBlendBackdropView.pixelRelativeLuminance(
+                    (pixel shr 16) and 0xFF,
+                    (pixel shr 8) and 0xFF,
+                    pixel and 0xFF,
+                )
+            count++
+            x += stepX
+        }
+        y += stepY
+    }
+    val luminance = if (count == 0) 0f else (sum / count).toFloat()
+    return MediaBlendBackdropView.readableMediaShadeArgb(luminance)
+}
 
 /** Opaque floor under album blur; the bar overlay is [android.graphics.PixelFormat.TRANSLUCENT]. */
 private val CinematicCardBase = Color(0xFF161616)
@@ -707,7 +746,8 @@ private fun MediaBackdropSpread(art: ImageBitmap, fill: Float, modifier: Modifie
                     scaleY = 1.12f
                 },
         )
-        Box(Modifier.matchParentSize().background(AccordFrontShadeColor))
+        val shade = remember(art) { Color(readableShadeFor(art)) }
+        Box(Modifier.matchParentSize().background(shade))
         Canvas(Modifier.matchParentSize()) { drawSpreadMask(fill, BlendMode.DstOut) }
     }
 }
@@ -804,6 +844,7 @@ private fun MediaCardTitle(
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = (-0.2).sp,
+                        shadow = MediaReadabilityShadow,
                     ),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -816,6 +857,7 @@ private fun MediaCardTitle(
                             color = onCardSub,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
+                            shadow = MediaReadabilityShadow,
                         ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -1360,6 +1402,7 @@ private fun MediaSeekBar(
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
                 platformStyle = PlatformTextStyle(includeFontPadding = false),
+                shadow = MediaReadabilityShadow,
             )
         } else {
             MaterialTheme.typography.labelSmall.copy(color = labelColor)
