@@ -24,6 +24,7 @@ import android.compat.annotation.ChangeId;
 import android.compat.annotation.Disabled;
 import android.compat.annotation.EnabledAfter;
 import android.content.Context;
+import android.graphics.Typeface;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.ProcessInfo;
 import android.net.Credentials;
@@ -379,6 +380,8 @@ public final class Zygote {
             boolean isTopApp, String[] pkgDataInfoList, String[] allowlistedDataInfoList,
             boolean bindMountAppDataDirs, boolean bindMountAppStorageDirs,
             boolean bindMountSyspropOverrides) {
+        // Still root, and before the child drops its view of /data/fonts.
+        Typeface.preloadUpdatedFontFiles();
         ZygoteHooks.preFork();
 
         boolean useFifoUi = SystemProperties.getInt("sys.use_fifo_ui", 0) == 1;
@@ -680,6 +683,9 @@ public final class Zygote {
         FileDescriptor readFD;
         FileDescriptor writeFD;
 
+        // The pooled child keeps this address space until it specializes.
+        Typeface.preloadUpdatedFontFiles();
+
         try {
             FileDescriptor[] pipeFDs = Os.pipe2(O_CLOEXEC);
             readFD = pipeFDs[0];
@@ -741,6 +747,8 @@ public final class Zygote {
                                              int minUid,
                                              @Nullable String firstNiceName,
                                              boolean isTopApp) {
+        // Children forked inside forkRepeatedly inherit this cache.
+        Typeface.preloadUpdatedFontFiles();
         boolean in_child =
                 argBuffer.forkRepeatedly(zygoteSocket, expectedUid, minUid, firstNiceName,
                         isTopApp);

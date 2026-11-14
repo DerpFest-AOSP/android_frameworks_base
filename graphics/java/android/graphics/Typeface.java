@@ -1573,6 +1573,9 @@ public class Typeface {
                     "Once set, buffer-based system font map cannot be updated");
         }
         sSystemFontMapSharedMemory = sharedMemory;
+        // Map /data/fonts before the first draw. Zygote already did this when it
+        // could; a child forked earlier still can, as long as the path is visible.
+        preloadUpdatedFontFiles();
         Trace.traceBegin(Trace.TRACE_TAG_GRAPHICS, "setSystemFontMap");
         try {
             if (sharedMemory == null) {
@@ -1629,6 +1632,12 @@ public class Typeface {
 
         sFontName = fontFamily;
 
+        // Read this before the map is rewritten below. A custom font file is
+        // prepended onto the stock Google Sans family, so the body family name
+        // stays google-sans-flex while the marker is the only signal that the
+        // selected file is active.
+        final boolean customFont = FontController.hasCustomFont();
+
         // Use FontController's fallback resolver to handle family-list
         // entries (e.g. google-sans-flex) that may not register in
         // sSystemFontMap by their list name, falling back through known
@@ -1647,10 +1656,10 @@ public class Typeface {
         // Static DEFAULT / DEFAULT_BOLD are final placeholders. Updating the font map does not
         // move the face they already point at, so retarget that pointer while a custom font
         // is selected and put the original face back when the stock stack is active again.
-        if (FontController.isDefaultFont(fontFamily)) {
-            retargetStaticDefaults(null, null);
-        } else {
+        if (customFont || !FontController.isDefaultFont(fontFamily)) {
             retargetStaticDefaults(tf, tfBold);
+        } else {
+            retargetStaticDefaults(null, null);
         }
     }
 
@@ -1856,6 +1865,59 @@ public class Typeface {
                 for (int j = 0; j < family.getFontList().size(); ++j) {
                     preloadFontFile(family.getFontList().get(j).getFile().getAbsolutePath());
                 }
+            }
+        }
+        // /data/fonts is not in the legacy config. Read it while this process
+        // can still open the files; children inherit the cached bytes.
+        preloadUpdatedFontFiles();
+    }
+
+    private static long sUpdatedFontPreloadStamp = Long.MIN_VALUE;
+
+    /**
+     * Map every installed font under /data/fonts into the process font cache.
+     *
+     * Called from the zygote before fork. The cache key is the real file path,
+     * so a later open of that path reuses the bytes even if the child can no
+     * longer see the file. A missing directory is not remembered: credential-
+     * encrypted storage may appear after the first attempt.
+     *
+     * @hide
+     */
+    public static void preloadUpdatedFontFiles() {
+        final File dir = new File("/data/fonts/files");
+        if (!dir.isDirectory()) {
+            return;
+        }
+        final File config = new File("/data/fonts/config/config.xml");
+        long stamp = dir.lastModified();
+        if (config.isFile()) {
+            stamp = stamp * 31 + config.lastModified();
+        }
+        if (stamp == sUpdatedFontPreloadStamp) {
+            return;
+        }
+        preloadUpdatedFontTree(dir);
+        sUpdatedFontPreloadStamp = stamp;
+    }
+
+    private static void preloadUpdatedFontTree(File dir) {
+        final File[] children = dir.listFiles();
+        if (children == null) {
+            return;
+        }
+        for (File child : children) {
+            if (child.isDirectory()) {
+                preloadUpdatedFontTree(child);
+                continue;
+            }
+            final String name = child.getName();
+            if (name.startsWith(".")) {
+                continue;
+            }
+            if (name.endsWith(".ttf") || name.endsWith(".otf")
+                    || name.endsWith(".ttc") || name.endsWith(".otc")) {
+                preloadFontFile(child.getAbsolutePath());
             }
         }
     }

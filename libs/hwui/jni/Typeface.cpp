@@ -150,32 +150,43 @@ static void Typeface_registerGenericFamily(JNIEnv *env, jobject, jstring familyN
                                            toTypeface(ptr)->getFontCollection());
 }
 
+enum class FsVerityStatus {
+    Enabled,
+    Missing,
+    Unavailable,
+};
+
 #ifdef __ANDROID__
 
-static bool getVerity(const std::string& path) {
+static FsVerityStatus getFsVerityStatus(const std::string& path) {
     struct statx out = {};
     if (statx(AT_FDCWD, path.c_str(), 0 /* flags */, STATX_ALL, &out) != 0) {
         ALOGE("statx failed for %s, errno = %d", path.c_str(), errno);
-        return false;
+        return FsVerityStatus::Unavailable;
     }
 
     // Validity check.
     if ((out.stx_attributes_mask & STATX_ATTR_VERITY) == 0) {
         // STATX_ATTR_VERITY not supported by kernel.
-        return false;
+        return FsVerityStatus::Missing;
     }
 
-    return (out.stx_attributes & STATX_ATTR_VERITY) != 0;
+    return (out.stx_attributes & STATX_ATTR_VERITY) != 0 ? FsVerityStatus::Enabled
+                                                        : FsVerityStatus::Missing;
 }
 
 #else
 
-static bool getVerity(const std::string&) {
+static FsVerityStatus getFsVerityStatus(const std::string&) {
     // verity check is not enabled on desktop.
-    return false;
+    return FsVerityStatus::Missing;
 }
 
 #endif  // __ANDROID__
+
+static bool getVerity(const std::string& path) {
+    return getFsVerityStatus(path) == FsVerityStatus::Enabled;
+}
 
 static sk_sp<SkData> makeSkDataCached(const std::string& path, bool hasVerity) {
     // We don't clear cache as Typeface objects created by Typeface_readTypefaces() will be stored
@@ -183,9 +194,21 @@ static sk_sp<SkData> makeSkDataCached(const std::string& path, bool hasVerity) {
     static std::unordered_map<std::string, sk_sp<SkData>> cache;
     static std::mutex mutex;
     ALOG_ASSERT(!path.empty());
-    if (hasVerity && !getVerity(path)) {
-        LOG_ALWAYS_FATAL("verity bit was removed from %s", path.c_str());
-        return nullptr;
+    if (hasVerity) {
+        const FsVerityStatus status = getFsVerityStatus(path);
+        if (status != FsVerityStatus::Enabled) {
+            std::lock_guard lock{mutex};
+            auto it = cache.find(path);
+            // Zygote reads /data/fonts before specialization. A denylisted app can lose
+            // that path afterwards and still draw the bytes already in this cache.
+            // A file that is still visible without fs-verity is rejected.
+            if (status == FsVerityStatus::Unavailable && it != cache.end() &&
+                it->second.get() != nullptr) {
+                return it->second;
+            }
+            LOG_ALWAYS_FATAL("verity bit was removed from %s", path.c_str());
+            return nullptr;
+        }
     }
     std::lock_guard lock{mutex};
     sk_sp<SkData>& entry = cache[path];
