@@ -723,15 +723,7 @@ private fun MediaSharpSpread(art: ImageBitmap, fill: Float, modifier: Modifier =
     Canvas(modifier.then(layer)) {
         drawSpreadMask(fill)
         drawCroppedAlbum(art, BlendMode.SrcIn)
-        drawRect(
-            brush =
-                Brush.verticalGradient(
-                    0f to Color.Black,
-                    0.72f to Color.Black,
-                    1f to Color.Transparent,
-                ),
-            blendMode = BlendMode.DstIn,
-        )
+        drawRect(brush = heroEdgeFade(), blendMode = BlendMode.DstIn)
     }
 }
 
@@ -841,6 +833,21 @@ private fun spreadGrow(fill: Float, delay: Float): Float {
     return ((fill - delay) / (1f - delay)).coerceIn(0f, 1f)
 }
 
+/**
+ * Sharp through the upper hero, then a long falloff. The title sits in that falloff and the picture
+ * is gone at the bottom edge, so the controls meet a color instead of a cropped photo.
+ */
+private fun heroEdgeFade(): Brush =
+    Brush.verticalGradient(
+        0.00f to Color.Black,
+        0.42f to Color.Black,
+        0.58f to Color.Black.copy(alpha = 0.86f),
+        0.72f to Color.Black.copy(alpha = 0.46f),
+        0.84f to Color.Black.copy(alpha = 0.16f),
+        0.94f to Color.Black.copy(alpha = 0.03f),
+        1.00f to Color.Transparent,
+    )
+
 /** The full-bleed picture leaves as the square arrives, then the square is swallowed by the spread. */
 private fun outgoingHero(fill: Float): Float = (1f - fill / 0.16f).coerceIn(0f, 1f)
 
@@ -887,15 +894,7 @@ private fun MediaSettledArt(art: ImageBitmap, alpha: Float, modifier: Modifier =
                 }
                 .drawWithContent {
                     drawContent()
-                    drawRect(
-                        brush =
-                            Brush.verticalGradient(
-                                0f to Color.Black,
-                                0.76f to Color.Black,
-                                1f to Color.Transparent,
-                            ),
-                        blendMode = BlendMode.DstIn,
-                    )
+                    drawRect(brush = heroEdgeFade(), blendMode = BlendMode.DstIn)
                 },
     )
 }
