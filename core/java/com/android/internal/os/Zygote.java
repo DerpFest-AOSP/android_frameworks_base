@@ -869,6 +869,12 @@ public final class Zygote {
                 }
             }
 
+            // This process was forked earlier and specializes only now. Read
+            // /data/fonts before the uid, SELinux domain, and mount namespace
+            // change, so a font installed since the fork is in the cache even
+            // if specialization then hides the directory.
+            Typeface.preloadUpdatedFontFiles();
+
             if (writePipe != null) {
                 try {
                     ByteArrayOutputStream buffer =
