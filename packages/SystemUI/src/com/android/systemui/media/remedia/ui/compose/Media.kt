@@ -446,7 +446,7 @@ private fun Card(
     }
 
     Box(modifier) {
-        if (carouselStyle != MediaPresentationStyle.Compact) {
+        if (carouselStyle != MediaPresentationStyle.Compact || viewModel.background != null) {
             CardBackground(
                 image = viewModel.background,
                 colorScheme = colorScheme,
@@ -523,7 +523,10 @@ private fun Card(
                                         )
                                 }.roundToPx()
                             }
-                        if (carouselStyle == MediaPresentationStyle.Compact) {
+                        if (
+                            carouselStyle == MediaPresentationStyle.Compact &&
+                                viewModel.background == null
+                        ) {
                             thumbnailModifier =
                                 thumbnailModifier.then(
                                     Modifier.background(MaterialTheme.colorScheme.surfaceContainer)
@@ -908,6 +911,9 @@ private fun ContentScope.CardForegroundContent(
 /**
  * Renders a simplified version of [CardForeground] that puts everything on a single row and doesn't
  * support the guts.
+ *
+ * When album art is available, the card background behind this row shows it, so the row itself
+ * stays transparent and content uses light colors. Otherwise the row keeps a flat fill.
  */
 @Composable
 private fun ContentScope.CompactCardForeground(
@@ -915,6 +921,20 @@ private fun ContentScope.CompactCardForeground(
     viewModel: MediaCardViewModel,
     modifier: Modifier = Modifier,
 ) {
+    val hasArtwork = viewModel.background != null
+    val contentColor = if (hasArtwork) Color.White else MaterialTheme.colorScheme.onSurface
+    val playButtonColor =
+        if (hasArtwork) {
+            viewModel.colorScheme?.primary ?: MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.primaryContainer
+        }
+    val playIconColor =
+        if (hasArtwork) {
+            viewModel.colorScheme?.onPrimary ?: MaterialTheme.colorScheme.onPrimary
+        } else {
+            MaterialTheme.colorScheme.onPrimaryContainer
+        }
     Row(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -923,12 +943,18 @@ private fun ContentScope.CompactCardForeground(
                 .then(LocalMediaHeaderGestureModifier.current())
                 .clickable(onClick = { viewModel.onClick(expandable) })
                 .semantics { contentDescription = viewModel.contentDescription }
-                .background(MaterialTheme.colorScheme.surfaceContainer)
+                .then(
+                    if (hasArtwork) {
+                        Modifier
+                    } else {
+                        Modifier.background(MaterialTheme.colorScheme.surfaceContainer)
+                    }
+                )
                 .padding(16.dp),
     ) {
         Icon(
             icon = viewModel.icon,
-            tint = MaterialTheme.colorScheme.onSurface,
+            tint = contentColor,
             modifier = Modifier.size(24.dp),
         )
 
@@ -936,7 +962,7 @@ private fun ContentScope.CompactCardForeground(
             title = viewModel.title,
             subtitle = viewModel.subtitle,
             isExplicit = viewModel.isExplicit,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = contentColor,
             modifier = Modifier.weight(1f),
         )
 
@@ -944,7 +970,7 @@ private fun ContentScope.CompactCardForeground(
             viewModel = viewModel.outputSwitcherChipButton,
             resId = MediaRes.OUTPUT_CHIP,
             element = Media.Elements.OutputSwitcherButton,
-            iconColor = MaterialTheme.colorScheme.onSurface,
+            iconColor = contentColor,
         )
 
         val rightAction = viewModel.navigation.right
@@ -953,15 +979,15 @@ private fun ContentScope.CompactCardForeground(
                 viewModel = rightAction,
                 resId = MediaRes.NEXT_BTN,
                 element = Media.Elements.NextButton,
-                iconColor = MaterialTheme.colorScheme.onSurface,
+                iconColor = contentColor,
             )
         }
 
         AnimatedVisibility(visible = viewModel.playPauseAction != null) {
             PlayPauseAction(
                 viewModel = viewModel.playPauseAction,
-                buttonColor = MaterialTheme.colorScheme.primaryContainer,
-                iconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                buttonColor = playButtonColor,
+                iconColor = playIconColor,
                 buttonCornerRadius = { isPlaying -> if (isPlaying) 16.dp else 24.dp },
             )
         }
