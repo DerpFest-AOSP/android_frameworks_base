@@ -21,6 +21,7 @@ import android.os.Binder;
 import android.os.Build;
 import android.security.keystore.KeyProperties;
 import android.system.keystore2.KeyDescriptor;
+import android.text.TextUtils;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
@@ -318,6 +319,7 @@ public final class KeyboxChainGenerator {
                     new ASN1Integer(getPatchLevelLong())));
             enforced.put(719, new DERTaggedObject(true, 719,
                     new ASN1Integer(getPatchLevelLong())));
+            alignProcessIdentity(enforced);
 
             ASN1EncodableVector ordered = new ASN1EncodableVector();
             for (ASN1Encodable value : enforced.values()) {
@@ -353,6 +355,47 @@ public final class KeyboxChainGenerator {
             return chain;
         } catch (Exception e) {
             Log.w(TAG, "Failed to re-sign hardware attestation leaf", e);
+            return null;
+        }
+    }
+
+    /**
+     * ASN.1 context tags for the device identity. These are the bare tag
+     * numbers. {@link Tag#ATTESTATION_ID_BRAND} and its siblings also carry
+     * the keymint bytes type, so they are not the tag numbers in the leaf.
+     */
+    private static void alignProcessIdentity(TreeMap<Integer, ASN1Encodable> enforced) {
+        boolean changed = putIdentity(enforced, 710, Build.BRAND)
+                | putIdentity(enforced, 711, Build.DEVICE)
+                | putIdentity(enforced, 712, Build.PRODUCT)
+                | putIdentity(enforced, 716, Build.MANUFACTURER)
+                | putIdentity(enforced, 717, Build.MODEL);
+        if (changed) {
+            Log.i(TAG, "Aligned hardware attestation identity with this process");
+        }
+    }
+
+    private static boolean putIdentity(TreeMap<Integer, ASN1Encodable> enforced, int tag,
+            String value) {
+        if (TextUtils.isEmpty(value)) {
+            return false;
+        }
+        byte[] encoded = value.getBytes(StandardCharsets.UTF_8);
+        if (Arrays.equals(encoded, identityOctet(enforced.get(tag)))) {
+            return false;
+        }
+        enforced.put(tag, new DERTaggedObject(true, tag, new DEROctetString(encoded)));
+        return true;
+    }
+
+    private static byte[] identityOctet(ASN1Encodable tagged) {
+        if (tagged == null) {
+            return null;
+        }
+        try {
+            return ASN1OctetString.getInstance(
+                    ASN1TaggedObject.getInstance(tagged).getBaseObject()).getOctets();
+        } catch (Exception e) {
             return null;
         }
     }
