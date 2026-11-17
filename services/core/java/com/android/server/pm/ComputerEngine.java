@@ -527,7 +527,7 @@ public class ComputerEngine implements Computer {
     public boolean shouldHideFromCaller(int callingUid, String targetPackage) {
         if (!isSystemReady()) return false;
         if (targetPackage == null) return false;
-        if (callingUid < Process.FIRST_APPLICATION_UID) return false;
+        if (UserHandle.getAppId(callingUid) < Process.FIRST_APPLICATION_UID) return false;
         if (Process.isIsolated(callingUid) || Process.isSdkSandboxUid(callingUid)) return false;
         if (PACKAGES_SHOULD_NOT_HIDE.contains(targetPackage)) return false;
 
@@ -546,7 +546,7 @@ public class ComputerEngine implements Computer {
             if (callingPkg != null) {
                 if (PACKAGES_SHOULD_NOT_HIDE.contains(callingPkg)) return false;
                 if (callingPkg.equals(targetPackage)) return false;
-                return ObscuraService.get().shouldHidePackageFromCaller(callingPkg, targetPackage);
+                return ObscuraService.get().shouldHidePackageFromCaller(callingPkg, targetPackage, UserHandle.getUserId(callingUid));
             }
         } else if (obj instanceof SharedUserSetting) {
             final SharedUserSetting sus = (SharedUserSetting) obj;
@@ -554,18 +554,18 @@ public class ComputerEngine implements Computer {
                     (ArraySet<PackageStateInternal>) sus.getPackageStates();
             if (packageStates != null) {
                 final int n = packageStates.size();
+                boolean hide = false;
                 for (int index = 0; index < n; index++) {
                     final PackageStateInternal ps = packageStates.valueAt(index);
                     if (ps != null && ps.getPackageName() != null) {
                         final String callingPkg = ps.getPackageName();
                         if (PACKAGES_SHOULD_NOT_HIDE.contains(callingPkg)) return false;
                         if (callingPkg.equals(targetPackage)) return false;
-                        if (ObscuraService.get().shouldHidePackageFromCaller(callingPkg, targetPackage)) {
-                            return true;
-                        }
+                        hide |= ObscuraService.get().shouldHidePackageFromCaller(
+                                callingPkg, targetPackage, UserHandle.getUserId(callingUid));
                     }
                 }
-                return false;
+                return hide;
             }
         }
 
@@ -577,7 +577,7 @@ public class ComputerEngine implements Computer {
         if (PACKAGES_SHOULD_NOT_HIDE.contains(callingPkg)) return false;
         if (callingPkg.equals(targetPackage)) return false;
 
-        return ObscuraService.get().shouldHidePackageFromCaller(callingPkg, targetPackage);
+        return ObscuraService.get().shouldHidePackageFromCaller(callingPkg, targetPackage, UserHandle.getUserId(callingUid));
     }
 
     private static final int SPOOF_INSTALL_DISABLED = 0;
@@ -599,25 +599,24 @@ public class ComputerEngine implements Computer {
         return SPOOF_INSTALL_DISABLED;
     }
 
-    private boolean isAppDetached(String packageName) {
+    private boolean isAppDetached(String packageName, int callingUid, int userId) {
         if (!isSystemReady()) return false;
         if (packageName == null || TextUtils.isEmpty(packageName)) return false;
-        final boolean isDetached = ObscuraService.get().isPackageDetached(packageName);
-        final boolean isIsolated = ObscuraService.get().isPackageIsolated(packageName);
+        final boolean isDetached = ObscuraService.get().isPackageDetached(packageName, userId);
+        final boolean isIsolated = ObscuraService.get().isPackageIsolated(packageName, userId);
         if (!isDetached && !isIsolated) return false;
 
-        final int callingUid = Binder.getCallingUid();
         String callingPackage = null;
         int callingPid = Binder.getCallingPid();
         final ActivityManagerInternal ami = getAmInternal();
         if (ami != null) callingPackage = ami.getPackageNameByPid(callingPid);
         if (callingPackage == null || TextUtils.isEmpty(callingPackage)) return false;
-        boolean isFinsky = callingPackage.contains("com.android.vending");
+        boolean isFinsky = VENDING_PACKAGE.equals(callingPackage);
         if (isFinsky) return true;
 
         if (!isIsolated) return false;
 
-        if (callingPackage.contains(packageName)) return false;
+        if (callingPackage.equals(packageName)) return false;
         if (packageName.contains("youtube") || packageName.contains("microg")
                 || packageName.contains("revanced") || packageName.contains("gms")) return false;
         return !isCallerSystem(callingUid) && !Process.isIsolated(callingUid)
@@ -639,7 +638,7 @@ public class ComputerEngine implements Computer {
     public PackageInfoList recreatePackageList(
             int callingUid, Context context, int userId, PackageInfoList list) {
         List<PackageInfo> appList = new ArrayList<>(list.getList());
-        appList.removeIf(info -> isAppDetached(info.packageName));
+        appList.removeIf(info -> isAppDetached(info.packageName, callingUid, userId));
         PackageInfoList result = new PackageInfoList(appList);
         return result;
     }
@@ -647,7 +646,7 @@ public class ComputerEngine implements Computer {
     public List<ApplicationInfo> recreateApplicationList(
             int callingUid, Context context, int userId, List<ApplicationInfo> list) {
         List<ApplicationInfo> appList = new ArrayList<>(list);
-        appList.removeIf(info -> isAppDetached(info.packageName));
+        appList.removeIf(info -> isAppDetached(info.packageName, callingUid, userId));
         return appList;
     }
 
@@ -1154,7 +1153,7 @@ public class ComputerEngine implements Computer {
 
     public final ApplicationInfo getApplicationInfo(String packageName,
             @PackageManager.ApplicationInfoFlagsBits long flags, int userId) {
-        if (isAppDetached(packageName)) return null;
+        if (isAppDetached(packageName, Binder.getCallingUid(), userId)) return null;
         if (shouldHideFromCaller(Binder.getCallingUid(), packageName)) return null;
         return getApplicationInfoInternal(packageName, flags, Binder.getCallingUid(), userId);
     }
@@ -1169,7 +1168,7 @@ public class ComputerEngine implements Computer {
             @PackageManager.ApplicationInfoFlagsBits long flags,
             int filterCallingUid, int userId) {
         if (!mUserManager.exists(userId)) return null;
-        if (isAppDetached(packageName)) return null;
+        if (isAppDetached(packageName, filterCallingUid, userId)) return null;
         if (shouldHideFromCaller(filterCallingUid, packageName)) return null;
         flags = updateFlagsForApplication(flags, userId);
 
@@ -1787,7 +1786,7 @@ public class ComputerEngine implements Computer {
 
     public final PackageInfo getPackageInfo(String packageName,
             @PackageManager.PackageInfoFlagsBits long flags, int userId) {
-        if (isAppDetached(packageName)) return null;
+        if (isAppDetached(packageName, Binder.getCallingUid(), userId)) return null;
         if (shouldHideFromCaller(Binder.getCallingUid(), packageName)) return null;
         return getPackageInfoInternal(packageName, PackageManager.VERSION_CODE_HIGHEST,
                 flags, Binder.getCallingUid(), userId);
@@ -3904,7 +3903,7 @@ public class ComputerEngine implements Computer {
 
         final PackageStateInternal ps = getPackageStateInternal(packageName);
         if (ps != null && ps.getPkg() != null) {
-            if (ps != null && isAppDetached(ps.getPackageName())) {
+            if (ps != null && isAppDetached(ps.getPackageName(), callingUid, userId)) {
                 return true;
             }
             if (shouldFilterApplication(ps, callingUid, userId)) {
