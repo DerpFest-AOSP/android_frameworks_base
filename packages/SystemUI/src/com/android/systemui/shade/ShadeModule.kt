@@ -31,6 +31,8 @@ import com.android.systemui.shade.data.repository.ShadeRepositoryImpl
 import com.android.systemui.shade.domain.interactor.BaseShadeInteractor
 import com.android.systemui.shade.domain.interactor.PanelExpansionInteractor
 import com.android.systemui.shade.domain.interactor.PanelExpansionInteractorImpl
+import com.android.systemui.shade.domain.interactor.QuickPulldownInteractor
+import com.android.systemui.shade.domain.interactor.QuickPulldownInteractorImpl
 import com.android.systemui.shade.domain.interactor.ShadeAnimationInteractor
 import com.android.systemui.shade.domain.interactor.ShadeAnimationInteractorLegacyImpl
 import com.android.systemui.shade.domain.interactor.ShadeAnimationInteractorSceneContainerImpl
@@ -199,6 +201,12 @@ abstract class ShadeModule {
     @Binds
     @SysUISingleton
     abstract fun bindShadeModeInteractor(impl: ShadeModeInteractorImpl): ShadeModeInteractor
+
+    @Binds
+    @SysUISingleton
+    abstract fun bindQuickPulldownInteractor(
+        impl: QuickPulldownInteractorImpl
+    ): QuickPulldownInteractor
 
     @Binds
     @SysUISingleton

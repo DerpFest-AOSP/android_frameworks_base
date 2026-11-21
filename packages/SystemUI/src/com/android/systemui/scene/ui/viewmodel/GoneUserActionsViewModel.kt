@@ -42,7 +42,11 @@ constructor(
         shadeModeInteractor.shadeMode.collect { shadeMode ->
             setActions(
                 when (shadeMode) {
-                    ShadeMode.Single -> singleShadeActions(requireTwoPointersForTopEdgeForQs = true)
+                    ShadeMode.Single ->
+                        singleShadeActions(
+                            requireTwoPointersForTopEdgeForQs = true,
+                            isQuickPulldownEnabled = true,
+                        )
                     ShadeMode.Split -> splitShadeActions()
                     ShadeMode.Dual ->
                         dualShadeActions(twoFingerSwipeEnabled = twoFingerSwipeEnabled)

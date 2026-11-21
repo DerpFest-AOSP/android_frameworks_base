@@ -76,6 +76,9 @@ sealed class SceneContainerArea(private val resolveArea: (LayoutDirection) -> Re
 
     data object BottomEdge : SceneContainerArea(resolveArea = { Resolved.BottomEdge })
 
+    /** The quick pulldown corner of the top edge, see [QuickPulldownSwipeDetector]. */
+    data object QuickPulldown : SceneContainerArea(resolveArea = { Resolved.QuickPulldown })
+
     override fun resolve(layoutDirection: LayoutDirection): Resolved {
         return resolveArea(layoutDirection)
     }
@@ -96,6 +99,9 @@ sealed class SceneContainerArea(private val resolveArea: (LayoutDirection) -> Re
 
         /** The right half of the top edge of the display. */
         data object TopEdgeRightHalf : Resolved
+
+        /** The quick pulldown corner of the top edge of the display. */
+        data object QuickPulldown : Resolved
     }
 }
 

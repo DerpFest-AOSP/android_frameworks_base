@@ -34,6 +34,7 @@ import com.android.systemui.scene.ui.viewmodel.SceneContainerViewModel
 import com.android.systemui.scene.ui.viewmodel.SceneTransitionBlurViewModel
 import com.android.systemui.scene.ui.viewmodel.dualShadeEducationalTooltipsViewModelFactory
 import com.android.systemui.scene.ui.viewmodel.toBouncerTransitionViewModelFactory
+import com.android.systemui.shade.domain.interactor.quickPulldownInteractor
 import com.android.systemui.shade.domain.interactor.shadeInteractor
 import com.android.systemui.shade.domain.interactor.shadeModeInteractor
 import com.android.systemui.statusbar.domain.interactor.remoteInputInteractor
@@ -149,6 +150,7 @@ val Kosmos.sceneContainerViewModelFactory by Fixture {
                 falsingInteractor = falsingInteractor,
                 powerInteractor = powerInteractor,
                 shadeModeInteractor = shadeModeInteractor,
+                quickPulldownInteractor = quickPulldownInteractor,
                 remoteInputInteractor = remoteInputInteractor,
                 logger = sceneLogger,
                 hapticsViewModelFactory = sceneContainerHapticsViewModelFactory,
