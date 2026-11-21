@@ -897,10 +897,6 @@
          @hide
          @SystemApi
     -->
-    <!-- @hide -->
-    <permission android:name="android.permission.MANAGE_OBSCURA"
-        android:protectionLevel="signature" />
-
     <permission-group android:name="android.permission-group.UNDEFINED"
         android:priority="100" />
 
@@ -1004,6 +1000,11 @@
     <!-- @hide -->
     <permission android:name="com.libremobileos.permission.START_FREEFORM"
                 android:protectionLevel="signature|privileged" />
+
+    <!-- Allows Obscura to configure per-user app policies.
+         @hide Not for use by third-party applications. -->
+    <permission android:name="android.permission.MANAGE_OBSCURA"
+        android:protectionLevel="signature" />
 
     <!-- ====================================================================== -->
     <!-- Permissions for accessing user's calendar                              -->
