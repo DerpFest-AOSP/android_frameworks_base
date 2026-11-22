@@ -18,8 +18,6 @@
     <!-- Face unlock -->
     <string name="face_unlock_recognizing">Recognizing face...</string>
 
-    <!-- Internet speed -->
-    <string name="status_bar_settings_network_speed">Internet speed</string>
     <!-- Slot name; must stay identical to NetworkSpeedController.SLOT_NETWORK_SPEED. -->
     <string name="status_bar_network_speed" translatable="false">network_speed</string>
 

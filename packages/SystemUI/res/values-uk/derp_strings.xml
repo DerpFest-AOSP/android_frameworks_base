@@ -118,8 +118,6 @@
     <string name="status_bar_notification_info_overflow">\u221E</string>
     <!-- Name of the roaming status bar icon. -->
     <string name="status_bar_roaming">Індикатор роумінгу</string>
-    <!-- Internet -->
-    <string name="status_bar_settings_network_speed">Швидкість інтернету</string>
     <!-- Name of the VoWiFi status bar icon. -->
     <string name="status_bar_vowifi">Wi-Fi-дзвінки (VoWiFi)</string>
     <!-- WiFi standard numbering on statusbar -->

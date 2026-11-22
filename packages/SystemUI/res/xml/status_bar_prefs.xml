@@ -110,11 +110,6 @@
         android:icon="@drawable/ic_tuner_statusbar_vibrate"
         sysui:defValue="true" />
 
-    <com.android.systemui.tuner.StatusBarSwitch
-        android:icon="@drawable/outline_speed_24"
-        android:key="network_speed"
-        android:title="@string/status_bar_settings_network_speed" />
-
     <!-- other weird signal stuff -->
 
     <com.android.systemui.tuner.StatusBarSwitch

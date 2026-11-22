@@ -15725,6 +15725,29 @@ public final class Settings {
         public static final String STATUS_BAR_LYRIC_SOURCES = "status_bar_lyric_sources";
 
         /**
+         * Whether the status bar internet speed indicator is shown.
+         * <ul>
+         *    <li> 0 = hidden </li>
+         *    <li> 1 = shown </li>
+         * </ul>
+         *
+         * @hide
+         */
+        @Readable
+        public static final String STATUS_BAR_SHOW_NETWORK_SPEED = "status_bar_show_network_speed";
+
+        /**
+         * Minimum combined upload and download speed, in kilobytes per second, required before
+         * the status bar internet speed indicator is shown. 0 shows the indicator whenever a
+         * network is connected. Speeds at or below a positive value hide it.
+         *
+         * @hide
+         */
+        @Readable
+        public static final String STATUS_BAR_NETWORK_SPEED_THRESHOLD =
+                "status_bar_network_speed_threshold";
+
+        /**
          * Integer property which determines whether advanced protection is on or not.
          * @hide
          */

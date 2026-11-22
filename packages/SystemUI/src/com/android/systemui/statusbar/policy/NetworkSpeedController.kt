@@ -12,6 +12,7 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.net.TrafficStats
+import android.provider.Settings
 import com.android.keyguard.KeyguardUpdateMonitor
 import com.android.keyguard.KeyguardUpdateMonitorCallback
 import com.android.systemui.CoreStartable
@@ -19,7 +20,6 @@ import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Background
 import com.android.systemui.dagger.qualifiers.Main
 import com.android.systemui.statusbar.phone.StatusBarIconControllerImplEx
-import com.android.systemui.statusbar.phone.ui.StatusBarIconController
 import com.android.systemui.statusbar.policy.networkspeed.NetworkSpeedIconState
 import com.android.systemui.util.settings.SecureSettings
 import com.android.systemui.util.settings.SettingsProxyExt.observerFlow
@@ -55,6 +55,7 @@ class NetworkSpeedController @Inject constructor(
 
     @Volatile private var isSwitchOn = false
     @Volatile private var isConnected = false
+    @Volatile private var thresholdBytes = DEFAULT_THRESHOLD_KB * KB
     private var networkVisibility = false
 
     private var lastTime = 0L
@@ -95,25 +96,23 @@ class NetworkSpeedController @Inject constructor(
 
         scope.launch {
             migrateHideList()
+            detachFromTunerHideList()
             secureSettings
-                .observerFlow(ICON_HIDE_LIST)
+                .observerFlow(
+                    Settings.Secure.STATUS_BAR_SHOW_NETWORK_SPEED,
+                    Settings.Secure.STATUS_BAR_NETWORK_SPEED_THRESHOLD,
+                )
                 .onStart { emit(Unit) }
-                .map { readSwitchState() }
+                .map { readConfig() }
                 .distinctUntilChanged()
                 .flowOn(bgDispatcher)
-                .collect { enabled ->
-                    isSwitchOn = enabled
-                    reset()
-                    restartSpeedUpdates()
-                }
+                .collect { applyConfig(it) }
         }
 
         keyguardUpdateMonitor.registerCallback(
             object : KeyguardUpdateMonitorCallback() {
                 override fun onUserSwitchComplete(newUserId: Int) {
-                    isSwitchOn = readSwitchState()
-                    reset()
-                    restartSpeedUpdates()
+                    applyConfig(readConfig())
                 }
             }
         )
@@ -122,7 +121,8 @@ class NetworkSpeedController @Inject constructor(
     /**
      * Older builds hid this slot by default. Opening any other status-bar tuner switch then
      * persisted that hide list, so later removing it from config would not unhide existing
-     * devices. Strip it once; the tuner can hide it again afterwards.
+     * devices. Strip that accidental hide once before [detachFromTunerHideList] treats a
+     * remaining entry as an explicit off.
      */
     private fun migrateHideList() {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -137,10 +137,39 @@ class NetworkSpeedController @Inject constructor(
         prefs.edit().putBoolean(MIGRATION_PREF, true).apply()
     }
 
-    private fun readSwitchState(): Boolean {
-        val iconHideList = secureSettings.getString(ICON_HIDE_LIST)
-        val hideList = StatusBarIconController.getIconHideList(context, iconHideList)
-        return !hideList.contains(SLOT_NETWORK_SPEED)
+    /**
+     * The tuner switch stored visibility in [ICON_HIDE_LIST]. DerpFestParts now owns that
+     * switch, so a leftover hide is copied into [Settings.Secure.STATUS_BAR_SHOW_NETWORK_SPEED]
+     * once and the slot is dropped from the list. Later list changes do not override a setting
+     * that has already been written.
+     */
+    private fun detachFromTunerHideList() {
+        val hideListStr = secureSettings.getString(ICON_HIDE_LIST) ?: return
+        val hideList = hideListStr.split(",").filter { it.isNotEmpty() }.toMutableList()
+        if (!hideList.remove(SLOT_NETWORK_SPEED)) return
+        secureSettings.putString(ICON_HIDE_LIST, hideList.joinToString(","))
+        if (secureSettings.getString(Settings.Secure.STATUS_BAR_SHOW_NETWORK_SPEED) == null) {
+            secureSettings.putInt(Settings.Secure.STATUS_BAR_SHOW_NETWORK_SPEED, 0)
+        }
+    }
+
+    private fun readConfig(): IndicatorConfig {
+        val enabled = secureSettings.getInt(
+            Settings.Secure.STATUS_BAR_SHOW_NETWORK_SPEED, 1) != 0
+        val thresholdKb = secureSettings.getInt(
+            Settings.Secure.STATUS_BAR_NETWORK_SPEED_THRESHOLD, DEFAULT_THRESHOLD_KB)
+            .coerceAtLeast(0)
+        return IndicatorConfig(enabled, thresholdKb)
+    }
+
+    private fun applyConfig(config: IndicatorConfig) {
+        val enabledChanged = isSwitchOn != config.enabled
+        isSwitchOn = config.enabled
+        thresholdBytes = config.thresholdKb * KB
+        if (enabledChanged) {
+            reset()
+        }
+        restartSpeedUpdates()
     }
 
     private fun hasInternet(caps: NetworkCapabilities?): Boolean {
@@ -189,7 +218,7 @@ class NetworkSpeedController @Inject constructor(
         }
 
         val iconState = NetworkSpeedIconState().apply {
-            setVisible(isConnected && isSwitchOn && speed > AUTOHIDE_THRESHOLD)
+            setVisible(shouldShow(speed))
             setSpeedText(speed)
             setSlot(SLOT_NETWORK_SPEED)
         }
@@ -230,6 +259,12 @@ class NetworkSpeedController @Inject constructor(
         }
     }
 
+    private fun shouldShow(speed: Long): Boolean {
+        if (!isConnected || !isSwitchOn) return false
+        if (thresholdBytes <= 0L) return true
+        return speed > thresholdBytes
+    }
+
     private fun reset() {
         lastTime = 0
         lastTotalBytes = 0
@@ -237,11 +272,14 @@ class NetworkSpeedController @Inject constructor(
 
     fun isSwitchOn(): Boolean = isSwitchOn
 
+    private data class IndicatorConfig(val enabled: Boolean, val thresholdKb: Int)
+
     companion object {
         const val SLOT_NETWORK_SPEED = "network_speed"
         const val ICON_HIDE_LIST = "icon_blacklist"
         const val REFRESH_INTERVAL_MS = 1000L
-        const val AUTOHIDE_THRESHOLD = 1024L // 1KB
+        const val DEFAULT_THRESHOLD_KB = 1
+        private const val KB = 1024L
         private const val PREFS_NAME = "network_speed"
         private const val MIGRATION_PREF = "unhidden"
     }
