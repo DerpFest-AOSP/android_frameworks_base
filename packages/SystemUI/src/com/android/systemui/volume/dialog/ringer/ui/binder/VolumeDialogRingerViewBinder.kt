@@ -59,6 +59,7 @@ import com.android.systemui.volume.dialog.ringer.ui.viewmodel.RingerViewModel
 import com.android.systemui.volume.dialog.ringer.ui.viewmodel.RingerViewModelState
 import com.android.systemui.volume.dialog.ringer.ui.viewmodel.VolumeDialogRingerDrawerViewModel
 import com.android.systemui.volume.dialog.ui.binder.ViewBinder
+import com.android.systemui.volume.dialog.ui.utils.setBlurFallbackColor
 import com.android.systemui.volume.dialog.ui.utils.suspendAnimate
 import com.android.systemui.volume.dialog.ui.viewmodel.VolumeDialogViewModel
 import com.android.systemui.window.domain.interactor.WindowRootViewBlurInteractor
@@ -383,12 +384,7 @@ constructor(
                     0
                 }
             )
-            (layers.getDrawable(1) as GradientDrawable).setColor(
-                context.getColor(
-                    if (supported) R.color.volume_dialog_view_background_blur
-                    else R.color.volume_dialog_view_background_blur_fallback
-                )
-            )
+            (layers.getDrawable(1) as GradientDrawable).setBlurFallbackColor(context, supported)
         }
     }
 
