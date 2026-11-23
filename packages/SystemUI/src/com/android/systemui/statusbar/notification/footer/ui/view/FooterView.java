@@ -330,24 +330,22 @@ public class FooterView extends StackScrollerDecorView {
         final @ColorInt int scHigh;
 
         if (!notificationFooterBackgroundTintOptimization()) {
-            if (notificationShadeBlur()) {
-                if (mIsBlurSupported) {
-                    Color backgroundColor = Color.valueOf(
-                            SurfaceEffectColors.surfaceEffect1(getContext()));
-                    scHigh = ColorUtils.setAlphaComponent(backgroundColor.toArgb(), 0xFF);
-                    // Apply alpha on background drawables.
-                    int backgroundAlpha = (int) (backgroundColor.alpha() * 0xFF);
-                    clearAllBg.setAlpha(backgroundAlpha);
-                    settingsBg.setAlpha(backgroundAlpha);
-                    if (historyBg != null) {
-                        historyBg.setAlpha(backgroundAlpha);
-                    }
-                } else if (ShadeColors.isBlackTheme(mContext)) {
-                    scHigh = ShadeColors.blackThemeRaisedSurface(mContext);
-                } else {
-                    scHigh = mContext.getColor(
-                            com.android.internal.R.color.materialColorSurfaceContainer);
+            if (notificationShadeBlur() && mIsBlurSupported) {
+                Color backgroundColor = Color.valueOf(
+                        SurfaceEffectColors.surfaceEffect1(getContext()));
+                scHigh = ColorUtils.setAlphaComponent(backgroundColor.toArgb(), 0xFF);
+                // Apply alpha on background drawables.
+                int backgroundAlpha = (int) (backgroundColor.alpha() * 0xFF);
+                clearAllBg.setAlpha(backgroundAlpha);
+                settingsBg.setAlpha(backgroundAlpha);
+                if (historyBg != null) {
+                    historyBg.setAlpha(backgroundAlpha);
                 }
+            } else if (ShadeColors.isBlackTheme(mContext)) {
+                scHigh = ShadeColors.blackThemeRaisedSurface(mContext);
+            } else if (notificationShadeBlur()) {
+                scHigh = mContext.getColor(
+                        com.android.internal.R.color.materialColorSurfaceContainer);
             } else {
                 scHigh = mContext.getColor(
                         com.android.internal.R.color.materialColorSurfaceContainerHigh);

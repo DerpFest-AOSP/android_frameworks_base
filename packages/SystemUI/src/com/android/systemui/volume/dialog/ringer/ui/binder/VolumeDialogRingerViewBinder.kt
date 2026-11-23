@@ -59,6 +59,7 @@ import com.android.systemui.volume.dialog.ringer.ui.viewmodel.RingerViewModel
 import com.android.systemui.volume.dialog.ringer.ui.viewmodel.RingerViewModelState
 import com.android.systemui.volume.dialog.ringer.ui.viewmodel.VolumeDialogRingerDrawerViewModel
 import com.android.systemui.volume.dialog.ui.binder.ViewBinder
+import com.android.systemui.volume.dialog.ui.utils.applyPitchBlackBackground
 import com.android.systemui.volume.dialog.ui.utils.setBlurFallbackColor
 import com.android.systemui.volume.dialog.ui.utils.suspendAnimate
 import com.android.systemui.volume.dialog.ui.viewmodel.VolumeDialogViewModel
@@ -365,6 +366,7 @@ constructor(
                                     R.drawable.volume_dialog_background_horizontal
                                 )
                             }
+                            volumeDialogBackgroundView.applyPitchBlackBackground()
                         }
                     }
                 }
@@ -656,6 +658,7 @@ constructor(
             setIsBlurSupported(windowRootViewBlurInteractor.isBlurCurrentlySupported.value)
         } else {
             background = background.mutate()
+            applyPitchBlackBackground()
         }
     }
 

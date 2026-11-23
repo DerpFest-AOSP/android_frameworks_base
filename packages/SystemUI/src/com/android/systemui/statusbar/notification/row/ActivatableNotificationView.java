@@ -159,6 +159,8 @@ public abstract class ActivatableNotificationView extends ExpandableOutlineView 
             mOpaqueColor = ShadeColors.isBlackTheme(mContext)
                     ? ShadeColors.blackThemeRaisedSurface(mContext)
                     : mContext.getColor(com.android.internal.R.color.materialColorSurfaceContainer);
+        } else if (ShadeColors.isBlackTheme(mContext)) {
+            mNormalColor = ShadeColors.blackThemeRaisedSurface(mContext);
         } else {
             mNormalColor = mContext.getColor(
                     com.android.internal.R.color.materialColorSurfaceContainerHigh);

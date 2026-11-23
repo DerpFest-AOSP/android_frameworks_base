@@ -8,6 +8,7 @@ package com.android.systemui.volume.dialog.ui.utils
 import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
+import android.view.View
 import com.android.systemui.res.R
 import com.android.systemui.shade.ui.ShadeColors
 import kotlin.math.roundToInt
@@ -36,4 +37,18 @@ fun GradientDrawable.setBlurFallbackColor(context: Context, supported: Boolean) 
             }
         )
     )
+}
+
+/**
+ * Paints a volume surface black when the pitch black theme is on and this view is not drawing
+ * blur. Leaves every other background alone.
+ */
+fun View.applyPitchBlackBackground() {
+    val drawable = background as? GradientDrawable ?: return
+    if (!ShadeColors.isBlackTheme(context)) {
+        return
+    }
+    val mutated = drawable.mutate() as GradientDrawable
+    mutated.setBlurFallbackColor(context, supported = false)
+    background = mutated
 }

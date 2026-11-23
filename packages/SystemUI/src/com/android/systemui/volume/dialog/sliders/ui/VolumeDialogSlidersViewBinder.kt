@@ -33,6 +33,7 @@ import com.android.systemui.volume.dialog.dagger.scope.VolumeDialogScope
 import com.android.systemui.volume.dialog.sliders.dagger.VolumeDialogSliderComponent
 import com.android.systemui.volume.dialog.sliders.ui.viewmodel.VolumeDialogSlidersViewModel
 import com.android.systemui.volume.dialog.ui.binder.ViewBinder
+import com.android.systemui.volume.dialog.ui.utils.applyPitchBlackBackground
 import com.android.systemui.volume.dialog.ui.utils.setBlurFallbackColor
 import com.android.systemui.volume.dialog.ui.viewmodel.VolumeDialogViewModel
 import com.android.systemui.window.domain.interactor.WindowRootViewBlurInteractor
@@ -86,6 +87,8 @@ constructor(
                     val sliderContainer = floatingSlidersContainer.getChildAt(index)
                     if (viewModel.showBlur) {
                         sliderContainer.updateBackground()
+                    } else {
+                        sliderContainer.applyPitchBlackBackground()
                     }
                     bindSlider(sliderComponent, sliderContainer, arrayOf(sliderContainer))
                 }

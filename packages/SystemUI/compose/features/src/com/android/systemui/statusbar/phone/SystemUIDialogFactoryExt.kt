@@ -255,19 +255,17 @@ fun SystemUIDialogFactory.createBottomSheet(
                             .then(backgroundBlurModifier ?: Modifier),
                     shape = RoundedCornerShape(topStart = radius, topEnd = radius),
                     color =
-                        if (isBlurEnabled) {
-                            if (isBlurSupported) {
-                                Color(
-                                    ColorUtils.compositeColors(
-                                        LocalAndroidColorScheme.current.surfaceEffect0.toArgb(),
-                                        LocalAndroidColorScheme.current.surfaceEffect2.toArgb(),
-                                    )
+                        if (isBlurEnabled && isBlurSupported) {
+                            Color(
+                                ColorUtils.compositeColors(
+                                    LocalAndroidColorScheme.current.surfaceEffect0.toArgb(),
+                                    LocalAndroidColorScheme.current.surfaceEffect2.toArgb(),
                                 )
-                            } else if (ShadeColors.isBlackTheme(LocalContext.current)) {
-                                Color.Black
-                            } else {
-                                LocalAndroidColorScheme.current.surfaceEffect0Fallback
-                            }
+                            )
+                        } else if (ShadeColors.isBlackTheme(LocalContext.current)) {
+                            Color.Black
+                        } else if (isBlurEnabled) {
+                            LocalAndroidColorScheme.current.surfaceEffect0Fallback
                         } else {
                             containerColorProvider()
                         },
