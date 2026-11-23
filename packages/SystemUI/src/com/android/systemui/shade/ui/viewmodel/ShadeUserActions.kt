@@ -34,6 +34,7 @@ private val splitShadeUserActionResult = UserActionResult(Scenes.Shade, ToSplitS
 fun singleShadeActions(
     isDownFromTopEdgeEnabled: Boolean = true,
     requireTwoPointersForTopEdgeForQs: Boolean = false,
+    isQuickPulldownEnabled: Boolean = false,
 ): Array<Pair<UserAction, UserActionResult>> {
 
     return buildList {
@@ -41,15 +42,27 @@ fun singleShadeActions(
             add(Swipe.Down to singleShadeUserActionResult)
             add(Swipe.Down(pointerCount = 2) to singleShadeUserActionResult)
             if (isDownFromTopEdgeEnabled) {
+                val topEdgeUserActionResult =
+                    if (requireTwoPointersForTopEdgeForQs) {
+                        singleShadeUserActionResult
+                    } else {
+                        quickSettingsSceneUserActionResult
+                    }
+                add(swipeDownFromTopEdge() to topEdgeUserActionResult)
+                add(swipeDownFromTopEdge(pointerCount = 2) to quickSettingsSceneUserActionResult)
+                // The quick pulldown corner is part of the top edge, it only differs when enabled.
                 add(
-                    swipeDownFromTopEdge() to
-                        if (requireTwoPointersForTopEdgeForQs) {
-                            singleShadeUserActionResult
-                        } else {
+                    swipeDownFromQuickPulldown() to
+                        if (isQuickPulldownEnabled) {
                             quickSettingsSceneUserActionResult
+                        } else {
+                            topEdgeUserActionResult
                         }
                 )
-                add(swipeDownFromTopEdge(pointerCount = 2) to quickSettingsSceneUserActionResult)
+                add(
+                    swipeDownFromQuickPulldown(pointerCount = 2) to
+                        quickSettingsSceneUserActionResult
+                )
             }
         }
         .toTypedArray()
@@ -103,6 +116,10 @@ fun dualShadeActions(
 
 private fun swipeDownFromTopEdge(pointerCount: Int = 1): Swipe {
     return Swipe.Down(fromSource = Edge.Top, pointerCount = pointerCount)
+}
+
+private fun swipeDownFromQuickPulldown(pointerCount: Int = 1): Swipe {
+    return Swipe.Down(fromSource = SceneContainerArea.QuickPulldown, pointerCount = pointerCount)
 }
 
 /** Invokes [block] for all PointerTypes except MOUSE (which means Mouse / Touchpad). */

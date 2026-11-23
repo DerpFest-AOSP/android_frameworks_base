@@ -54,7 +54,9 @@ import com.android.systemui.scene.shared.model.Overlays
 import com.android.systemui.scene.shared.model.Scenes
 import com.android.systemui.scene.ui.composable.Overlay
 import com.android.systemui.shade.ShadeDisplayAware
+import com.android.systemui.shade.domain.interactor.QuickPulldownInteractor
 import com.android.systemui.shade.domain.interactor.ShadeModeInteractor
+import com.android.systemui.shade.shared.model.QuickPulldown
 import com.android.systemui.shade.shared.model.ShadeMode
 import com.android.systemui.statusbar.core.StatusBarForDesktop
 import com.android.systemui.statusbar.domain.interactor.RemoteInputInteractor
@@ -86,6 +88,7 @@ constructor(
     private val powerInteractor: PowerInteractor,
     private val onBootTransitionInteractor: OnBootTransitionInteractor,
     private val shadeModeInteractor: ShadeModeInteractor,
+    private val quickPulldownInteractor: QuickPulldownInteractor,
     private val notificationContainerInteractor: NotificationContainerInteractor,
     private val remoteInputInteractor: RemoteInputInteractor,
     private val logger: SceneLogger,
@@ -151,12 +154,15 @@ constructor(
         combine(
             shadeModeInteractor.shadeMode,
             shadeModeInteractor.dualShadeGestureSplitRatio,
-        ) { shadeMode, splitRatio ->
+            quickPulldownInteractor.quickPulldown,
+        ) { shadeMode, splitRatio, quickPulldown ->
             if (shadeMode is ShadeMode.Dual) {
                 SceneContainerSwipeDetector(
                     dynamicSizeEdgeDetector = dynamicSizeEdgeDetector,
                     invocationGestureSplitRatio = splitRatio,
                 )
+            } else if (shadeMode is ShadeMode.Single && quickPulldown != QuickPulldown.OFF) {
+                QuickPulldownSwipeDetector(dynamicSizeEdgeDetector, quickPulldown)
             } else {
                 dynamicSizeEdgeDetector
             }
