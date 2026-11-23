@@ -20,6 +20,7 @@ import android.annotation.StringRes
 import android.content.res.Resources
 import android.os.Build
 import android.view.MotionEvent
+import android.view.View
 import android.view.WindowInsetsController
 import androidx.compose.runtime.getValue
 import androidx.core.view.WindowInsetsCompat
@@ -162,7 +163,9 @@ constructor(
                     invocationGestureSplitRatio = splitRatio,
                 )
             } else if (shadeMode is ShadeMode.Single && quickPulldown != QuickPulldown.OFF) {
-                QuickPulldownSwipeDetector(dynamicSizeEdgeDetector, quickPulldown)
+                QuickPulldownSwipeDetector(dynamicSizeEdgeDetector, quickPulldown) {
+                    resources.configuration.layoutDirection == View.LAYOUT_DIRECTION_RTL
+                }
             } else {
                 dynamicSizeEdgeDetector
             }
