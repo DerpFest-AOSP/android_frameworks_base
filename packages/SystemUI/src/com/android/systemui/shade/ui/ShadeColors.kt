@@ -75,6 +75,9 @@ object ShadeColors {
         blurSupported: Boolean,
         composited: Boolean,
     ): Int {
+        if (!blurSupported && isBlackTheme(context)) {
+            return Color.BLACK
+        }
         val surfaceEffect0Color =
             context.resources.getColor(
                 com.android.internal.R.color.customColorSurfaceEffect0,
@@ -100,21 +103,41 @@ object ShadeColors {
 
     @JvmStatic
     private fun shadePanelFallback(context: Context): Int {
+        return if (isBlackTheme(context)) {
+            Color.BLACK
+        } else {
+            context.getColor(R.color.shade_panel_fallback)
+        }
+    }
+
+    /** Whether the pitch black theme is in effect, which only applies in night mode. */
+    @JvmStatic
+    fun isBlackTheme(context: Context): Boolean {
         val isNightMode =
             (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
-        val useBlackTheme =
+        return isNightMode &&
             LineageSettings.Secure.getIntForUser(
                 context.contentResolver,
                 LineageSettings.Secure.BERRY_BLACK_THEME,
                 0,
                 UserHandle.USER_CURRENT,
             ) == 1
-        return if (useBlackTheme && isNightMode) {
-            Color.BLACK
-        } else {
-            context.getColor(R.color.shade_panel_fallback)
-        }
+    }
+
+    /**
+     * Opaque surface for elements raised above the black shade when the pitch black theme is on
+     * and blur is unavailable: the same tinted surface quick settings tiles draw over black.
+     */
+    @JvmStatic
+    fun blackThemeRaisedSurface(context: Context): Int {
+        return ColorUtils.compositeColors(
+            context.resources.getColor(
+                com.android.internal.R.color.customColorSurfaceEffect1,
+                context.theme,
+            ),
+            Color.BLACK,
+        )
     }
 
     @JvmStatic

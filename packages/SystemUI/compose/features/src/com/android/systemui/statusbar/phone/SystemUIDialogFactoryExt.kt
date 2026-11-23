@@ -60,6 +60,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.dimensionResource
@@ -78,6 +79,7 @@ import com.android.internal.graphics.ColorUtils
 import com.android.internal.graphics.drawable.BackgroundBlurDrawable
 import com.android.systemui.keyboard.shortcut.ui.composable.hasCompactWindowSize
 import com.android.systemui.res.R
+import com.android.systemui.shade.ui.ShadeColors
 import com.android.systemui.shared.system.BlurUtils.isVolumeAndPowerBlurEnabled
 import kotlin.math.roundToInt
 
@@ -261,6 +263,8 @@ fun SystemUIDialogFactory.createBottomSheet(
                                         LocalAndroidColorScheme.current.surfaceEffect2.toArgb(),
                                     )
                                 )
+                            } else if (ShadeColors.isBlackTheme(LocalContext.current)) {
+                                Color.Black
                             } else {
                                 LocalAndroidColorScheme.current.surfaceEffect0Fallback
                             }
