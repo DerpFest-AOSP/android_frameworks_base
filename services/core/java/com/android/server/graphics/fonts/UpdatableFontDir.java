@@ -53,6 +53,7 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -1139,22 +1140,6 @@ final class UpdatableFontDir {
                 break;
             }
         }
-        boolean customFontApplied = false;
-        if (customFontFamily != null && !customFontFamily.getFamilies().isEmpty()) {
-            FontConfig.FontFamily customFamily = customFontFamily.getFamilies().get(0);
-            for (FontConfig.NamedFamilyList baseFamily : config.getNamedFamilyLists()) {
-                if (!isUiFontFamilyName(baseFamily.getName())) {
-                    continue;
-                }
-                List<FontConfig.FontFamily> fallbackFamilies =
-                        new ArrayList<>(baseFamily.getFamilies().size() + 1);
-                fallbackFamilies.add(customFamily);
-                fallbackFamilies.addAll(baseFamily.getFamilies());
-                mergedFamilies.add(new FontConfig.NamedFamilyList(fallbackFamilies,
-                        baseFamily.getName(), baseFamily.getFallback()));
-                customFontApplied = true;
-            }
-        }
         // When building Typeface, a latter font family definition will override the previous font
         // family definition with the same name. An exception is config.getFontFamilies.get(0),
         // which will be used as a fallback font without being overridden.
@@ -1165,6 +1150,29 @@ final class UpdatableFontDir {
             FontConfig.NamedFamilyList family = resolveFontFilesForNamedFamily(families.get(i));
             if (family != null) {
                 mergedFamilies.add(family);
+            }
+        }
+
+        // Prepend the installed font last, onto the definition in effect for each UI family.
+        // Updated families (e.g. google-sans-text from GMS) would override it otherwise.
+        boolean customFontApplied = false;
+        if (customFontFamily != null && !customFontFamily.getFamilies().isEmpty()) {
+            FontConfig.FontFamily customFamily = customFontFamily.getFamilies().get(0);
+            Map<String, FontConfig.NamedFamilyList> effectiveFamilies = new LinkedHashMap<>();
+            for (FontConfig.NamedFamilyList family : mergedFamilies) {
+                effectiveFamilies.put(family.getName(), family);
+            }
+            for (FontConfig.NamedFamilyList baseFamily : effectiveFamilies.values()) {
+                if (!isUiFontFamilyName(baseFamily.getName())) {
+                    continue;
+                }
+                List<FontConfig.FontFamily> fallbackFamilies =
+                        new ArrayList<>(baseFamily.getFamilies().size() + 1);
+                fallbackFamilies.add(customFamily);
+                fallbackFamilies.addAll(baseFamily.getFamilies());
+                mergedFamilies.add(new FontConfig.NamedFamilyList(fallbackFamilies,
+                        baseFamily.getName(), baseFamily.getFallback()));
+                customFontApplied = true;
             }
         }
 
